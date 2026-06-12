@@ -89,3 +89,15 @@ wrote them. We then check the rewritten file against the original for
 structural equivalence (same imports, same number of `describe`/`it`/`test`
 declarations); any mismatch falls back to the deterministic output. The PR
 diff is **never** sent to the LLM unless `REVIEWQA_ALLOW_DIFF_TO_LLM=1`.
+
+## License
+
+reviewqa is dual-licensed:
+
+- **AGPL-3.0** for the community edition — see [`LICENSE`](./LICENSE).
+- **Commercial license** for organisations that cannot accept the AGPL — see
+  [`COMMERCIAL.md`](./COMMERCIAL.md). Contact `hello@spritecloud.com`.
+
+By submitting a pull request you agree to the
+[Contributor License Agreement](./CLA.md). The `cla-assistant` check on PRs
+records your one-time signature.
