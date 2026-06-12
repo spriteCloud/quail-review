@@ -1,0 +1,26 @@
+name: reviewqa
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  reviewqa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./
+        with:
+          openai-base-url: ${{ vars.OPENAI_BASE_URL || 'https://api.openai.com/v1' }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: ${{ vars.REVIEWQA_MODEL || 'gpt-4o-mini' }}
+          heal-mode: on-failure
+          playwright-report: playwright-report.json
+          log-level: info

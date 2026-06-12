@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: reviewqa/reviewqa@v1
+      - uses: spriteCloud/reviewqa@v1
         with:
           openai-base-url: http://dgx.internal:8000/v1
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}

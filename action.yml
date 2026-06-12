@@ -60,9 +60,9 @@ runs:
           aarch64|arm64) arch=arm64 ;;
         esac
         if [ "$ver" = "latest" ]; then
-          ver=$(curl -fsSL https://api.github.com/repos/reviewqa/reviewqa/releases/latest | grep tag_name | cut -d'"' -f4)
+          ver=$(curl -fsSL https://api.github.com/repos/spriteCloud/reviewqa/releases/latest | grep tag_name | cut -d'"' -f4)
         fi
-        base="https://github.com/reviewqa/reviewqa/releases/download/${ver}"
+        base="https://github.com/spriteCloud/reviewqa/releases/download/${ver}"
         archive="reviewqa_${os}_${arch}.tar.gz"
         tmp=$(mktemp -d)
         curl -fsSL "$base/$archive" -o "$tmp/$archive"
