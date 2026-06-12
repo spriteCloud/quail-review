@@ -224,7 +224,7 @@ func annotateComponents(syms []ast.Symbol, anchors []ast.LocatorAnchor, content 
 				continue
 			}
 			if a.Tag == "" {
-				a.Tag = tagOnLine(lines[a.Line-1])
+				a.Tag = openTagBefore(lines, a.Line, syms[i].Line)
 			}
 			key := a.TestID + "|" + a.Role + "|" + a.Aria + "|" + a.Tag
 			if seen[key] {
@@ -298,6 +298,34 @@ var reTagOnLine = regexp.MustCompile(`<\s*([a-zA-Z][\w-]*)`)
 func tagOnLine(line string) string {
 	if m := reTagOnLine.FindStringSubmatch(line); m != nil {
 		return strings.ToLower(m[1])
+	}
+	return ""
+}
+
+// openTagBefore looks back from anchorLine (1-based, inclusive) to find the
+// most recent unclosed `<tag` opening — for multi-line JSX attributes where
+// the attribute and the tag-open live on different lines. Search is bounded
+// at startLine.
+func openTagBefore(lines []string, anchorLine, startLine int) string {
+	floor := startLine - 1
+	if floor < 0 {
+		floor = 0
+	}
+	for i := anchorLine - 1; i >= floor; i-- {
+		if i >= len(lines) {
+			continue
+		}
+		text := lines[i]
+		// `<tag …` open without a matching close on the same line marks the
+		// element our attribute belongs to.
+		if m := reTagOnLine.FindStringSubmatch(text); m != nil {
+			tag := strings.ToLower(m[1])
+			// Skip self-closing single-line tags (matched < ... /> on same line).
+			if strings.Contains(text, "/>") {
+				continue
+			}
+			return tag
+		}
 	}
 	return ""
 }

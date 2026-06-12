@@ -118,6 +118,50 @@ export function FAQ() {
 	}
 }
 
+func TestReactComponentMultiLineJSXTagDetection(t *testing.T) {
+	// Counter-shaped component: the button tag and the data-testid live on
+	// different lines. The extractor must associate the testid with <button>
+	// for click scenarios to fire.
+	src := []byte(`import { useState } from 'react'
+
+export function Counter() {
+  const [v, setV] = useState(0)
+  return (
+    <div data-testid="counter-root" role="region">
+      <span data-testid="counter-display">{v}</span>
+      <button
+        type="button"
+        data-testid="counter-inc"
+        onClick={() => setV((x) => x + 1)}
+      >
+        +
+      </button>
+    </div>
+  )
+}
+`)
+	syms, _ := New().Extract("src/components/Counter.tsx", src)
+	var comp *ast.Symbol
+	for i := range syms {
+		if syms[i].Kind == ast.KindComponent && syms[i].Name == "Counter" {
+			comp = &syms[i]
+			break
+		}
+	}
+	if comp == nil {
+		t.Fatalf("missing Counter component; syms=%+v", syms)
+	}
+	var incTag string
+	for _, a := range comp.Anchors {
+		if a.TestID == "counter-inc" {
+			incTag = a.Tag
+		}
+	}
+	if incTag != "button" {
+		t.Errorf("counter-inc anchor tag = %q, want \"button\" (multi-line JSX lookback failed)", incTag)
+	}
+}
+
 func TestNestController(t *testing.T) {
 	src := []byte(`import { Controller, Get } from '@nestjs/common'
 
