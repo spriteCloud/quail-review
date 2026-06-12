@@ -39,8 +39,10 @@ jobs:
         run: go build -o "$RUNNER_TEMP/reviewqa" ./cmd/reviewqa
 
       - name: reviewqa generate
-        run: "$RUNNER_TEMP/reviewqa" generate
+        run: |
+          "$RUNNER_TEMP/reviewqa" generate
 
       - name: reviewqa heal
         if: hashFiles('playwright-report.json') != ''
-        run: "$RUNNER_TEMP/reviewqa" heal
+        run: |
+          "$RUNNER_TEMP/reviewqa" heal
