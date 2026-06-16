@@ -8,8 +8,8 @@ const BASE = process.env.BASE_URL ?? 'http://localhost:3000'
 const TARGET = BASE + '{{.PageURL}}'
 {{- end }}
 
-test.describe('{{.Symbol.Name}} page happy flow', () => {
-  test('full user journey ({{len .Symbols}} step(s))', async ({ page }) => {
+test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{{else}} page happy flow{{end}}', () => {
+  test('{{if .JourneyKind}}{{.JourneyKind}}: {{end}}full user journey ({{len .Symbols}} step(s))', async ({ page }) => {
 {{- range $idx, $s := .Symbols }}
 {{- $intent := intentFor $s }}
 {{- if eq $idx 0 }}

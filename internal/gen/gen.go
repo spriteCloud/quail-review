@@ -484,6 +484,7 @@ type renderData struct {
 	Symbol          ast.Symbol
 	Symbols         []ast.Symbol // populated for happy-flow; first == Symbol
 	PageURL         string       // populated for happy-flow; "/" default
+	JourneyKind     string       // convert | browse | explore | read; empty for non-probe
 	ImportPath      string
 	AppImportPath   string
 	SupertestMethod string
@@ -502,6 +503,7 @@ func buildData(it plan.Item, workDir string) renderData {
 	if d.PageURL == "" {
 		d.PageURL = "/"
 	}
+	d.JourneyKind = it.JourneyKind
 	d.HappyArgs = happyArgs(it.Symbol)
 	d.SnakeName = toSnake(it.Symbol.Name)
 	d.SupertestMethod = strings.ToLower(it.Symbol.Method)
