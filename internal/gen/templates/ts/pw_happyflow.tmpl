@@ -9,14 +9,28 @@ const TARGET = BASE + '{{.PageURL}}'
 {{- end }}
 
 test.describe('{{.Symbol.Name}} page happy flow', () => {
-  test.beforeEach(async ({ page }) => { await page.goto(TARGET) })
-
-  test('walks {{len .Symbols}} component(s) on {{.PageURL}}', async ({ page }) => {
-{{- range $s := .Symbols }}
+  test('full user journey ({{len .Symbols}} step(s))', async ({ page }) => {
+{{- range $idx, $s := .Symbols }}
 {{- $intent := intentFor $s }}
-    // --- {{$s.Name}} (intent: {{$intent}}) ---
+{{- if eq $idx 0 }}
+    // Step 1 — visit {{$.PageURL}} (intent: {{$intent}})
+    await page.goto(TARGET)
+{{- else if $s.EnteredVia }}
+
+    // Step {{add $idx 1}} — click "{{$s.EnteredVia}}" and land on the next page (intent: {{$intent}})
+    {
+      const link = page.locator('a[href="{{$s.EnteredVia}}"], [href="{{$s.EnteredVia}}"]').first()
+      await link.click()
+      await expect(page).toHaveURL(new RegExp('{{$s.EnteredVia}}$'))
+    }
+{{- else }}
+
+    // Step {{add $idx 1}} — {{$s.Name}} (same page, intent: {{$intent}})
+{{- end }}
 {{- if $s.PageTitle }}
+{{- if eq $idx 0 }}
     await expect(page).toHaveTitle(/{{regexEscape $s.PageTitle}}/i)
+{{- end }}
 {{- end }}
 {{- range $a := $s.Anchors }}
 {{- $loc := locatorFor $a }}
@@ -58,17 +72,6 @@ test.describe('{{.Symbol.Name}} page happy flow', () => {
 {{- end }}
     await expect(page.locator('text=/error|failed/i')).toHaveCount(0)
 {{- end }}
-{{- if eq $intent "nav" }}
-{{- range $l := rankedNavTargets $s.Links 2 }}
-    // Navigate via ranked link {{linkHref $l}} ({{or $l.Text "no text"}})
-    {
-      const link = page.locator('a[href="{{linkHref $l}}"], [href="{{linkHref $l}}"]').first()
-      await link.click()
-      await expect(page).toHaveURL(new RegExp('{{linkHref $l}}$'))
-      await page.goto(TARGET)
-    }
-{{- end }}
-{{- end }}
 {{- if eq $intent "content" }}
 {{- with firstClickable $s.Anchors }}{{ $a := index . 0 }}
 {{- if $s.HasOnClick }}
@@ -85,9 +88,19 @@ test.describe('{{.Symbol.Name}} page happy flow', () => {
     }
 {{- end }}
 {{- end }}
-{{- if not $s.HasOnClick }}
-    // No form / nav / interactive signals detected on {{$s.Name}} — only visibility is asserted.
-    // TODO: extend with stable locators (add data-testid attributes).
+{{- end }}
+{{- /* On the FINAL symbol (or single-symbol Items), emit one ranked nav
+       click on its outbound links. Skipped for non-final chained symbols
+       because the next symbol's EnteredVia covers the transition. */ -}}
+{{- if and (eq $intent "nav") (eq $idx (sub (len $.Symbols) 1)) }}
+{{- range $l := rankedNavTargets $s.Links 1 }}
+
+    // Step {{add $idx 2}} — outbound click "{{linkHref $l}}" ({{or $l.Text "no text"}})
+    {
+      const link = page.locator('a[href="{{linkHref $l}}"], [href="{{linkHref $l}}"]').first()
+      await link.click()
+      await expect(page).toHaveURL(new RegExp('{{linkHref $l}}$'))
+    }
 {{- end }}
 {{- end }}
 {{- end }}
@@ -101,6 +114,7 @@ test.describe('{{.Symbol.Name}} page happy flow', () => {
 {{- if and $subloc $reqloc }}
 
   test('{{$.Symbol.Name}}: {{$s.Name}} blocks submit when required fields are empty', async ({ page }) => {
+    await page.goto(TARGET)
     await page.{{$subloc}}.first().click()
     await expect(page.{{$reqloc}}.first()).toBeVisible()
     await expect(page.locator('text=/success|welcome|signed in/i')).toHaveCount(0)

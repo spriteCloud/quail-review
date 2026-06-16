@@ -39,6 +39,38 @@ The `probe` subcommand is useful when there's nothing in the diff to extract fro
 
 `reviewqa generate` ALSO honours `REVIEWQA_TARGET_URLS` (comma-separated). When set, probe items are emitted alongside any diff-derived items.
 
+### Bootstrap on any repo (probe-only mode)
+
+Drop this file into `.github/workflows/reviewqa-probe.yml` of any repo to generate
+Playwright tests against a live URL — no other code needed.
+
+```yaml
+name: reviewqa-probe
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: URL to probe (any reachable http(s) endpoint)
+        required: true
+        default: https://example.com
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: spriteCloud/reviewqa@v1
+        with:
+          target-urls: ${{ github.event.inputs.url }}
+          run-generate: 'false'
+          run-heal: 'false'
+```
+
+Trigger from the Actions tab, paste a URL, and reviewqa opens a PR with a single
+spec walking the page in a linear journey: visit → click ranked nav → land → assert.
+
 Set an OpenAI-compatible endpoint to humanize the scaffolds:
 
 ```

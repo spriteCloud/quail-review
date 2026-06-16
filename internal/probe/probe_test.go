@@ -155,10 +155,11 @@ func TestBuildItem_SpritecloudShape_FormIntent(t *testing.T) {
 	}
 }
 
-func TestRunAll_MultiStepProbe(t *testing.T) {
+func TestRunAll_LinearJourney(t *testing.T) {
 	t.Setenv("REVIEWQA_PROBE_ALLOW_LOOPBACK", "1")
-	// Two-page site: '/' has a nav link to '/about'; both pages return
-	// distinct markup. RunAll should produce 2 items.
+	// Two-page site: '/' nav-links to '/contact'. RunAll should produce
+	// ONE Item whose Symbols carries the chain in order — not two separate
+	// items. The second Symbol's EnteredVia must be "/contact".
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
@@ -177,8 +178,14 @@ func TestRunAll_MultiStepProbe(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %+v", errs)
 	}
-	if len(items) != 2 {
-		t.Fatalf("expected 2 items (source + chained), got %d", len(items))
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item (single linear journey), got %d", len(items))
+	}
+	if len(items[0].Symbols) != 2 {
+		t.Fatalf("expected 2 symbols in chain, got %d", len(items[0].Symbols))
+	}
+	if items[0].Symbols[1].EnteredVia != "/contact" {
+		t.Errorf("Symbols[1].EnteredVia = %q, want /contact", items[0].Symbols[1].EnteredVia)
 	}
 }
 

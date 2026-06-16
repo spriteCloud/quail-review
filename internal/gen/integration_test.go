@@ -123,9 +123,9 @@ export function Counter() {
 	body := string(rs[0].Content)
 	for _, want := range []string{
 		"page happy flow",
-		"walks 2 component(s) on /home",
-		"// --- Counter (",
-		"// --- FAQ (",
+		"full user journey (2 step(s))",
+		"// Step 1 — visit",
+		"// Step 2 —",
 		"getByTestId('counter-root')",
 		"getByTestId('faq-list')",
 	} {

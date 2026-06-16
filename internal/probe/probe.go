@@ -208,56 +208,110 @@ func outPathStem(u *url.URL) string {
 	return host + "-" + pathPart
 }
 
-// RunAll fetches every URL and returns the synthesised Items. Errors per
-// URL are returned alongside successes — caller decides whether to fail
-// or warn. When a URL's intent is `nav`, the top-ranked same-origin link
-// is also probed; bounded to keep total items ≤ 4 per invocation.
+// RunAll builds ONE Item per source URL — a linear journey across up to
+// maxChain pages. The journey is: visit URL → if intent=nav, click the
+// top-ranked link → repeat. If intent=form, the form is terminal (we
+// don't try to navigate after the submit because we can't reliably know
+// the landing page from raw HTML). Errors per URL are returned alongside
+// successes — caller decides whether to fail or warn.
 func RunAll(ctx context.Context, urls []string) ([]plan.Item, []error) {
-	const maxItems = 4
+	const maxChain = 3
 	var items []plan.Item
 	var errs []error
-	visited := map[string]bool{}
 	for _, raw := range urls {
 		u := strings.TrimSpace(raw)
-		if u == "" || visited[u] {
+		if u == "" {
 			continue
 		}
-		visited[u] = true
-		res, err := Fetch(ctx, u)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		item, err := BuildItem(res.URL, res.Body)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		items = append(items, item)
-		if len(items) >= maxItems {
-			break
-		}
-		// Chain ONE additional probe: follow the top same-origin link.
-		// Bounded — no recursion, max 2 probes per source URL.
-		if next := topNavTarget(item, res.URL); next != "" && !visited[next] {
-			visited[next] = true
-			nextRes, err := Fetch(ctx, next)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("chained probe of %s: %w", next, err))
-				continue
-			}
-			nextItem, err := BuildItem(nextRes.URL, nextRes.Body)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			items = append(items, nextItem)
-			if len(items) >= maxItems {
-				break
-			}
+		item, chainErrs := buildJourney(ctx, u, maxChain)
+		errs = append(errs, chainErrs...)
+		if item != nil {
+			items = append(items, *item)
 		}
 	}
 	return items, errs
+}
+
+// buildJourney fetches the source URL, then chains up to maxChain pages by
+// following each page's top-ranked same-origin link. Returns one plan.Item
+// whose Symbols carry the journey in order.
+func buildJourney(ctx context.Context, sourceURL string, maxChain int) (*plan.Item, []error) {
+	var errs []error
+	visited := map[string]bool{}
+	res, err := Fetch(ctx, sourceURL)
+	if err != nil {
+		return nil, []error{err}
+	}
+	first, err := BuildItem(res.URL, res.Body)
+	if err != nil {
+		return nil, []error{err}
+	}
+	visited[res.URL] = true
+	chain := []ast.Symbol{first.Symbol}
+	currentItem := first
+	currentURL := res.URL
+	for len(chain) < maxChain {
+		// Form-intent pages are terminal — don't try to navigate after submit.
+		if intentOf(currentItem.Symbol) == "form" {
+			break
+		}
+		nextURL := topNavTarget(currentItem, currentURL)
+		if nextURL == "" || visited[nextURL] {
+			break
+		}
+		visited[nextURL] = true
+		nextRes, err := Fetch(ctx, nextURL)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("chained probe of %s: %w", nextURL, err))
+			break
+		}
+		nextItem, err := BuildItem(nextRes.URL, nextRes.Body)
+		if err != nil {
+			errs = append(errs, err)
+			break
+		}
+		// Record the href that brought us here — the template uses it to
+		// emit the click step.
+		nextItem.Symbol.EnteredVia = pathOf(nextURL)
+		chain = append(chain, nextItem.Symbol)
+		currentItem = nextItem
+		currentURL = nextRes.URL
+	}
+	first.Symbols = chain
+	return &first, errs
+}
+
+// pathOf returns just the path component of an absolute URL — what the
+// template uses for `<a href=...>` selectors.
+func pathOf(absURL string) string {
+	if u, err := url.Parse(absURL); err == nil {
+		return u.Path
+	}
+	return absURL
+}
+
+// intentOf duplicates the small classifier from internal/gen so the probe
+// layer doesn't depend on gen. Kept intentionally tiny — only the two
+// signals that gate chain continuation.
+func intentOf(s ast.Symbol) string {
+	hasSubmit := false
+	for _, a := range s.Anchors {
+		if a.Tag == "submit" {
+			hasSubmit = true
+			break
+		}
+	}
+	hasRequired := false
+	for _, i := range s.Inputs {
+		if i.Required {
+			hasRequired = true
+			break
+		}
+	}
+	if s.HasForm && hasRequired && hasSubmit {
+		return "form"
+	}
+	return "nav"
 }
 
 // topNavTarget returns the absolute URL of the highest-scoring same-origin

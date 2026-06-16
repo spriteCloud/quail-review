@@ -220,6 +220,8 @@ var funcs = template.FuncMap{
 	"contentLocator":    contentLocator,
 	"regexEscape":       regexEscape,
 	"rankedNavTargets":  rankedNavTargets,
+	"add":               func(a, b int) int { return a + b },
+	"sub":               func(a, b int) int { return a - b },
 }
 
 // contentLocator builds a Playwright locator for a content-text anchor —

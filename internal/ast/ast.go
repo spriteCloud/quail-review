@@ -59,6 +59,9 @@ type Symbol struct {
 	PageTitle   string          // <title> contents — populated by HTML probe path
 	HasForm     bool
 	HasNavigate bool
+	// EnteredVia is the href the journey clicked to reach this page. Empty
+	// for the first symbol in a chain (the page is visited via direct goto).
+	EnteredVia string
 }
 
 // ContentAnchor describes a page-level text anchor — the <title>, an <h1>,
