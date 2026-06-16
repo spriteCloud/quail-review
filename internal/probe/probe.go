@@ -251,10 +251,9 @@ func buildJourney(ctx context.Context, sourceURL string, maxChain int) (*plan.It
 	currentItem := first
 	currentURL := res.URL
 	for len(chain) < maxChain {
-		// Form-intent pages are terminal — don't try to navigate after submit.
-		if intentOf(currentItem.Symbol) == "form" {
-			break
-		}
+		// Continue chaining even from form-intent pages — the top-level nav
+		// is usually persistent across the site, so a click after submit
+		// either works (page stayed) or follows the thank-you redirect.
 		nextURL := topNavTarget(currentItem, currentURL)
 		if nextURL == "" || visited[nextURL] {
 			break
@@ -290,29 +289,6 @@ func pathOf(absURL string) string {
 	return absURL
 }
 
-// intentOf duplicates the small classifier from internal/gen so the probe
-// layer doesn't depend on gen. Kept intentionally tiny — only the two
-// signals that gate chain continuation.
-func intentOf(s ast.Symbol) string {
-	hasSubmit := false
-	for _, a := range s.Anchors {
-		if a.Tag == "submit" {
-			hasSubmit = true
-			break
-		}
-	}
-	hasRequired := false
-	for _, i := range s.Inputs {
-		if i.Required {
-			hasRequired = true
-			break
-		}
-	}
-	if s.HasForm && hasRequired && hasSubmit {
-		return "form"
-	}
-	return "nav"
-}
 
 // topNavTarget returns the absolute URL of the highest-scoring same-origin
 // link on the page — same heuristic the template uses for nav-intent specs,
