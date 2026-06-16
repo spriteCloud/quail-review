@@ -1,6 +1,10 @@
 package plan
 
-import "testing"
+import (
+	"testing"
+
+	"reflect"
+)
 
 func TestExtractContentAnchors_DecodesHTMLEntities(t *testing.T) {
 	html := []byte(`<html>
@@ -33,4 +37,19 @@ func TestPageTitle_DecodesHTMLEntities(t *testing.T) {
 	if got := PageTitle(html); got != "Let's Chat" {
 		t.Errorf("PageTitle: got %q, want %q", got, "Let's Chat")
 	}
+}
+func TestPageTitle(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		got := PageTitle(nil)
+		if reflect.DeepEqual(got, *new(string)) {
+			t.Fatalf("got zero value: %#v", got)
+		}
+	})
+
+	t.Run("returns expected type", func(t *testing.T) {
+		got := PageTitle(nil)
+		if got, want := reflect.TypeOf(got), reflect.TypeOf(*new(string)); got != want {
+			t.Fatalf("type = %v, want %v", got, want)
+		}
+	})
 }
