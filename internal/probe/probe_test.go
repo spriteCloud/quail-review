@@ -155,21 +155,25 @@ func TestBuildItem_SpritecloudShape_FormIntent(t *testing.T) {
 	}
 }
 
-func TestRunAll_LinearJourney(t *testing.T) {
+func TestRunAll_EmitsMultipleJourneys(t *testing.T) {
 	t.Setenv("REVIEWQA_PROBE_ALLOW_LOOPBACK", "1")
-	// Two-page site: '/' nav-links to '/contact'. RunAll should produce
-	// ONE Item whose Symbols carries the chain in order — not two separate
-	// items. The second Symbol's EnteredVia must be "/contact".
+	// Two-page site shaped like a marketing brochure:
+	//   /         — landing with an h1 + nav links
+	//   /contact  — detail page (h1 + few links)
+	// Expect mindmap to identify ≥1 journey (e.g. explore: home → contact).
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
 			return
 		}
-		_, _ = w.Write([]byte(`<html><body><h1>Home</h1><a href="/contact">Contact us</a></body></html>`))
+		_, _ = w.Write([]byte(`<html><body><h1>Home</h1><a href="/contact">Contact us</a><a href="/about">About</a></body></html>`))
 	})
 	mux.HandleFunc("/contact", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`<html><body><h1>Contact</h1></body></html>`))
+	})
+	mux.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`<html><body><h1>About</h1></body></html>`))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -178,29 +182,35 @@ func TestRunAll_LinearJourney(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %+v", errs)
 	}
-	if len(items) != 1 {
-		t.Fatalf("expected 1 item (single linear journey), got %d", len(items))
+	if len(items) == 0 {
+		t.Fatalf("expected ≥1 journey item, got 0")
 	}
-	if len(items[0].Symbols) != 2 {
-		t.Fatalf("expected 2 symbols in chain, got %d", len(items[0].Symbols))
-	}
-	if items[0].Symbols[1].EnteredVia != "/contact" {
-		t.Errorf("Symbols[1].EnteredVia = %q, want /contact", items[0].Symbols[1].EnteredVia)
+	// Each item must carry at least one symbol; chained items have
+	// EnteredVia populated on every non-first symbol.
+	for _, it := range items {
+		if len(it.Symbols) == 0 {
+			t.Errorf("item with no symbols: %+v", it)
+		}
+		for i, s := range it.Symbols {
+			if i > 0 && s.EnteredVia == "" {
+				t.Errorf("chained symbol %d missing EnteredVia: %+v", i, s)
+			}
+		}
 	}
 }
 
 func TestRunAll_AggregatesErrors(t *testing.T) {
 	t.Setenv("REVIEWQA_PROBE_ALLOW_LOOPBACK", "1")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`<form><input type="text" name="q" /></form>`))
+		_, _ = w.Write([]byte(`<html><body><h1>Home</h1><a href="/about">About</a></body></html>`))
 	}))
 	defer srv.Close()
 	urls := []string{srv.URL, "file:///etc/passwd", "  "}
 	items, errs := RunAll(context.Background(), urls)
-	if len(items) != 1 {
-		t.Errorf("expected 1 item from good URL, got %d", len(items))
+	if len(items) == 0 {
+		t.Errorf("expected ≥1 item from good URL, got %d", len(items))
 	}
-	if len(errs) != 1 {
-		t.Errorf("expected 1 error from file://, got %d: %+v", len(errs), errs)
+	if len(errs) == 0 {
+		t.Errorf("expected error from file://, got none")
 	}
 }

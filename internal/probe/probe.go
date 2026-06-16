@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/reviewqa/reviewqa/internal/ast"
+	"github.com/reviewqa/reviewqa/internal/mindmap"
 	"github.com/reviewqa/reviewqa/internal/plan"
 )
 
@@ -208,169 +209,104 @@ func outPathStem(u *url.URL) string {
 	return host + "-" + pathPart
 }
 
-// RunAll builds ONE Item per source URL — a linear journey across up to
-// maxChain pages. The journey is: visit URL → if intent=nav, click the
-// top-ranked link → repeat. If intent=form, the form is terminal (we
-// don't try to navigate after the submit because we can't reliably know
-// the landing page from raw HTML). Errors per URL are returned alongside
-// successes — caller decides whether to fail or warn.
+// RunAll crawls each source URL into a mindmap, then identifies multiple
+// user journeys (convert / browse / explore / read) — one plan.Item per
+// journey. A single source URL therefore yields several spec files,
+// each exercising a different user goal across the site.
 func RunAll(ctx context.Context, urls []string) ([]plan.Item, []error) {
-	const maxChain = 3
 	var items []plan.Item
 	var errs []error
+	fetcher := mindmapFetcher(ctx)
 	for _, raw := range urls {
 		u := strings.TrimSpace(raw)
 		if u == "" {
 			continue
 		}
-		item, chainErrs := buildJourney(ctx, u, maxChain)
-		errs = append(errs, chainErrs...)
-		if item != nil {
-			items = append(items, *item)
+		m, crawlErrs := mindmap.Crawl(ctx, u, fetcher, mindmap.Options{})
+		errs = append(errs, crawlErrs...)
+		if m == nil || len(m.Pages) == 0 {
+			continue
+		}
+		journeys := mindmap.IdentifyJourneys(m, 2)
+		for _, j := range journeys {
+			items = append(items, itemFromJourney(j, u))
 		}
 	}
 	return items, errs
 }
 
+// mindmapFetcher adapts probe.Fetch to the mindmap.Fetcher signature.
+func mindmapFetcher(_ context.Context) mindmap.Fetcher {
+	return func(ctx context.Context, url string) ([]byte, string, error) {
+		res, err := Fetch(ctx, url)
+		if err != nil {
+			return nil, "", err
+		}
+		return res.Body, res.URL, nil
+	}
+}
+
+// itemFromJourney materialises one plan.Item from a mindmap.Journey.
+// Symbols carry the page chain; first symbol has empty EnteredVia
+// (visited via direct goto), subsequent ones carry the path that was
+// clicked to reach them.
+func itemFromJourney(j mindmap.Journey, sourceURL string) plan.Item {
+	if len(j.Steps) == 0 {
+		return plan.Item{}
+	}
+	first := j.Steps[0].Page
+	syms := make([]ast.Symbol, 0, len(j.Steps))
+	for _, step := range j.Steps {
+		s := symbolFromPage(step.Page)
+		s.EnteredVia = step.EnteredVia
+		syms = append(syms, s)
+	}
+	stem := outPathStemForJourney(j, first)
+	return plan.Item{
+		Symbol:      syms[0],
+		Symbols:     syms,
+		PageURL:     first.URL,
+		Template:    plan.TmplPlaywrightHappyFlow,
+		OutPath:     "tests/e2e/" + stem + ".spec.ts",
+		JourneyKind: string(j.Kind),
+	}
+}
+
+func symbolFromPage(p *mindmap.Page) ast.Symbol {
+	u, _ := url.Parse(p.URL)
+	host := ""
+	if u != nil {
+		host = u.Hostname()
+	}
+	return ast.Symbol{
+		Name:      hostToName(host),
+		Kind:      ast.KindComponent,
+		File:      p.URL,
+		Language:  "ts",
+		Anchors:   p.Anchors,
+		Inputs:    p.Inputs,
+		Links:     p.Links,
+		Contents:  p.Contents,
+		PageTitle: p.Title,
+		HasForm:   p.HasForm,
+	}
+}
+
+func outPathStemForJourney(j mindmap.Journey, first *mindmap.Page) string {
+	u, _ := url.Parse(first.URL)
+	host := ""
+	if u != nil {
+		host = u.Hostname()
+	}
+	hostStem := strings.TrimPrefix(strings.ReplaceAll(host, ".", "-"), "www-")
+	return hostStem + "-" + string(j.Kind)
+}
+
 // buildJourney fetches the source URL, then chains up to maxChain pages by
-// following each page's top-ranked same-origin link. Returns one plan.Item
-// whose Symbols carry the journey in order.
-func buildJourney(ctx context.Context, sourceURL string, maxChain int) (*plan.Item, []error) {
-	var errs []error
-	visited := map[string]bool{}
-	res, err := Fetch(ctx, sourceURL)
-	if err != nil {
-		return nil, []error{err}
-	}
-	first, err := BuildItem(res.URL, res.Body)
-	if err != nil {
-		return nil, []error{err}
-	}
-	visited[res.URL] = true
-	chain := []ast.Symbol{first.Symbol}
-	currentItem := first
-	currentURL := res.URL
-	for len(chain) < maxChain {
-		// Continue chaining even from form-intent pages — the top-level nav
-		// is usually persistent across the site, so a click after submit
-		// either works (page stayed) or follows the thank-you redirect.
-		nextURL := topNavTarget(currentItem, currentURL)
-		if nextURL == "" || visited[nextURL] {
-			break
-		}
-		visited[nextURL] = true
-		nextRes, err := Fetch(ctx, nextURL)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("chained probe of %s: %w", nextURL, err))
-			break
-		}
-		nextItem, err := BuildItem(nextRes.URL, nextRes.Body)
-		if err != nil {
-			errs = append(errs, err)
-			break
-		}
-		// Record the href that brought us here — the template uses it to
-		// emit the click step.
-		nextItem.Symbol.EnteredVia = pathOf(nextURL)
-		chain = append(chain, nextItem.Symbol)
-		currentItem = nextItem
-		currentURL = nextRes.URL
-	}
-	first.Symbols = chain
-	return &first, errs
-}
-
-// pathOf returns just the path component of an absolute URL — what the
-// template uses for `<a href=...>` selectors.
-func pathOf(absURL string) string {
-	if u, err := url.Parse(absURL); err == nil {
-		return u.Path
-	}
-	return absURL
-}
+// (legacy buildJourney + pathOf removed — RunAll now goes through the
+// mindmap package which handles crawling, journey identification, and
+// path resolution end-to-end.)
 
 
-// topNavTarget returns the absolute URL of the highest-scoring same-origin
-// link on the page — same heuristic the template uses for nav-intent specs,
-// inlined here so the probe layer doesn't depend on gen. Returns empty when
-// no link qualifies.
-func topNavTarget(item plan.Item, sourceURL string) string {
-	if len(item.Symbol.Links) == 0 {
-		return ""
-	}
-	base, err := url.Parse(sourceURL)
-	if err != nil {
-		return ""
-	}
-	bestHref := pickBestLink(item.Symbol.Links)
-	if bestHref == "" {
-		return ""
-	}
-	abs := *base
-	abs.Path = bestHref
-	abs.RawQuery = ""
-	abs.Fragment = ""
-	return abs.String()
-}
-
-func pickBestLink(links []ast.LocatorAnchor) string {
-	var bestHref string
-	bestScore := 0
-	for _, l := range links {
-		if !sameOriginPath(l.Aria) {
-			continue
-		}
-		if s := scoreLink(l); s > bestScore {
-			bestScore = s
-			bestHref = l.Aria
-		}
-	}
-	return bestHref
-}
-
-func sameOriginPath(href string) bool {
-	return strings.HasPrefix(href, "/") && !strings.HasPrefix(href, "//")
-}
-
-func scoreLink(l ast.LocatorAnchor) int {
-	score := 0
-	if containsAny(strings.ToLower(l.Text), navHints) {
-		score += 3
-	}
-	if containsAnyDashed(strings.ToLower(l.Aria), navHints) {
-		score += 2
-	}
-	if containsAny(strings.ToLower(l.Aria), avoidHints) {
-		score -= 3
-	}
-	if strings.Count(l.Aria, "/") <= 1 {
-		score++
-	}
-	return score
-}
-
-func containsAny(s string, hints []string) bool {
-	for _, h := range hints {
-		if strings.Contains(s, h) {
-			return true
-		}
-	}
-	return false
-}
-
-func containsAnyDashed(s string, hints []string) bool {
-	for _, h := range hints {
-		if strings.Contains(s, strings.ReplaceAll(h, " ", "-")) {
-			return true
-		}
-	}
-	return false
-}
-
-var navHints = []string{
-	"contact", "pricing", "case studies", "case study", "services", "products",
-	"features", "learn more", "book a demo", "get started", "sign up",
-}
-var avoidHints = []string{
-	"privacy", "terms", "cookie", "legal", "sitemap",
-}
+// (Nav-target ranking now lives in internal/mindmap. The legacy single-URL
+// chained probe is fully superseded by mindmap-driven journey emission.)

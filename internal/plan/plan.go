@@ -35,6 +35,9 @@ type Item struct {
 	Symbols []ast.Symbol
 	// PageURL is the relative URL the happy-flow visits, e.g. "/", "/home".
 	PageURL string
+	// JourneyKind names the user goal this spec exercises (convert,
+	// browse, explore, read). Empty for non-journey items.
+	JourneyKind string
 }
 
 type Layout struct {
