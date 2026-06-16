@@ -90,7 +90,9 @@ runs:
         sudo install -m 0755 "$tmp/reviewqa" /usr/local/bin/reviewqa
         reviewqa --version
     - name: reviewqa generate
-      if: inputs.run-generate == 'true'
+      # Diff-driven generation needs a PR. Skip when there's none but a probe
+      # target is set — the standalone probe step below covers that case.
+      if: inputs.run-generate == 'true' && inputs.pr != ''
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token != '' && inputs.github-token || github.token }}
@@ -101,6 +103,19 @@ runs:
         REVIEWQA_LOG_LEVEL: ${{ inputs.log-level }}
         REVIEWQA_TARGET_URLS: ${{ inputs.target-urls }}
       run: reviewqa generate
+    - name: reviewqa probe (standalone, no PR)
+      # Fires when target-urls is set AND no PR is available (workflow_dispatch
+      # or push runs). The PR-attached probe path already runs inside `generate`.
+      if: inputs.target-urls != '' && inputs.pr == ''
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token != '' && inputs.github-token || github.token }}
+        OPENAI_BASE_URL: ${{ inputs.openai-base-url }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        REVIEWQA_MODEL: ${{ inputs.model }}
+        REVIEWQA_LOG_LEVEL: ${{ inputs.log-level }}
+        REVIEWQA_TARGET_URLS: ${{ inputs.target-urls }}
+      run: reviewqa probe
     - name: reviewqa heal
       if: inputs.run-heal == 'true' && inputs.heal-mode != 'off'
       shell: bash

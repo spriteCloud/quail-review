@@ -36,16 +36,25 @@ test.describe('{{.Symbol.Name}}', () => {
 
   test('{{.Symbol.Name}}: fills the form and submits', async ({ page }) => {
 {{- range $i := .Symbol.Inputs }}
-{{- if shouldCheck $i }}
-    await page.{{inputLocator $i}}.first().check()
+{{- $iloc := inputLocator $i }}
+{{- if not $iloc }}
+    // SKIP: input on line {{$i.Line}} has no stable locator — add data-testid
+{{- else if shouldCheck $i }}
+    await page.{{$iloc}}.first().check()
 {{- else if eq $i.Type "select" }}
-    await page.{{inputLocator $i}}.first().selectOption({ index: 0 })
+    await page.{{$iloc}}.first().selectOption({ index: 0 })
 {{- else }}
-    await page.{{inputLocator $i}}.first().fill('{{fillValueFor $i}}')
+{{- with locatorProvenance $i }}
+    // note: using <{{.}}> as locator — no data-testid on the input
+{{- end }}
+    await page.{{$iloc}}.first().fill('{{fillValueFor $i}}')
 {{- end }}
 {{- end }}
 {{- with firstSubmit .Symbol.Anchors }}{{ $sub := index . 0 }}
-    await page.{{locatorFor $sub}}.first().click()
+{{- $subloc := locatorFor $sub }}
+{{- if $subloc }}
+    await page.{{$subloc}}.first().click()
+{{- end }}
 {{- end }}
     await expect(page.locator('text=/error|failed/i')).toHaveCount(0)
   })

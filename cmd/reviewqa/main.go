@@ -74,8 +74,10 @@ func newGenerateCmd() *cobra.Command {
 			if pr == 0 {
 				pr = readPRFromEvent()
 			}
-			if pr == 0 {
-				return fmt.Errorf("missing --pr; set $REVIEWQA_PR or run inside a pull_request event")
+			// PR is OPTIONAL when target URLs are configured — generate then runs
+			// in pure-probe mode against the URLs and commits against main.
+			if pr == 0 && os.Getenv("REVIEWQA_TARGET_URLS") == "" {
+				return fmt.Errorf("missing --pr; set $REVIEWQA_PR, run inside a pull_request event, or set REVIEWQA_TARGET_URLS")
 			}
 			cfg.PRNumber = pr
 			cfg.DryRun = dryRun
@@ -201,6 +203,9 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 		printRendered(rendered)
 		return nil
 	}
+	if prInfo == nil {
+		return runGenerateStandalone(ctx, client, cfg, rendered)
+	}
 	branch := fmt.Sprintf("%s/tests-pr-%d-%s", cfg.BranchPrefix, cfg.PRNumber, shortSHA(prInfo.HeadSHA))
 	body := genPRBody(prInfo, rendered)
 	files2 := applyExistingFileMerge(ctx, client, rendered, prInfo.HeadSHA)
@@ -214,6 +219,28 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 	}
 	rlog.Info("opened test PR", "url", url)
 	writeStepSummary(generateSummary(prInfo, rendered, url))
+	return nil
+}
+
+// runGenerateStandalone handles the no-PR path — only target URLs are
+// configured, so the diff fetch was skipped. We open a PR against main with
+// the probe-derived specs.
+func runGenerateStandalone(ctx context.Context, client *gh.Client, cfg config.Config, rendered []gen.Rendered) error {
+	branch := fmt.Sprintf("%s/probe-%s", cfg.BranchPrefix, time.Now().UTC().Format("20060102-150405"))
+	body := genPRBody(nil, rendered)
+	files := map[string][]byte{}
+	for _, r := range rendered {
+		files[r.Path] = r.Content
+	}
+	url, err := client.OpenPR(ctx, gh.PROpts{
+		BaseBranch: "main", NewBranch: branch,
+		Title: "reviewqa: probe-generated Playwright tests",
+		Body:  body, Files: files,
+	})
+	if err != nil {
+		return fmt.Errorf("open pr: %w", err)
+	}
+	rlog.Info("opened probe PR (standalone)", "url", url)
 	return nil
 }
 
@@ -306,6 +333,7 @@ func probePRBody(urls []string, rs []gen.Rendered) string {
 		fmt.Fprintf(&b, "- `%s` — covers `%s`\n", r.Path, r.Symbol.Name)
 	}
 	b.WriteString("\nDeterministic scaffolds against live URLs. Review and extend with edge cases.\n")
+	appendQualityNotes(&b, rs)
 	return b.String()
 }
 
@@ -531,7 +559,33 @@ func genPRBody(pr *prSummary, rs []gen.Rendered) string {
 		fmt.Fprintf(&b, "- `%s` — covers `%s` (%s)\n", r.Path, r.Symbol.Name, r.Symbol.Language)
 	}
 	b.WriteString("\nEach scaffold contains one or more deterministic happy-path scenarios per component or symbol. Review and extend with edge cases.\n")
+	appendQualityNotes(&b, rs)
 	return b.String()
+}
+
+// appendQualityNotes summarises weak/missing locators across the rendered
+// specs into a `## Quality notes` section. Surfaces what the customer should
+// improve on their app to get more stable tests. Emits nothing when every
+// spec has zero weak locators.
+func appendQualityNotes(b *strings.Builder, rs []gen.Rendered) {
+	type entry struct {
+		path string
+		note string
+	}
+	var all []entry
+	for _, r := range rs {
+		for _, n := range r.QualityNotes {
+			all = append(all, entry{path: r.Path, note: n})
+		}
+	}
+	if len(all) == 0 {
+		return
+	}
+	b.WriteString("\n## Quality notes\n\n")
+	b.WriteString("Weak / missing locators reviewqa fell back to. Add `data-testid` to these elements for stable tests:\n\n")
+	for _, e := range all {
+		fmt.Fprintf(b, "- `%s` — %s\n", e.path, e.note)
+	}
 }
 
 func healPRBody(pr *prSummary, es []heal.Edit) string {

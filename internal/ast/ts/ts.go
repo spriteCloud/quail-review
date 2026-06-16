@@ -45,12 +45,15 @@ var (
 	reRole   = regexp.MustCompile(`role\s*=\s*['"]([^'"]+)['"]`)
 
 	// User-flow signals.
-	reInputType    = regexp.MustCompile(`type\s*=\s*['"]([^'"]+)['"]`)
-	reInputName    = regexp.MustCompile(`name\s*=\s*['"]([^'"]+)['"]`)
-	reInputRequired = regexp.MustCompile(`\brequired\b`)
-	reHref         = regexp.MustCompile(`href\s*=\s*['"]([^'"]+)['"]`)
-	reLinkTo       = regexp.MustCompile(`(?:^|\s)to\s*=\s*['"]([^'"]+)['"]`)
-	reSubmitType   = regexp.MustCompile(`type\s*=\s*['"]submit['"]`)
+	reInputType        = regexp.MustCompile(`type\s*=\s*['"]([^'"]+)['"]`)
+	reInputName        = regexp.MustCompile(`name\s*=\s*['"]([^'"]+)['"]`)
+	reInputID          = regexp.MustCompile(`\bid\s*=\s*['"]([^'"]+)['"]`)
+	reInputPlaceholder = regexp.MustCompile(`placeholder\s*=\s*['"]([^'"]+)['"]`)
+	reInputRequired    = regexp.MustCompile(`\brequired\b`)
+	reLabelFor         = regexp.MustCompile(`<label[^>]*\bfor\s*=\s*['"]([^'"]+)['"][^>]*>([^<]*)</label>`)
+	reHref             = regexp.MustCompile(`href\s*=\s*['"]([^'"]+)['"]`)
+	reLinkTo           = regexp.MustCompile(`(?:^|\s)to\s*=\s*['"]([^'"]+)['"]`)
+	reSubmitType       = regexp.MustCompile(`type\s*=\s*['"]submit['"]`)
 )
 
 func (extractor) Extract(file string, content []byte) ([]ast.Symbol, []ast.LocatorAnchor) {
@@ -561,6 +564,7 @@ func hasAnyLocatorOnLine(line string) bool {
 // first subsequent `>`, capped to avoid runaway).
 func extractFormInputs(file string, content []byte) []ast.FormInput {
 	lines := strings.Split(string(content), "\n")
+	labels := collectLabelForMap(content)
 	var inputs []ast.FormInput
 	for i := 0; i < len(lines); i++ {
 		tag := tagOnLine(lines[i])
@@ -586,12 +590,34 @@ func extractFormInputs(file string, content []byte) []ast.FormInput {
 		if m := reTestID.FindStringSubmatch(attrs); m != nil {
 			fi.TestID = m[1]
 		}
+		if m := reAria.FindStringSubmatch(attrs); m != nil {
+			fi.Aria = m[1]
+		}
+		if m := reInputPlaceholder.FindStringSubmatch(attrs); m != nil {
+			fi.Placeholder = m[1]
+		}
+		if m := reInputID.FindStringSubmatch(attrs); m != nil {
+			if lbl, ok := labels[m[1]]; ok {
+				fi.LabelText = lbl
+			}
+		}
 		if reInputRequired.MatchString(attrs) {
 			fi.Required = true
 		}
 		inputs = append(inputs, fi)
 	}
 	return inputs
+}
+
+// collectLabelForMap scans the content for `<label for="X">Text</label>`
+// pairs and returns id → label text. Single-line labels only (multi-line
+// label bodies are rare; documented as a limitation).
+func collectLabelForMap(content []byte) map[string]string {
+	out := map[string]string{}
+	for _, m := range reLabelFor.FindAllSubmatch(content, -1) {
+		out[string(m[1])] = strings.TrimSpace(string(m[2]))
+	}
+	return out
 }
 
 // collectOpenTagAttrs returns the concatenated text of an opening tag that

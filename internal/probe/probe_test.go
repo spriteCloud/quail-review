@@ -85,6 +85,33 @@ func TestBuildItem(t *testing.T) {
 	}
 }
 
+func TestBuildItem_DedupsRepeatedAnchors(t *testing.T) {
+	// Three identical <header role="banner"> should collapse to one anchor.
+	html := []byte(`<html><body>
+<header role="banner">a</header>
+<header role="banner">b</header>
+<header role="banner">c</header>
+<a href="/about">A</a>
+<a href="/about">A again</a>
+</body></html>`)
+	item, err := BuildItem("https://example.com/", html)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bannerCount := 0
+	for _, a := range item.Symbol.Anchors {
+		if a.Role == "banner" {
+			bannerCount++
+		}
+	}
+	if bannerCount != 1 {
+		t.Errorf("expected 1 banner anchor after dedup, got %d", bannerCount)
+	}
+	if len(item.Symbol.Links) != 1 {
+		t.Errorf("expected 1 deduped link, got %d", len(item.Symbol.Links))
+	}
+}
+
 func TestRunAll_AggregatesErrors(t *testing.T) {
 	t.Setenv("REVIEWQA_PROBE_ALLOW_LOOPBACK", "1")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

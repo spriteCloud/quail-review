@@ -26,9 +26,10 @@ var templatesFS embed.FS
 // in the wrapper file.
 
 type Rendered struct {
-	Path    string
-	Content []byte
-	Symbol  ast.Symbol
+	Path         string
+	Content      []byte
+	Symbol       ast.Symbol
+	QualityNotes []string // one entry per weak / skipped locator found in this spec
 }
 
 func Render(items []plan.Item, workDir string) ([]Rendered, error) {
@@ -43,10 +44,40 @@ func Render(items []plan.Item, workDir string) ([]Rendered, error) {
 		if err := tmpl.Execute(&buf, data); err != nil {
 			return nil, fmt.Errorf("render %s for %s: %w", it.Template, it.Symbol.Name, err)
 		}
-		out = append(out, Rendered{Path: it.OutPath, Content: buf.Bytes(), Symbol: it.Symbol})
-		log.Debug("rendered scaffold", "template", it.Template, "symbol", it.Symbol.Name, "path", it.OutPath)
+		content, notes := annotateQualityReport(buf.Bytes())
+		out = append(out, Rendered{Path: it.OutPath, Content: content, Symbol: it.Symbol, QualityNotes: notes})
+		log.Debug("rendered scaffold", "template", it.Template, "symbol", it.Symbol.Name, "path", it.OutPath, "quality_notes", len(notes))
 	}
 	return out, nil
+}
+
+// annotateQualityReport scans a rendered spec for weak-locator markers
+// (`// SKIP:` and `// note: using <...>`) and prepends a block comment
+// summarising them. Returns the (possibly modified) content + the list of
+// note strings for the caller to surface in the PR body.
+func annotateQualityReport(content []byte) ([]byte, []string) {
+	var notes []string
+	for line := range strings.SplitSeq(string(content), "\n") {
+		t := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(t, "// SKIP:"):
+			notes = append(notes, strings.TrimPrefix(t, "// "))
+		case strings.HasPrefix(t, "// note:"):
+			notes = append(notes, strings.TrimPrefix(t, "// "))
+		}
+	}
+	if len(notes) == 0 {
+		return content, nil
+	}
+	var b strings.Builder
+	b.WriteString("/* reviewqa quality report\n")
+	b.WriteString(" * Weak / missing locators on this page:\n")
+	for _, n := range notes {
+		fmt.Fprintf(&b, " *   - %s\n", n)
+	}
+	b.WriteString(" * Add data-testid to these elements for stable tests.\n")
+	b.WriteString(" */\n")
+	return append([]byte(b.String()), content...), notes
 }
 
 func load(t plan.Template) (*template.Template, error) {
@@ -150,6 +181,8 @@ var funcs = template.FuncMap{
 	"isAbsoluteURL": func(s string) bool {
 		return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
 	},
+	"intentFor":         intentFor,
+	"locatorProvenance": locatorProvenance,
 }
 
 // fillByType is the deterministic test-value table for form inputs.
@@ -183,16 +216,42 @@ func fillValueFor(i ast.FormInput) string {
 	return "test"
 }
 
-// inputLocator chooses the Playwright locator for a form input. testid wins,
-// then a labelled fallback, then a [name=…] CSS attribute selector.
+// inputLocator chooses the Playwright locator for a form input in priority
+// order. Returns "" when no stable locator can be derived — the template
+// then emits a SKIP comment instead of a meaningless `locator('input')`.
 func inputLocator(i ast.FormInput) string {
-	if i.TestID != "" {
+	switch {
+	case i.TestID != "":
 		return fmt.Sprintf("getByTestId('%s')", i.TestID)
-	}
-	if i.Name != "" {
+	case i.Aria != "":
+		return fmt.Sprintf("getByLabel('%s')", i.Aria)
+	case i.Placeholder != "":
+		return fmt.Sprintf("getByPlaceholder('%s')", i.Placeholder)
+	case i.LabelText != "":
+		return fmt.Sprintf("getByLabel('%s')", i.LabelText)
+	case i.Name != "":
 		return fmt.Sprintf("locator('[name=\"%s\"]')", i.Name)
 	}
-	return fmt.Sprintf("locator('%s')", i.Tag)
+	return ""
+}
+
+// locatorProvenance returns the rank label for the fallback chain when the
+// chosen locator is NOT the strongest (testid). Empty string means the input
+// has a strong locator and no provenance note is needed.
+func locatorProvenance(i ast.FormInput) string {
+	switch {
+	case i.TestID != "":
+		return ""
+	case i.Aria != "":
+		return ""
+	case i.Placeholder != "":
+		return "placeholder"
+	case i.LabelText != "":
+		return "label-for"
+	case i.Name != "":
+		return "name"
+	}
+	return ""
 }
 
 // firstSubmit returns the first submit-tagged anchor, otherwise the first
@@ -226,6 +285,36 @@ func firstSameOriginLink(links []ast.LocatorAnchor) []ast.LocatorAnchor {
 // linkHref returns the link's href (stored in Aria during extraction).
 func linkHref(l ast.LocatorAnchor) string {
 	return l.Aria
+}
+
+// intentFor classifies a Symbol into one of three flow shapes. The template
+// switches on the returned string to emit a form-fill, nav-only, or
+// minimal-smoke spec — instead of the previous fire-everything approach
+// that produced fill+submit calls on pages with no login intent.
+func intentFor(s ast.Symbol) string {
+	hasSubmit := false
+	for _, a := range s.Anchors {
+		if a.Tag == "submit" {
+			hasSubmit = true
+			break
+		}
+	}
+	hasRequired := false
+	for _, i := range s.Inputs {
+		if i.Required {
+			hasRequired = true
+			break
+		}
+	}
+	if s.HasForm && hasRequired && hasSubmit {
+		return "form"
+	}
+	for _, l := range s.Links {
+		if l.Aria != "" {
+			return "nav"
+		}
+	}
+	return "content"
 }
 
 // hasRequiredInput is true when any FormInput in the slice is marked

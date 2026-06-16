@@ -13,26 +13,52 @@ test.describe('{{.Symbol.Name}} page happy flow', () => {
 
   test('walks {{len .Symbols}} component(s) on {{.PageURL}}', async ({ page }) => {
 {{- range $s := .Symbols }}
-    // --- {{$s.Name}} ---
+{{- $intent := intentFor $s }}
+    // --- {{$s.Name}} (intent: {{$intent}}) ---
 {{- range $a := $s.Anchors }}
-    await expect(page.{{locatorFor $a}}.first()).toBeVisible()
+{{- $loc := locatorFor $a }}
+{{- if $loc }}
+    await expect(page.{{$loc}}.first()).toBeVisible()
 {{- end }}
+{{- end }}
+{{- if eq $intent "form" }}
 {{- if $s.Inputs }}
     // Fill form
 {{- range $i := $s.Inputs }}
-{{- if shouldCheck $i }}
-    await page.{{inputLocator $i}}.first().check()
+{{- $iloc := inputLocator $i }}
+{{- if not $iloc }}
+    // SKIP: input on line {{$i.Line}} has no stable locator — add data-testid
+{{- else if shouldCheck $i }}
+    await page.{{$iloc}}.first().check()
 {{- else if eq $i.Type "select" }}
-    await page.{{inputLocator $i}}.first().selectOption({ index: 0 })
+    await page.{{$iloc}}.first().selectOption({ index: 0 })
 {{- else }}
-    await page.{{inputLocator $i}}.first().fill('{{fillValueFor $i}}')
+{{- with locatorProvenance $i }}
+    // note: using <{{.}}> as locator — no data-testid on the input
+{{- end }}
+    await page.{{$iloc}}.first().fill('{{fillValueFor $i}}')
+{{- end }}
 {{- end }}
 {{- end }}
 {{- with firstSubmit $s.Anchors }}{{ $sub := index . 0 }}
-    await page.{{locatorFor $sub}}.first().click()
+{{- $subloc := locatorFor $sub }}
+{{- if $subloc }}
+    await page.{{$subloc}}.first().click()
+{{- end }}
 {{- end }}
     await expect(page.locator('text=/error|failed/i')).toHaveCount(0)
 {{- end }}
+{{- if eq $intent "nav" }}
+{{- with firstSameOriginLink $s.Links }}{{ $l := index . 0 }}
+    // Navigate via first same-origin link.
+    {
+      const link = page.locator('a[href="{{linkHref $l}}"], [href="{{linkHref $l}}"]').first()
+      await link.click()
+      await expect(page).toHaveURL(new RegExp('{{linkHref $l}}$'))
+    }
+{{- end }}
+{{- end }}
+{{- if eq $intent "content" }}
 {{- with firstClickable $s.Anchors }}{{ $a := index . 0 }}
 {{- if $s.HasOnClick }}
     {
@@ -48,25 +74,27 @@ test.describe('{{.Symbol.Name}} page happy flow', () => {
     }
 {{- end }}
 {{- end }}
-{{- with firstSameOriginLink $s.Links }}{{ $l := index . 0 }}
-    {
-      const link = page.locator('a[href="{{linkHref $l}}"], [href="{{linkHref $l}}"]').first()
-      await link.click()
-      await expect(page).toHaveURL(new RegExp('{{linkHref $l}}$'))
-    }
+{{- if not $s.HasOnClick }}
+    // No form / nav / interactive signals detected on {{$s.Name}} — only visibility is asserted.
+    // TODO: extend with stable locators (add data-testid attributes).
+{{- end }}
 {{- end }}
 {{- end }}
   })
 {{- range $s := .Symbols }}
-{{- if and $s.HasOnSubmit (hasRequiredInput $s.Inputs) }}
+{{- if and (eq (intentFor $s) "form") $s.HasOnSubmit (hasRequiredInput $s.Inputs) }}
 {{- with firstSubmit $s.Anchors }}{{ $sub := index . 0 }}
+{{- $subloc := locatorFor $sub }}
 {{- with firstRequiredInput $s.Inputs }}{{ $req := index . 0 }}
+{{- $reqloc := inputLocator $req }}
+{{- if and $subloc $reqloc }}
 
   test('{{$.Symbol.Name}}: {{$s.Name}} blocks submit when required fields are empty', async ({ page }) => {
-    await page.{{locatorFor $sub}}.first().click()
-    await expect(page.{{inputLocator $req}}.first()).toBeVisible()
+    await page.{{$subloc}}.first().click()
+    await expect(page.{{$reqloc}}.first()).toBeVisible()
     await expect(page.locator('text=/success|welcome|signed in/i')).toHaveCount(0)
   })
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

@@ -124,8 +124,8 @@ export function Counter() {
 	for _, want := range []string{
 		"page happy flow",
 		"walks 2 component(s) on /home",
-		"// --- Counter ---",
-		"// --- FAQ ---",
+		"// --- Counter (",
+		"// --- FAQ (",
 		"getByTestId('counter-root')",
 		"getByTestId('faq-list')",
 	} {

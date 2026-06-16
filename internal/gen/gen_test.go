@@ -259,10 +259,10 @@ func TestRenderPlaywrightHappyFlow(t *testing.T) {
 		"test.describe('Counter page happy flow'",
 		"BASE + '/home'",
 		"walks 2 component(s) on /home",
-		"// --- Counter ---",
+		"// --- Counter (",
 		"getByTestId('counter-root')",
 		"getByTestId('counter-inc')",
-		"// --- FAQ ---",
+		"// --- FAQ (",
 		"getByTestId('faq-list')",
 		"target.click()",
 		"aria-expanded",
@@ -345,6 +345,172 @@ func TestRenderPlaywrightHappyFlow_AbsoluteURL(t *testing.T) {
 	}
 	if strings.Contains(body, "BASE + 'https://") {
 		t.Errorf("template incorrectly concatenated BASE with absolute URL:\n%s", body)
+	}
+}
+
+func TestIntentFor_Form(t *testing.T) {
+	s := ast.Symbol{
+		HasForm: true,
+		Inputs:  []ast.FormInput{{TestID: "e", Type: "email", Required: true}},
+		Anchors: []ast.LocatorAnchor{{TestID: "submit", Tag: "submit"}},
+	}
+	if got := intentFor(s); got != "form" {
+		t.Errorf("intent = %q, want form", got)
+	}
+}
+
+func TestIntentFor_Nav(t *testing.T) {
+	s := ast.Symbol{
+		Links: []ast.LocatorAnchor{{Aria: "/about", Tag: "link-a"}},
+	}
+	if got := intentFor(s); got != "nav" {
+		t.Errorf("intent = %q, want nav", got)
+	}
+}
+
+func TestIntentFor_Content(t *testing.T) {
+	s := ast.Symbol{
+		Anchors: []ast.LocatorAnchor{{Role: "banner", Tag: "header"}},
+	}
+	if got := intentFor(s); got != "content" {
+		t.Errorf("intent = %q, want content", got)
+	}
+}
+
+func TestInputLocator_FallbackChain(t *testing.T) {
+	cases := []struct {
+		name string
+		in   ast.FormInput
+		want string
+	}{
+		{"testid wins", ast.FormInput{TestID: "x", Aria: "y", Placeholder: "z"}, "getByTestId('x')"},
+		{"aria when no testid", ast.FormInput{Aria: "y", Placeholder: "z"}, "getByLabel('y')"},
+		{"placeholder when no aria", ast.FormInput{Placeholder: "Your email"}, "getByPlaceholder('Your email')"},
+		{"label fallback", ast.FormInput{LabelText: "Email"}, "getByLabel('Email')"},
+		{"name fallback", ast.FormInput{Name: "email"}, "locator('[name=\"email\"]')"},
+		{"all missing → skip", ast.FormInput{}, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := inputLocator(tc.in); got != tc.want {
+				t.Errorf("inputLocator(%+v) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestLocatorProvenance(t *testing.T) {
+	cases := []struct {
+		name string
+		in   ast.FormInput
+		want string
+	}{
+		{"testid → empty", ast.FormInput{TestID: "x"}, ""},
+		{"aria → empty", ast.FormInput{Aria: "y"}, ""},
+		{"placeholder → placeholder", ast.FormInput{Placeholder: "z"}, "placeholder"},
+		{"label → label-for", ast.FormInput{LabelText: "Email"}, "label-for"},
+		{"name → name", ast.FormInput{Name: "q"}, "name"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := locatorProvenance(tc.in); got != tc.want {
+				t.Errorf("locatorProvenance(%+v) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRender_QualityReport_AndPerLineNotes(t *testing.T) {
+	sym := ast.Symbol{
+		Kind: ast.KindComponent, Name: "Mixed",
+		File: "src/Mixed.tsx", Language: "ts",
+		HasForm: true,
+		Inputs: []ast.FormInput{
+			{TestID: "strong", Type: "email", Required: true, Line: 5},
+			{Name: "weak", Type: "text", Line: 7}, // only name → weak locator
+		},
+		Anchors: []ast.LocatorAnchor{
+			{TestID: "submit", Tag: "submit"},
+		},
+	}
+	items := []plan.Item{{
+		Symbol:   sym,
+		Symbols:  []ast.Symbol{sym},
+		PageURL:  "/mixed",
+		Template: plan.TmplPlaywrightHappyFlow,
+		OutPath:  "tests/e2e/Mixed.spec.ts",
+	}}
+	out, err := Render(items, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(out[0].Content)
+	for _, want := range []string{
+		"reviewqa quality report",
+		"note: using <name>",
+		"Weak / missing locators",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q in:\n%s", want, body)
+		}
+	}
+	if len(out[0].QualityNotes) == 0 {
+		t.Errorf("Rendered.QualityNotes should be populated, got empty")
+	}
+}
+
+func TestRender_NoQualityReport_WhenHealthy(t *testing.T) {
+	sym := ast.Symbol{
+		Kind: ast.KindComponent, Name: "Clean",
+		File: "src/Clean.tsx", Language: "ts",
+		HasForm: true,
+		Inputs: []ast.FormInput{
+			{TestID: "email", Type: "email", Required: true},
+		},
+		Anchors: []ast.LocatorAnchor{{TestID: "submit", Tag: "submit"}},
+	}
+	items := []plan.Item{{
+		Symbol:   sym,
+		Symbols:  []ast.Symbol{sym},
+		PageURL:  "/clean",
+		Template: plan.TmplPlaywrightHappyFlow,
+		OutPath:  "tests/e2e/Clean.spec.ts",
+	}}
+	out, _ := Render(items, ".")
+	body := string(out[0].Content)
+	if strings.Contains(body, "quality report") {
+		t.Errorf("healthy spec should NOT carry a quality report:\n%s", body)
+	}
+	if len(out[0].QualityNotes) != 0 {
+		t.Errorf("QualityNotes should be empty, got %+v", out[0].QualityNotes)
+	}
+}
+
+func TestRender_NavIntent_NoFillNoSubmit(t *testing.T) {
+	sym := ast.Symbol{
+		Kind: ast.KindComponent, Name: "Marketing",
+		File: "marketing.html", Language: "ts",
+		Anchors: []ast.LocatorAnchor{{TestID: "hero", Tag: "section"}},
+		Links:   []ast.LocatorAnchor{{Aria: "/contact", Tag: "link-a"}},
+		// No required input → IntentNav
+	}
+	items := []plan.Item{{
+		Symbol:   sym,
+		Symbols:  []ast.Symbol{sym},
+		PageURL:  "/",
+		Template: plan.TmplPlaywrightHappyFlow,
+		OutPath:  "tests/e2e/Marketing.spec.ts",
+	}}
+	out, _ := Render(items, ".")
+	body := string(out[0].Content)
+	if strings.Contains(body, ".fill(") {
+		t.Errorf("nav intent should not emit .fill():\n%s", body)
+	}
+	if !strings.Contains(body, "toHaveURL(new RegExp('/contact$'))") {
+		t.Errorf("nav intent should emit link click + URL assert:\n%s", body)
+	}
+	if !strings.Contains(body, "intent: nav") {
+		t.Errorf("expected intent marker:\n%s", body)
 	}
 }
 

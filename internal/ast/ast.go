@@ -62,13 +62,16 @@ type Symbol struct {
 // FormInput describes a single form field detected in a component or page.
 // Drives deterministic fill values in the Playwright happy-flow template.
 type FormInput struct {
-	Name     string // <input name="...">
-	Type     string // text | email | password | number | checkbox | radio | tel | url | date | select | textarea
-	Required bool
-	TestID   string // when present, preferred locator
-	Tag      string // "input" | "select" | "textarea"
-	File     string
-	Line     int
+	Name        string // <input name="...">
+	Type        string // text | email | password | number | checkbox | radio | tel | url | date | select | textarea
+	Required    bool
+	TestID      string // when present, preferred locator
+	Aria        string // aria-label, when present
+	Placeholder string // placeholder text, when present
+	LabelText   string // associated <label> text (via for=id match)
+	Tag         string // "input" | "select" | "textarea"
+	File        string
+	Line        int
 }
 
 type LocatorAnchor struct {

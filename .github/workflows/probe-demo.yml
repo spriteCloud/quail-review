@@ -1,0 +1,47 @@
+name: probe-demo
+
+# Dedicated workflow that demonstrates reviewqa's proactive probe mode
+# against a live URL. Fires only on the demo branch or via manual
+# workflow_dispatch so it does not interfere with regular PR runs.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/probe-demo.yml'
+      - 'README.md'  # demo branches typically just touch README
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      url:
+        description: URL to probe (any reachable http(s) endpoint)
+        required: true
+        default: https://www.spritecloud.com
+      pr:
+        description: Optional PR number to attach the generated spec to (leave empty for a standalone PR against main)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  probe:
+    # Run on the dedicated demo branch OR on any workflow_dispatch invocation.
+    if: github.head_ref == 'demo/probe-spritecloud-com' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: spriteCloud/reviewqa@v1
+        with:
+          pr: ${{ github.event.inputs.pr || github.event.pull_request.number }}
+          openai-base-url: ${{ vars.OPENAI_BASE_URL || 'https://api.openai.com/v1' }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: ${{ vars.REVIEWQA_MODEL || 'gpt-4o-mini' }}
+          heal-mode: 'off'
+          log-level: info
+          target-urls: ${{ github.event.inputs.url || 'https://www.spritecloud.com' }}

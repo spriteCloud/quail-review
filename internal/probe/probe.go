@@ -146,9 +146,9 @@ func BuildItem(target string, html []byte) (plan.Item, error) {
 	if err != nil {
 		return plan.Item{}, err
 	}
-	anchors := plan.ExtractHTMLAnchors(target, html)
-	inputs := plan.ExtractHTMLInputs(target, html)
-	links := plan.ExtractHTMLLinks(target, html)
+	anchors := ast.DedupAnchors(plan.ExtractHTMLAnchors(target, html))
+	inputs := ast.DedupInputs(plan.ExtractHTMLInputs(target, html))
+	links := ast.DedupLinks(plan.ExtractHTMLLinks(target, html))
 	hasForm := strings.Contains(strings.ToLower(string(html)), "<form")
 
 	name := hostToName(u.Hostname())

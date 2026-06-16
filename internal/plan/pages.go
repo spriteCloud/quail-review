@@ -36,10 +36,13 @@ var (
 	rePageHTMLAria      = regexp.MustCompile(`aria-label\s*=\s*['"]([^'"]+)['"]`)
 	rePageHTMLRole      = regexp.MustCompile(`role\s*=\s*['"]([^'"]+)['"]`)
 	rePageHTMLTag       = regexp.MustCompile(`<\s*([a-zA-Z][\w-]*)`)
-	rePageHTMLInputType = regexp.MustCompile(`type\s*=\s*['"]([^'"]+)['"]`)
-	rePageHTMLInputName = regexp.MustCompile(`name\s*=\s*['"]([^'"]+)['"]`)
-	rePageHTMLRequired  = regexp.MustCompile(`\brequired\b`)
-	rePageHTMLHref      = regexp.MustCompile(`href\s*=\s*['"]([^'"]+)['"]`)
+	rePageHTMLInputType        = regexp.MustCompile(`type\s*=\s*['"]([^'"]+)['"]`)
+	rePageHTMLInputName        = regexp.MustCompile(`name\s*=\s*['"]([^'"]+)['"]`)
+	rePageHTMLInputID          = regexp.MustCompile(`\bid\s*=\s*['"]([^'"]+)['"]`)
+	rePageHTMLInputPlaceholder = regexp.MustCompile(`placeholder\s*=\s*['"]([^'"]+)['"]`)
+	rePageHTMLLabelFor         = regexp.MustCompile(`<label[^>]*\bfor\s*=\s*['"]([^'"]+)['"][^>]*>([^<]*)</label>`)
+	rePageHTMLRequired         = regexp.MustCompile(`\brequired\b`)
+	rePageHTMLHref             = regexp.MustCompile(`href\s*=\s*['"]([^'"]+)['"]`)
 )
 
 // findPageRoots walks workDir for candidate page entry files and returns the
@@ -368,10 +371,13 @@ var reFormElementOpen = regexp.MustCompile(`<\s*(input|select|textarea)\b([^>]*)
 var reLinkOpen = regexp.MustCompile(`<\s*a\s+([^>]*)>`)
 
 // ExtractHTMLInputs collects form fields from a page's markup. Type/name/
-// required must appear inside the opening tag of the input.
+// required must appear inside the opening tag of the input. Placeholder and
+// label-for fallbacks are captured to support stable locators on inputs
+// without testids.
 func ExtractHTMLInputs(file string, content []byte) []ast.FormInput {
 	var out []ast.FormInput
 	lines := strings.Split(string(content), "\n")
+	labelMap := collectHTMLLabelFor(content)
 	for i, line := range lines {
 		for _, m := range reFormElementOpen.FindAllStringSubmatch(line, -1) {
 			tag := strings.ToLower(m[1])
@@ -392,11 +398,30 @@ func ExtractHTMLInputs(file string, content []byte) []ast.FormInput {
 			if tm := rePageHTMLTestID.FindStringSubmatch(attrs); tm != nil {
 				fi.TestID = tm[1]
 			}
+			if am := rePageHTMLAria.FindStringSubmatch(attrs); am != nil {
+				fi.Aria = am[1]
+			}
+			if pm := rePageHTMLInputPlaceholder.FindStringSubmatch(attrs); pm != nil {
+				fi.Placeholder = pm[1]
+			}
+			if idm := rePageHTMLInputID.FindStringSubmatch(attrs); idm != nil {
+				if lbl, ok := labelMap[idm[1]]; ok {
+					fi.LabelText = lbl
+				}
+			}
 			if rePageHTMLRequired.MatchString(attrs) {
 				fi.Required = true
 			}
 			out = append(out, fi)
 		}
+	}
+	return out
+}
+
+func collectHTMLLabelFor(content []byte) map[string]string {
+	out := map[string]string{}
+	for _, m := range rePageHTMLLabelFor.FindAllSubmatch(content, -1) {
+		out[string(m[1])] = strings.TrimSpace(string(m[2]))
 	}
 	return out
 }
@@ -549,9 +574,9 @@ func materializePageRoots(roots []pageRoot, inDiff, alreadyCovered map[string]bo
 			Kind:     ast.KindComponent,
 			File:     r.Path,
 			Language: "ts",
-			Anchors:  r.Anchors,
-			Inputs:   r.Inputs,
-			Links:    r.Links,
+			Anchors:  ast.DedupAnchors(r.Anchors),
+			Inputs:   ast.DedupInputs(r.Inputs),
+			Links:    ast.DedupLinks(r.Links),
 			HasForm:  r.HasForm,
 		}
 		out = append(out, Item{
