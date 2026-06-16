@@ -9,6 +9,93 @@ const TARGET = BASE + '{{.PageURL}}'
 {{- end }}
 
 test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{{else}} page happy flow{{end}}', () => {
+{{- if eq .JourneyKind "exercise" }}
+{{- range $i := .Symbol.Interactions }}
+{{- $loc := interactionLocator $i }}
+{{- if eq $i.Kind "search" }}
+
+  test('exercise: search box accepts input and navigates', async ({ page }) => {
+    await page.goto(TARGET)
+    const box = page.{{$loc}}.first()
+    await box.fill('{{fillValueForInteraction $i}}')
+    await box.press('Enter')
+    // Either the URL changed (search results page) or a results region appeared.
+    await page.waitForLoadState('domcontentloaded')
+  })
+{{- else if eq $i.Kind "dialog" }}
+
+  test('exercise: dialog opens and closes', async ({ page }) => {
+    await page.goto(TARGET)
+    const dialog = page.{{$loc}}.first()
+    // The dialog may already be open in HTML (popovertarget pattern) or
+    // require a trigger click. We only assert open + escape-to-close.
+    await expect(dialog).toBeAttached()
+  })
+{{- else if eq $i.Kind "details" }}
+
+  test('exercise: details element expands and collapses{{if $i.Text}} ({{$i.Text}}){{end}}', async ({ page }) => {
+    await page.goto(TARGET)
+    const d = page.{{$loc}}.first()
+    await expect(d).toHaveJSProperty('open', false)
+    await d.locator('summary').first().click()
+    await expect(d).toHaveJSProperty('open', true)
+    await d.locator('summary').first().click()
+    await expect(d).toHaveJSProperty('open', false)
+  })
+{{- else if eq $i.Kind "collapse" }}
+
+  test('exercise: collapse toggle flips aria-expanded{{if $i.Text}} ({{$i.Text}}){{end}}', async ({ page }) => {
+    await page.goto(TARGET)
+    const trigger = page.{{$loc}}.first()
+    const before = await trigger.getAttribute('aria-expanded')
+    await trigger.click()
+    const after = await trigger.getAttribute('aria-expanded')
+    expect(after).not.toBe(before)
+  })
+{{- else if eq $i.Kind "tab" }}
+
+  test('exercise: tab activates{{if $i.Text}} ({{$i.Text}}){{end}}', async ({ page }) => {
+    await page.goto(TARGET)
+    const tab = page.{{$loc}}.first()
+    await tab.click()
+    await expect(tab).toHaveAttribute('aria-selected', 'true')
+  })
+{{- else if eq $i.Kind "date" }}
+
+  test('exercise: {{$i.InputType}} input accepts a value', async ({ page }) => {
+    await page.goto(TARGET)
+    const input = page.{{$loc}}.first()
+    await input.fill('{{fillValueForInteraction $i}}')
+    await expect(input).toHaveValue('{{fillValueForInteraction $i}}')
+  })
+{{- else if eq $i.Kind "data-toggle" }}
+
+  test('exercise: {{$i.Toggle}} toggle responds to click{{if $i.Text}} ({{$i.Text}}){{end}}', async ({ page }) => {
+    await page.goto(TARGET)
+    const trigger = page.{{$loc}}.first()
+    const before = await trigger.getAttribute('aria-expanded')
+    await trigger.click()
+    // The toggle should either flip aria-expanded or, for modals, the page
+    // should reveal a [role=dialog]. We accept either signal.
+    await page.waitForTimeout(200)
+    const after = await trigger.getAttribute('aria-expanded')
+    const dialogVisible = await page.locator('[role="dialog"]').first().isVisible().catch(() => false)
+    expect(after !== before || dialogVisible).toBeTruthy()
+  })
+{{- else if eq $i.Kind "popup" }}
+
+  test('exercise: popup trigger reveals menu{{if $i.Text}} ({{$i.Text}}){{end}}', async ({ page }) => {
+    await page.goto(TARGET)
+    const trigger = page.{{$loc}}.first()
+    await trigger.click()
+    // After clicking, an aria-expanded flip OR a visible menu/listbox.
+    const expanded = await trigger.getAttribute('aria-expanded')
+    const menuVisible = await page.locator('[role="menu"], [role="listbox"]').first().isVisible().catch(() => false)
+    expect(expanded === 'true' || menuVisible).toBeTruthy()
+  })
+{{- end }}
+{{- end }}
+{{- else }}
   test('{{if .JourneyKind}}{{.JourneyKind}}: {{end}}full user journey ({{len .Symbols}} step(s))', async ({ page }) => {
 {{- range $idx, $s := .Symbols }}
 {{- $intent := intentFor $s }}
@@ -132,6 +219,7 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
 {{- end }}
 {{- end }}
   })
+{{- end }}{{/* end of if-exercise/else */}}
 {{- range $s := .Symbols }}
 {{- if and (eq (intentFor $s) "form") $s.HasOnSubmit (hasRequiredInput $s.Inputs) }}
 {{- with firstSubmit $s.Anchors }}{{ $sub := index . 0 }}

@@ -56,6 +56,20 @@ exercises our English-only nav vocabulary fallback.
 
 ## Known gaps surfaced by this workflow
 
+### New in v0.12.0
+
+- **In-page component interactions are now tested.** A new `exercise`
+  journey kind emits one focused spec per interactive component
+  detected in the raw HTML. Seven shapes covered: search inputs,
+  native `<details>`, `aria-expanded`+`aria-controls` collapsibles,
+  `<dialog>`, `role=tab`, `<input type=date|time|datetime-local>`,
+  Bootstrap `data-(bs-)toggle` triggers, and `aria-haspopup` buttons.
+  Per-page cap at 5 emissions so busy pages don't yield 30-line specs.
+  Native-HTML5 emissions (search, details, date, dialog-attached) pass
+  on the deterministic path; JS-required emissions (collapse, modal,
+  popup) need real client-side wiring (Bootstrap, headlessUI, etc) and
+  pass on sites that have it.
+
 ### Fixed in v0.11.x
 
 - **Relative URLs without leading slash.** `books.toscrape.com` went

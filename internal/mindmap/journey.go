@@ -12,6 +12,7 @@ type JourneyKind string
 
 const (
 	JourneyConvert  JourneyKind = "convert"  // home → form → submit (newsletter / lead-gen)
+	JourneyExercise JourneyKind = "exercise" // single-page in-page component interactions
 	JourneyContact  JourneyKind = "contact"  // home → contact page → fill+submit
 	JourneyEvaluate JourneyKind = "evaluate" // home → pricing page (assert prices visible)
 	JourneyResearch JourneyKind = "research" // home → case-studies list → one case-study
@@ -37,6 +38,7 @@ func JourneyExercisesForm(k JourneyKind) bool {
 // wins when two journeys terminate at the same page.
 var journeyPriority = map[JourneyKind]int{
 	JourneyConvert:  100,
+	JourneyExercise: 95,
 	JourneyContact:  90,
 	JourneyEvaluate: 80,
 	JourneyResearch: 70,
@@ -71,6 +73,7 @@ func IdentifyJourneys(m *Map, maxPerKind int) []Journey {
 	}
 	var out []Journey
 	out = append(out, findConvertJourneys(m, maxPerKind)...)
+	out = append(out, findExerciseJourneys(m, maxPerKind)...)
 	out = append(out, findContactJourneys(m, maxPerKind)...)
 	out = append(out, findEvaluateJourneys(m, maxPerKind)...)
 	out = append(out, findResearchJourneys(m, maxPerKind)...)
@@ -152,6 +155,25 @@ func findConvertJourneys(m *Map, max int) []Journey {
 			}
 		}
 		out = append(out, journey)
+		if len(out) >= max {
+			break
+		}
+	}
+	return out
+}
+
+// findExerciseJourneys: single-page journeys against pages that carry
+// interactive components. The first such page (typically landing) is the
+// primary target; if other crawled pages also have interactions, additional
+// exercise journeys are emitted up to max.
+func findExerciseJourneys(m *Map, max int) []Journey {
+	var out []Journey
+	for _, url := range m.Order {
+		page := m.Pages[url]
+		if !hasTag(page, TagInteractive) {
+			continue
+		}
+		out = append(out, Journey{Kind: JourneyExercise, Steps: []Step{{Page: page}}})
 		if len(out) >= max {
 			break
 		}

@@ -258,6 +258,34 @@ func TestDiscoverSitemapURLs(t *testing.T) {
 	}
 }
 
+func TestIdentifyJourneys_ExerciseFromInteractivePage(t *testing.T) {
+	pages := fakeFetcher{
+		"https://x.test/": `<html><body><h1>Home</h1>
+<details><summary>FAQ Question</summary><p>Answer</p></details>
+<input type="search" name="q">
+<button data-bs-toggle="modal" data-bs-target="#m">Open Modal</button>
+</body></html>`,
+	}
+	m, _ := Crawl(context.Background(), "https://x.test/", pages.fetch, Options{MaxPages: 5, MaxDepth: 1})
+	js := IdentifyJourneys(m, 3)
+	var exercise *Journey
+	for i := range js {
+		if js[i].Kind == JourneyExercise {
+			exercise = &js[i]
+			break
+		}
+	}
+	if exercise == nil {
+		t.Fatalf("expected an exercise journey; got kinds %+v", js)
+	}
+	if len(exercise.Steps) != 1 {
+		t.Fatalf("expected single-step exercise journey; got %d steps", len(exercise.Steps))
+	}
+	if len(exercise.Steps[0].Page.Interactions) < 2 {
+		t.Errorf("expected at least 2 interactions on landing; got %d", len(exercise.Steps[0].Page.Interactions))
+	}
+}
+
 func TestDedupJourneys_HigherPriorityWins(t *testing.T) {
 	page := &Page{URL: "https://x.test/x"}
 	in := []Journey{

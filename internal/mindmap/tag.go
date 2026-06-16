@@ -7,15 +7,16 @@ import (
 
 // Page-shape tags. A single page can carry multiple tags.
 const (
-	TagLanding   = "landing"    // homepage / brochure-style entry
-	TagForm      = "form"       // page with a real submit-form (≥1 required input)
-	TagList      = "list"       // page with many same-shape outbound links (blog, products)
-	TagDetail    = "detail"     // long content page (case study, blog post, article)
-	TagPricing   = "pricing"    // pricing / plans page with price markers
-	TagContact   = "contact"    // contact-shaped form (name + email + message)
-	TagAuth      = "auth"       // login / signup with password field
-	TagService   = "service"    // product / service / solution / feature page
-	TagCaseStudy = "case-study" // customer success / case study entry
+	TagLanding     = "landing"     // homepage / brochure-style entry
+	TagForm        = "form"        // page with a real submit-form (≥1 required input)
+	TagList        = "list"        // page with many same-shape outbound links (blog, products)
+	TagDetail      = "detail"      // long content page (case study, blog post, article)
+	TagPricing     = "pricing"     // pricing / plans page with price markers
+	TagContact     = "contact"     // contact-shaped form (name + email + message)
+	TagAuth        = "auth"        // login / signup with password field
+	TagService     = "service"     // product / service / solution / feature page
+	TagCaseStudy   = "case-study"  // customer success / case study entry
+	TagInteractive = "interactive" // ≥1 in-page interactive component detected
 )
 
 // tagPage applies heuristics. Multiple tags are allowed. The raw HTML is
@@ -49,6 +50,9 @@ func tagPage(p *Page, html []byte) []string {
 	}
 	if isCaseStudyPage(p) {
 		tags = append(tags, TagCaseStudy)
+	}
+	if len(p.Interactions) > 0 {
+		tags = append(tags, TagInteractive)
 	}
 	return tags
 }

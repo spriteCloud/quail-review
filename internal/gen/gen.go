@@ -220,6 +220,58 @@ var funcs = template.FuncMap{
 	"contentLocator":    contentLocator,
 	"regexEscape":       regexEscape,
 	"rankedNavTargets":  rankedNavTargets,
+	// interactionLocator builds a Playwright locator for an Interaction.
+	// Falls back through testid → aria-label → role+name → tag text.
+	"interactionLocator": func(i ast.Interaction) string {
+		if i.TestID != "" {
+			return fmt.Sprintf("getByTestId('%s')", escapeJSString(i.TestID))
+		}
+		if i.Kind == "search" && i.InputType == "search" {
+			return "locator('input[type=\"search\"]')"
+		}
+		if i.Kind == "date" && i.InputType != "" {
+			return fmt.Sprintf("locator('input[type=\"%s\"]')", i.InputType)
+		}
+		if i.Kind == "dialog" {
+			return "locator('dialog')"
+		}
+		if i.Kind == "details" {
+			if i.Text != "" {
+				return fmt.Sprintf("locator('details', { has: page.locator('summary', { hasText: '%s' }) })", escapeJSString(i.Text))
+			}
+			return "locator('details').first()"
+		}
+		if i.Kind == "tab" && i.Text != "" {
+			return fmt.Sprintf("getByRole('tab', { name: /%s/i })", regexEscape(i.Text))
+		}
+		if i.Aria != "" {
+			return fmt.Sprintf("getByLabel('%s')", escapeJSString(i.Aria))
+		}
+		if i.Role != "" && i.Text != "" {
+			return fmt.Sprintf("getByRole('%s', { name: /%s/i })", i.Role, regexEscape(i.Text))
+		}
+		if i.Text != "" {
+			return fmt.Sprintf("getByText(/%s/i)", regexEscape(i.Text))
+		}
+		return "locator('button').first()"
+	},
+	// fillValueForInteraction picks a deterministic test value for a
+	// fillable interaction (search query, date, etc).
+	"fillValueForInteraction": func(i ast.Interaction) string {
+		switch i.Kind {
+		case "search":
+			return "test"
+		case "date":
+			switch i.InputType {
+			case "time":
+				return "12:00"
+			case "datetime-local":
+				return "2026-06-17T12:00"
+			}
+			return "2026-06-17"
+		}
+		return ""
+	},
 	"firstH1": func(cs []ast.ContentAnchor) ast.ContentAnchor {
 		for _, c := range cs {
 			if c.Tag == "h1" {
@@ -279,6 +331,14 @@ func contentLocator(c ast.ContentAnchor) string {
 		return fmt.Sprintf("getByRole('heading', { level: 2, name: /%s/i })", regexEscape(text))
 	}
 	return fmt.Sprintf("getByText(/%s/i)", regexEscape(text))
+}
+
+// escapeJSString conservatively escapes single quotes and backslashes so
+// the value can be embedded inside a single-quoted JS string literal.
+func escapeJSString(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "'", "\\'")
+	return s
 }
 
 // regexEscape escapes a string for embedding in a JS regex literal between

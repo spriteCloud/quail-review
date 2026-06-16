@@ -27,14 +27,15 @@ type Map struct {
 
 // Page is a single crawled URL plus everything we extracted from its HTML.
 type Page struct {
-	URL       string
-	Title     string
-	Anchors   []ast.LocatorAnchor
-	Inputs    []ast.FormInput
-	Links     []ast.LocatorAnchor
-	Contents  []ast.ContentAnchor
-	HasForm   bool
-	Tags      []string // landing | form | list | detail
+	URL          string
+	Title        string
+	Anchors      []ast.LocatorAnchor
+	Inputs       []ast.FormInput
+	Links        []ast.LocatorAnchor
+	Contents     []ast.ContentAnchor
+	Interactions []ast.Interaction
+	HasForm      bool
+	Tags         []string // landing | form | list | detail | …
 }
 
 // Fetcher abstracts plan/probe's Fetch — injected so the mindmap package
@@ -122,6 +123,7 @@ func buildPage(u string, html []byte) *Page {
 	p.Inputs = ast.DedupInputs(plan.ExtractHTMLInputs(u, html))
 	p.Links = ast.DedupLinks(plan.ExtractHTMLLinks(u, html))
 	p.Contents = plan.ExtractContentAnchors(html)
+	p.Interactions = plan.ExtractHTMLInteractions(u, html)
 	p.Title = plan.PageTitle(html)
 	p.HasForm = strings.Contains(strings.ToLower(string(html)), "<form")
 	p.Tags = tagPage(p, html)

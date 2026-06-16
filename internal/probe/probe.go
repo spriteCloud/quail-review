@@ -329,16 +329,17 @@ func symbolFromPage(p *mindmap.Page) ast.Symbol {
 		host = u.Hostname()
 	}
 	return ast.Symbol{
-		Name:      hostToName(host),
-		Kind:      ast.KindComponent,
-		File:      p.URL,
-		Language:  "ts",
-		Anchors:   p.Anchors,
-		Inputs:    p.Inputs,
-		Links:     p.Links,
-		Contents:  p.Contents,
-		PageTitle: p.Title,
-		HasForm:   p.HasForm,
+		Name:         hostToName(host),
+		Kind:         ast.KindComponent,
+		File:         p.URL,
+		Language:     "ts",
+		Anchors:      p.Anchors,
+		Inputs:       p.Inputs,
+		Links:        p.Links,
+		Contents:     p.Contents,
+		Interactions: p.Interactions,
+		PageTitle:    p.Title,
+		HasForm:      p.HasForm,
 	}
 }
 

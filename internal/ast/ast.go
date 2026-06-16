@@ -59,6 +59,10 @@ type Symbol struct {
 	PageTitle   string          // <title> contents — populated by HTML probe path
 	HasForm     bool
 	HasNavigate bool
+	// Interactions are in-page interactive components detected by the HTML
+	// extractor (search boxes, accordions, dialogs, tabs, …). The exercise
+	// journey emits one Playwright test block per Interaction.
+	Interactions []Interaction
 	// EnteredVia is the href the journey clicked to reach this page. Empty
 	// for the first symbol in a chain (the page is visited via direct goto).
 	EnteredVia string
@@ -78,6 +82,43 @@ type Symbol struct {
 type ContentAnchor struct {
 	Tag  string // "title" | "h1" | "h2" | "cta"
 	Text string // verbatim text content (trimmed)
+}
+
+// Interaction describes an in-page interactive component detected by the
+// HTML extractor. Drives the exercise journey's test emissions: click,
+// fill, expand, dismiss, etc.
+type Interaction struct {
+	// Kind classifies the shape of interaction:
+	//   "search"          — search input
+	//   "details"         — native <details>/<summary>
+	//   "collapse"        — button with aria-expanded + aria-controls
+	//   "dialog"          — <dialog> element
+	//   "tab"             — role=tab paired with a role=tabpanel
+	//   "date"            — input type=date|time|datetime-local
+	//   "data-toggle"     — Bootstrap-style data-toggle attribute
+	//   "popup"           — button with aria-haspopup
+	Kind string
+	// Toggle ("expand" | "modal" | "dropdown" | "collapse" | "tab" | "offcanvas" | "popover"):
+	// the Bootstrap toggle subtype, present only when Kind == "data-toggle".
+	Toggle string
+	// TestID, Aria, Role: preferred locator hints (highest stability first).
+	TestID string
+	Aria   string
+	Role   string
+	// Text is the visible interactive text (summary text, tab label, button
+	// label). Used as the accessible-name fallback.
+	Text string
+	// Controls is the value of aria-controls (target element id) — empty
+	// when not present.
+	Controls string
+	// InputType for the date/search interactions (e.g. "date", "time",
+	// "datetime-local", "search").
+	InputType string
+	// Name is the input's name attribute, populated for search/date.
+	Name string
+	// File / Line for diagnostic provenance.
+	File string
+	Line int
 }
 
 // FormInput describes a single form field detected in a component or page.
