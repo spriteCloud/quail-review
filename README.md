@@ -68,22 +68,61 @@ jobs:
 
 ## Environment
 
+### Core (always read)
+
 | Var | Default | Purpose |
 |---|---|---|
 | `GITHUB_TOKEN` / `REVIEWQA_GITHUB_TOKEN` | — | API auth |
 | `GITHUB_REPOSITORY` | from event | `owner/name` |
 | `REVIEWQA_PR` | from event | PR number override |
+| `REVIEWQA_BRANCH_PREFIX` | `reviewqa` | created branch prefix |
+| `REVIEWQA_WORKDIR` | `.` | repo working dir |
+| `REVIEWQA_LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
+
+### Playwright test shape (v0.3 / v0.4)
+
+| Var | Default | Purpose |
+|---|---|---|
+| `BASE_URL` (in the generated spec) | `http://localhost:3000` | URL the generated tests `goto()` against. Set this in your test workflow before running `npx playwright test`. |
+| `REVIEWQA_E2E_STYLE` | `auto` | `auto` (page-flow when ≥2 components share a page root, else per-component), `per-component` (always one spec per component), or `page-flow` (always group, even solo components). |
+| `REVIEWQA_PAGE_URLS` | — | JSON map of `{"source/path.tsx": "/route"}` for bespoke routing the conventional walker doesn't detect. Wins over framework heuristics. Invalid JSON → warning, ignored. |
+
+### Healing (Playwright locators)
+
+| Var | Default | Purpose |
+|---|---|---|
+| `REVIEWQA_HEAL_MODE` | `on-failure` | `on-failure` \| `proactive` \| `off` |
+| `REVIEWQA_PLAYWRIGHT_REPORT` | `playwright-report.json` | report path |
+
+### LLM (optional)
+
+Leaving `OPENAI_API_KEY` empty turns off the LLM entirely — you still get the full deterministic scaffold.
+
+| Var | Default | Purpose |
+|---|---|---|
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | inference endpoint |
 | `OPENAI_API_KEY` | — | inference auth; empty = no LLM |
 | `REVIEWQA_MODEL` | `gpt-4o-mini` | chat-completions model |
 | `REVIEWQA_LLM_TIMEOUT` | `20s` | per-file LLM timeout |
 | `REVIEWQA_LLM_TOKEN_CAP` | `600` | max_tokens per LLM call |
-| `REVIEWQA_HEAL_MODE` | `on-failure` | `on-failure` \| `proactive` \| `off` |
-| `REVIEWQA_PLAYWRIGHT_REPORT` | `playwright-report.json` | report path |
 | `REVIEWQA_ALLOW_DIFF_TO_LLM` | `0` | send PR diff to LLM (off by default) |
-| `REVIEWQA_BRANCH_PREFIX` | `reviewqa` | created branch prefix |
-| `REVIEWQA_WORKDIR` | `.` | repo working dir |
-| `REVIEWQA_LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
+
+### Page-root conventions detected out of the box
+
+The generator detects pages for grouping in:
+
+- **Next.js**: `pages/**/*.{tsx,jsx,ts,js}` (pages router) and `app/**/page.{tsx,jsx,ts,js}` (app router)
+- **Remix**: `app/routes/**/*.{tsx,jsx,ts,js}`
+- **SvelteKit**: `src/routes/**/+page.{svelte,ts,js}`
+- **Nuxt / Vue**: `pages/**/*.vue`, `views/**/*.vue`
+- **Astro**: `src/pages/**/*.astro`
+- **Vite + React Router**: `App.{tsx,jsx}`, `routes.{tsx,jsx}`
+- **Rails**: `app/views/**/*.{html.erb,erb,haml}`
+- **Django / Jinja**: `templates/**/*.{html,jinja,j2}`
+- **Laravel**: `resources/views/**/*.blade.php`
+- **Plain HTML / Go templates**: `**/*.{html,htm,tmpl,gohtml}`
+
+Anything else: set `REVIEWQA_PAGE_URLS`.
 
 ## AI usage rules
 

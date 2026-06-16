@@ -164,6 +164,80 @@ export function LoginForm() {
 	}
 }
 
+func TestExtractFormInputsMultiLineAttributes(t *testing.T) {
+	// Real LoginForm shape: every attribute on its own line. The fix
+	// for v0.4.x must associate the testid with the input even when
+	// data-testid lives on a line other than the <input.
+	src := []byte(`import { useState } from 'react'
+
+export function LoginForm() {
+  const [email, setEmail] = useState('')
+  return (
+    <form data-testid="login-form">
+      <input
+        type="email"
+        name="email"
+        data-testid="login-email"
+        required
+      />
+      <input
+        type="password"
+        name="password"
+        data-testid="login-password"
+        required
+      />
+      <button
+        type="submit"
+        data-testid="login-submit"
+      >
+        Sign in
+      </button>
+    </form>
+  )
+}
+`)
+	syms, _ := New().Extract("src/components/LoginForm.tsx", src)
+	var comp *ast.Symbol
+	for i := range syms {
+		if syms[i].Kind == ast.KindComponent && syms[i].Name == "LoginForm" {
+			comp = &syms[i]
+			break
+		}
+	}
+	if comp == nil {
+		t.Fatalf("missing LoginForm; syms=%+v", syms)
+	}
+	if len(comp.Inputs) != 2 {
+		t.Fatalf("expected 2 inputs, got %d: %+v", len(comp.Inputs), comp.Inputs)
+	}
+	byType := map[string]ast.FormInput{}
+	for _, in := range comp.Inputs {
+		byType[in.Type] = in
+	}
+	if email := byType["email"]; email.Name != "email" || email.TestID != "login-email" || !email.Required {
+		t.Errorf("email input not associated with multi-line attrs: %+v", email)
+	}
+	if pw := byType["password"]; pw.Name != "password" || pw.TestID != "login-password" || !pw.Required {
+		t.Errorf("password input not associated with multi-line attrs: %+v", pw)
+	}
+	// Submit button: must surface in Symbol.Anchors with Tag=="submit"
+	// AND carry its testid, so firstSubmit + locatorFor pair up to
+	// getByTestId('login-submit').click().
+	var submit *ast.LocatorAnchor
+	for i := range comp.Anchors {
+		if comp.Anchors[i].Tag == "submit" {
+			submit = &comp.Anchors[i]
+			break
+		}
+	}
+	if submit == nil {
+		t.Fatalf("no submit anchor on Symbol; anchors=%+v", comp.Anchors)
+	}
+	if submit.TestID != "login-submit" {
+		t.Errorf("submit anchor missing testid: %+v", submit)
+	}
+}
+
 func TestReactComponentMultiLineJSXTagDetection(t *testing.T) {
 	// Counter-shaped component: the button tag and the data-testid live on
 	// different lines. The extractor must associate the testid with <button>

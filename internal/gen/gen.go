@@ -191,7 +191,8 @@ func inputLocator(i ast.FormInput) string {
 }
 
 // firstSubmit returns the first submit-tagged anchor, otherwise the first
-// clickable. Single-element slice for use with {{with}} in templates.
+// button anchor. Inputs are NOT considered — they're for fills, not clicks.
+// Single-element slice for use with {{with}} in templates.
 func firstSubmit(anchors []ast.LocatorAnchor) []ast.LocatorAnchor {
 	for _, a := range anchors {
 		if a.Tag == "submit" {
@@ -199,8 +200,7 @@ func firstSubmit(anchors []ast.LocatorAnchor) []ast.LocatorAnchor {
 		}
 	}
 	for _, a := range anchors {
-		switch a.Tag {
-		case "button", "input":
+		if a.Tag == "button" {
 			return []ast.LocatorAnchor{a}
 		}
 	}

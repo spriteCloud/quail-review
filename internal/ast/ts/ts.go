@@ -251,11 +251,17 @@ func attachAnchors(s *ast.Symbol, anchors []ast.LocatorAnchor, lines []string, e
 		if a.Line < s.Line || a.Line > end {
 			continue
 		}
-		if a.Tag == "link-a" || a.Tag == "link-to" || a.Tag == "submit" {
-			continue // routed to attachLinks / firstSubmit helper
+		if a.Tag == "link-a" || a.Tag == "link-to" {
+			continue // routed to attachLinks
 		}
 		if a.Tag == "" {
 			a.Tag = openTagBefore(lines, a.Line, s.Line)
+		}
+		// Promote a button anchor to "submit" when the open-tag span
+		// (potentially multi-line) carries type="submit". This recovers
+		// the submit hint when JSX attributes are split across lines.
+		if a.Tag == "button" && submitInOpenTagOf(lines, a.Line, s.Line) {
+			a.Tag = "submit"
 		}
 		key := a.TestID + "|" + a.Role + "|" + a.Aria + "|" + a.Tag
 		if seen[key] {
@@ -264,6 +270,35 @@ func attachAnchors(s *ast.Symbol, anchors []ast.LocatorAnchor, lines []string, e
 		seen[key] = true
 		s.Anchors = append(s.Anchors, a)
 	}
+}
+
+// submitInOpenTagOf returns true when the opening `<button …>` whose body
+// contains line anchorLine carries type="submit" anywhere in its span.
+// Walks backward to find `<button`, then forward to the closing `>`.
+func submitInOpenTagOf(lines []string, anchorLine, startLine int) bool {
+	floor := startLine - 1
+	if floor < 0 {
+		floor = 0
+	}
+	open := -1
+	for i := anchorLine - 1; i >= floor; i-- {
+		if strings.Contains(lines[i], "<button") {
+			open = i
+			break
+		}
+	}
+	if open == -1 {
+		return false
+	}
+	var b strings.Builder
+	for i := open; i < len(lines) && i < open+16; i++ {
+		b.WriteString(lines[i])
+		b.WriteByte(' ')
+		if strings.Contains(lines[i], ">") {
+			break
+		}
+	}
+	return reSubmitType.MatchString(b.String())
 }
 
 func attachInputs(s *ast.Symbol, inputs []ast.FormInput, end int) {
@@ -480,14 +515,22 @@ func extractAnchors(file string, content []byte) []ast.LocatorAnchor {
 		line++
 		text := sc.Text()
 		tag := tagOnLine(text)
+		// A submit button gets its anchor Tag promoted to "submit" so the
+		// template's firstSubmit helper can locate it. Locator hints
+		// (testid/aria/role) on the same line ride along; we don't emit a
+		// separate locator-less anchor.
+		anchorTag := tag
+		if tag == "button" && reSubmitType.MatchString(text) {
+			anchorTag = "submit"
+		}
 		if m := reTestID.FindStringSubmatch(text); m != nil {
-			anchors = append(anchors, ast.LocatorAnchor{TestID: m[1], File: file, Line: line, Tag: tag})
+			anchors = append(anchors, ast.LocatorAnchor{TestID: m[1], File: file, Line: line, Tag: anchorTag})
 		}
 		if m := reAria.FindStringSubmatch(text); m != nil {
-			anchors = append(anchors, ast.LocatorAnchor{Aria: m[1], File: file, Line: line, Tag: tag})
+			anchors = append(anchors, ast.LocatorAnchor{Aria: m[1], File: file, Line: line, Tag: anchorTag})
 		}
 		if m := reRole.FindStringSubmatch(text); m != nil {
-			anchors = append(anchors, ast.LocatorAnchor{Role: m[1], File: file, Line: line, Tag: tag})
+			anchors = append(anchors, ast.LocatorAnchor{Role: m[1], File: file, Line: line, Tag: anchorTag})
 		}
 		// Same-origin link discovery: <a href="/x"> or <Link to="/x">.
 		if tag == "a" {
@@ -498,34 +541,38 @@ func extractAnchors(file string, content []byte) []ast.LocatorAnchor {
 		if m := reLinkTo.FindStringSubmatch(text); m != nil {
 			anchors = append(anchors, ast.LocatorAnchor{Aria: m[1], File: file, Line: line, Tag: "link-to"})
 		}
-		// Submit button hint: <button type="submit">.
-		if tag == "button" && reSubmitType.MatchString(text) {
+		// Locator-less submit hint: <button type="submit"> with no
+		// testid/aria/role on the same line. Fallback path; locatorFor
+		// will degrade to locator('body') but firstSubmit still finds it.
+		if anchorTag == "submit" && !hasAnyLocatorOnLine(text) {
 			anchors = append(anchors, ast.LocatorAnchor{File: file, Line: line, Tag: "submit"})
 		}
 	}
 	return anchors
 }
 
+func hasAnyLocatorOnLine(line string) bool {
+	return reTestID.MatchString(line) || reAria.MatchString(line) || reRole.MatchString(line)
+}
+
 // extractFormInputs returns the form inputs detected per file. One entry per
-// <input> / <select> / <textarea> line. Multi-line attributes are best-effort
-// — type/name/required must appear on the same line as the opening tag.
+// <input> / <select> / <textarea>. Attribute values may span multiple lines
+// (an opening tag is treated as the lines from the `<tag` line through the
+// first subsequent `>`, capped to avoid runaway).
 func extractFormInputs(file string, content []byte) []ast.FormInput {
+	lines := strings.Split(string(content), "\n")
 	var inputs []ast.FormInput
-	sc := bufio.NewScanner(bytes.NewReader(content))
-	sc.Buffer(make([]byte, 1<<20), 16<<20)
-	line := 0
-	for sc.Scan() {
-		line++
-		text := sc.Text()
-		tag := tagOnLine(text)
+	for i := 0; i < len(lines); i++ {
+		tag := tagOnLine(lines[i])
 		switch tag {
 		case "input", "select", "textarea":
 		default:
 			continue
 		}
-		fi := ast.FormInput{File: file, Line: line, Tag: tag}
+		attrs := collectOpenTagAttrs(lines, i)
+		fi := ast.FormInput{File: file, Line: i + 1, Tag: tag}
 		if tag == "input" {
-			if m := reInputType.FindStringSubmatch(text); m != nil {
+			if m := reInputType.FindStringSubmatch(attrs); m != nil {
 				fi.Type = strings.ToLower(m[1])
 			} else {
 				fi.Type = "text"
@@ -533,18 +580,33 @@ func extractFormInputs(file string, content []byte) []ast.FormInput {
 		} else {
 			fi.Type = tag
 		}
-		if m := reInputName.FindStringSubmatch(text); m != nil {
+		if m := reInputName.FindStringSubmatch(attrs); m != nil {
 			fi.Name = m[1]
 		}
-		if m := reTestID.FindStringSubmatch(text); m != nil {
+		if m := reTestID.FindStringSubmatch(attrs); m != nil {
 			fi.TestID = m[1]
 		}
-		if reInputRequired.MatchString(text) {
+		if reInputRequired.MatchString(attrs) {
 			fi.Required = true
 		}
 		inputs = append(inputs, fi)
 	}
 	return inputs
+}
+
+// collectOpenTagAttrs returns the concatenated text of an opening tag that
+// may span multiple lines. Starts at the line containing the `<tag` open,
+// reads forward until the first `>` is encountered (capped at 16 lines).
+func collectOpenTagAttrs(lines []string, startIdx int) string {
+	var b strings.Builder
+	for i := startIdx; i < len(lines) && i < startIdx+16; i++ {
+		b.WriteString(lines[i])
+		b.WriteByte(' ')
+		if strings.Contains(lines[i], ">") {
+			break
+		}
+	}
+	return b.String()
 }
 
 func KindFor(name string, hasJSX bool, file string) ast.Kind {
