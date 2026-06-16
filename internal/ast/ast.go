@@ -55,8 +55,18 @@ type Symbol struct {
 	// scenarios in the Playwright templates.
 	Inputs      []FormInput
 	Links       []LocatorAnchor // Aria field reused to carry href / to= target
+	Contents    []ContentAnchor // page-level text fallbacks (h1, title, CTA labels)
+	PageTitle   string          // <title> contents — populated by HTML probe path
 	HasForm     bool
 	HasNavigate bool
+}
+
+// ContentAnchor describes a page-level text anchor — the <title>, an <h1>,
+// or a high-signal CTA label. Used as a visibility fallback when the page
+// carries no data-testid / aria-label / role attributes.
+type ContentAnchor struct {
+	Tag  string // "title" | "h1" | "h2" | "cta"
+	Text string // verbatim text content (trimmed)
 }
 
 // FormInput describes a single form field detected in a component or page.

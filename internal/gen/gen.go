@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -44,7 +45,7 @@ func Render(items []plan.Item, workDir string) ([]Rendered, error) {
 		if err := tmpl.Execute(&buf, data); err != nil {
 			return nil, fmt.Errorf("render %s for %s: %w", it.Template, it.Symbol.Name, err)
 		}
-		content, notes := annotateQualityReport(buf.Bytes())
+		content, notes := annotateQualityReport(buf.Bytes(), it.Symbol)
 		out = append(out, Rendered{Path: it.OutPath, Content: content, Symbol: it.Symbol, QualityNotes: notes})
 		log.Debug("rendered scaffold", "template", it.Template, "symbol", it.Symbol.Name, "path", it.OutPath, "quality_notes", len(notes))
 	}
@@ -52,10 +53,12 @@ func Render(items []plan.Item, workDir string) ([]Rendered, error) {
 }
 
 // annotateQualityReport scans a rendered spec for weak-locator markers
-// (`// SKIP:` and `// note: using <...>`) and prepends a block comment
-// summarising them. Returns the (possibly modified) content + the list of
-// note strings for the caller to surface in the PR body.
-func annotateQualityReport(content []byte) ([]byte, []string) {
+// (`// SKIP:` and `// note: using <...>`) AND for the proactive signal —
+// a Symbol with real anchors/inputs but zero data-testid. Prepends a block
+// comment summarising the findings. Returns the (possibly modified)
+// content + the list of note strings for the caller to surface in the
+// PR body.
+func annotateQualityReport(content []byte, sym ast.Symbol) ([]byte, []string) {
 	var notes []string
 	for line := range strings.SplitSeq(string(content), "\n") {
 		t := strings.TrimSpace(line)
@@ -65,6 +68,12 @@ func annotateQualityReport(content []byte) ([]byte, []string) {
 		case strings.HasPrefix(t, "// note:"):
 			notes = append(notes, strings.TrimPrefix(t, "// "))
 		}
+	}
+	// Proactive: a page with real surface area (≥1 form input OR ≥3
+	// anchors) but zero data-testids never reaches a fallback — but it
+	// IS the customer's main quality problem. Surface it explicitly.
+	if len(notes) == 0 && hasTestableSurface(sym) && !anyTestID(sym) {
+		notes = append(notes, fmt.Sprintf("no data-testid attributes found on this page (%d inputs, %d anchors). Tests rely on text/role and break under copy edits.", len(sym.Inputs), len(sym.Anchors)))
 	}
 	if len(notes) == 0 {
 		return content, nil
@@ -78,6 +87,24 @@ func annotateQualityReport(content []byte) ([]byte, []string) {
 	b.WriteString(" * Add data-testid to these elements for stable tests.\n")
 	b.WriteString(" */\n")
 	return append([]byte(b.String()), content...), notes
+}
+
+func hasTestableSurface(s ast.Symbol) bool {
+	return len(s.Inputs) >= 1 || len(s.Anchors) >= 3
+}
+
+func anyTestID(s ast.Symbol) bool {
+	for _, a := range s.Anchors {
+		if a.TestID != "" {
+			return true
+		}
+	}
+	for _, i := range s.Inputs {
+		if i.TestID != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func load(t plan.Template) (*template.Template, error) {
@@ -136,8 +163,15 @@ var funcs = template.FuncMap{
 			return fmt.Sprintf("getByLabel('%s')", a.Aria)
 		case a.Role != "":
 			return fmt.Sprintf("getByRole('%s')", a.Role)
+		case a.Name != "" && a.Tag == "submit":
+			// input[type=submit] / button[type=submit] surface their visible
+			// text (value= or button body) as the accessible name; address by
+			// role+name so the locator survives styling churn.
+			return fmt.Sprintf("getByRole('button', { name: '%s' })", a.Name)
+		case a.Name != "":
+			return fmt.Sprintf("getByRole('button', { name: '%s' })", a.Name)
 		}
-		return "locator('body')"
+		return ""
 	},
 	"anchorLabel": func(a ast.LocatorAnchor) string {
 		switch {
@@ -183,6 +217,38 @@ var funcs = template.FuncMap{
 	},
 	"intentFor":         intentFor,
 	"locatorProvenance": locatorProvenance,
+	"contentLocator":    contentLocator,
+	"regexEscape":       regexEscape,
+	"rankedNavTargets":  rankedNavTargets,
+}
+
+// contentLocator builds a Playwright locator for a content-text anchor —
+// h1/h2/CTA text. Falls back to a text= matcher when the tag isn't a
+// heading. Escaping is conservative (single quotes only).
+func contentLocator(c ast.ContentAnchor) string {
+	text := strings.ReplaceAll(c.Text, "'", "\\'")
+	switch c.Tag {
+	case "h1":
+		return fmt.Sprintf("getByRole('heading', { level: 1, name: /%s/i })", regexEscape(text))
+	case "h2":
+		return fmt.Sprintf("getByRole('heading', { level: 2, name: /%s/i })", regexEscape(text))
+	}
+	return fmt.Sprintf("getByText(/%s/i)", regexEscape(text))
+}
+
+// regexEscape escapes a string for embedding in a JS regex literal between
+// slashes. Conservative — only escapes characters that could terminate the
+// regex or change its meaning.
+func regexEscape(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch r {
+		case '/', '\\', '.', '*', '+', '?', '(', ')', '[', ']', '{', '}', '|', '^', '$':
+			b.WriteByte('\\')
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // fillByType is the deterministic test-value table for form inputs.
@@ -271,15 +337,87 @@ func firstSubmit(anchors []ast.LocatorAnchor) []ast.LocatorAnchor {
 	return nil
 }
 
-// firstSameOriginLink returns the first link whose target starts with "/"
-// (relative same-origin). Single-element slice for {{with}}.
+// firstSameOriginLink returns the first ranked same-origin link.
+// Single-element slice for {{with}}. Kept for backward-compat with the
+// existing templates; new code should call rankedNavTargets directly.
 func firstSameOriginLink(links []ast.LocatorAnchor) []ast.LocatorAnchor {
-	for _, l := range links {
-		if strings.HasPrefix(l.Aria, "/") && !strings.HasPrefix(l.Aria, "//") {
-			return []ast.LocatorAnchor{l}
-		}
+	ranked := rankedNavTargets(links, 1)
+	if len(ranked) == 0 {
+		return nil
 	}
-	return nil
+	return ranked[:1]
+}
+
+// navVocabulary is the set of substrings that signal a high-signal user
+// action. Ordered roughly by intent strength. Matches are case-insensitive
+// substrings of the link's visible text.
+var navVocabulary = []string{
+	"contact", "get started", "sign up", "signup", "sign in", "log in", "login",
+	"book a demo", "request a demo", "talk to sales", "pricing",
+	"case studies", "case study", "services", "products", "features",
+	"learn more", "read more", "subscribe", "buy now", "get a quote",
+}
+
+// navAvoidPath are href substrings we deprioritise: legal/footer pages
+// that are valid but uninteresting as primary nav targets.
+var navAvoidPath = []string{
+	"privacy", "terms", "cookie", "legal", "sitemap", "rss", "feed",
+}
+
+// rankedNavTargets returns up to n same-origin links ordered by user-action
+// signal strength. Score: +3 for vocabulary text match, +1 for short href
+// (likely a top-level page), -3 for legal/footer paths, -1 for href ending
+// in a deep slug.
+func rankedNavTargets(links []ast.LocatorAnchor, n int) []ast.LocatorAnchor {
+	type scored struct {
+		anchor ast.LocatorAnchor
+		score  int
+	}
+	var all []scored
+	seenHref := map[string]bool{}
+	for _, l := range links {
+		if !strings.HasPrefix(l.Aria, "/") || strings.HasPrefix(l.Aria, "//") {
+			continue
+		}
+		if seenHref[l.Aria] {
+			continue
+		}
+		seenHref[l.Aria] = true
+		s := scored{anchor: l}
+		lowerText := strings.ToLower(l.Text)
+		for _, v := range navVocabulary {
+			if strings.Contains(lowerText, v) {
+				s.score += 3
+				break
+			}
+		}
+		lowerHref := strings.ToLower(l.Aria)
+		for _, v := range navVocabulary {
+			if strings.Contains(lowerHref, strings.ReplaceAll(v, " ", "-")) {
+				s.score += 2
+				break
+			}
+		}
+		for _, v := range navAvoidPath {
+			if strings.Contains(lowerHref, v) {
+				s.score -= 3
+			}
+		}
+		// Slightly prefer shorter (top-level) hrefs.
+		if strings.Count(l.Aria, "/") <= 1 {
+			s.score++
+		}
+		all = append(all, s)
+	}
+	sort.SliceStable(all, func(i, j int) bool { return all[i].score > all[j].score })
+	if len(all) > n {
+		all = all[:n]
+	}
+	out := make([]ast.LocatorAnchor, 0, len(all))
+	for _, s := range all {
+		out = append(out, s.anchor)
+	}
+	return out
 }
 
 // linkHref returns the link's href (stored in Aria during extraction).

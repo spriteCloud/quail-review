@@ -358,6 +358,27 @@ func ExtractHTMLAnchors(file string, content []byte) []ast.LocatorAnchor {
 		if m := rePageHTMLRole.FindStringSubmatch(line); m != nil {
 			anchors = append(anchors, ast.LocatorAnchor{Role: m[1], File: file, Line: i + 1, Tag: tag})
 		}
+		// Submit-capable element on this line — either <button type="submit">,
+		// <input type="submit">, or <input type="image">. Emit an anchor with
+		// Tag="submit" and the strongest locator we can derive (testid, then
+		// aria-label, then accessible name from value=/button-text).
+		for _, m := range reSubmitElementOpen.FindAllStringSubmatch(line, -1) {
+			attrs := m[2]
+			anchor := ast.LocatorAnchor{File: file, Line: i + 1, Tag: "submit"}
+			switch {
+			case rePageHTMLTestID.MatchString(attrs):
+				anchor.TestID = rePageHTMLTestID.FindStringSubmatch(attrs)[1]
+			case rePageHTMLAria.MatchString(attrs):
+				anchor.Aria = rePageHTMLAria.FindStringSubmatch(attrs)[1]
+			case reInputValue.MatchString(attrs):
+				anchor.Name = reInputValue.FindStringSubmatch(attrs)[1]
+			default:
+				if btx := reButtonText.FindStringSubmatch(line); btx != nil {
+					anchor.Name = strings.TrimSpace(btx[1])
+				}
+			}
+			anchors = append(anchors, anchor)
+		}
 	}
 	return anchors
 }
@@ -369,6 +390,20 @@ var reFormElementOpen = regexp.MustCompile(`<\s*(input|select|textarea)\b([^>]*)
 
 // reLinkOpen matches `<a href="X">` (or hrefless). Allows multiple links per line.
 var reLinkOpen = regexp.MustCompile(`<\s*a\s+([^>]*)>`)
+
+// reSubmitElementOpen matches the opening of a submit-capable element —
+// either a <button type="submit"> or an <input type="submit"> / <input
+// type="image">. Captures the tag and attributes so the caller can read
+// `value=`, `data-testid=`, etc.
+var reSubmitElementOpen = regexp.MustCompile(`<\s*(button|input)\b([^>]*type\s*=\s*['"](?:submit|image)['"][^>]*)>`)
+
+// reInputValue captures the `value="..."` attribute on a submit input — used
+// as the button's accessible name (input[type=submit] has implicit role=button
+// with `name` set from `value`).
+var reInputValue = regexp.MustCompile(`value\s*=\s*['"]([^'"]+)['"]`)
+
+// reButtonText captures the text content of a single-line <button>...</button>.
+var reButtonText = regexp.MustCompile(`<\s*button\b[^>]*>([^<]+)</\s*button\s*>`)
 
 // ExtractHTMLInputs collects form fields from a page's markup. Type/name/
 // required must appear inside the opening tag of the input. Placeholder and
@@ -427,7 +462,8 @@ func collectHTMLLabelFor(content []byte) map[string]string {
 }
 
 // ExtractHTMLLinks collects same-origin hrefs found inside <a> tags. Allows
-// multiple links per line.
+// multiple links per line. Captures the visible anchor text when present
+// on the same line — used by the nav-target ranker.
 func ExtractHTMLLinks(file string, content []byte) []ast.LocatorAnchor {
 	var out []ast.LocatorAnchor
 	lines := strings.Split(string(content), "\n")
@@ -438,7 +474,11 @@ func ExtractHTMLLinks(file string, content []byte) []ast.LocatorAnchor {
 			if h == nil {
 				continue
 			}
-			out = append(out, ast.LocatorAnchor{Aria: h[1], File: file, Line: i + 1, Tag: "link-a"})
+			anchor := ast.LocatorAnchor{Aria: h[1], File: file, Line: i + 1, Tag: "link-a"}
+			if txt := reAnchorText.FindStringSubmatch(line); txt != nil {
+				anchor.Text = strings.TrimSpace(txt[1])
+			}
+			out = append(out, anchor)
 		}
 	}
 	return out

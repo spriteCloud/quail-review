@@ -514,6 +514,87 @@ func TestRender_NavIntent_NoFillNoSubmit(t *testing.T) {
 	}
 }
 
+func TestRankedNavTargets_PrefersVocabularyMatches(t *testing.T) {
+	links := []ast.LocatorAnchor{
+		{Aria: "/privacy-policy", Text: "Privacy", Tag: "link-a"},
+		{Aria: "/contact", Text: "Contact us", Tag: "link-a"},
+		{Aria: "/blog/some-post", Text: "Some Post", Tag: "link-a"},
+		{Aria: "/case-studies", Text: "Case studies", Tag: "link-a"},
+	}
+	got := rankedNavTargets(links, 2)
+	if len(got) != 2 {
+		t.Fatalf("expected 2, got %d", len(got))
+	}
+	// /contact and /case-studies should be in the top 2 (vocabulary match + short href)
+	hrefs := []string{got[0].Aria, got[1].Aria}
+	want := map[string]bool{"/contact": true, "/case-studies": true}
+	for _, h := range hrefs {
+		if !want[h] {
+			t.Errorf("unexpected top pick %q; wanted /contact + /case-studies, got %v", h, hrefs)
+		}
+	}
+	for _, h := range hrefs {
+		if h == "/privacy-policy" {
+			t.Errorf("/privacy-policy should be deprioritised")
+		}
+	}
+}
+
+func TestRankedNavTargets_FallsBackOnSourceOrder(t *testing.T) {
+	// No vocabulary matches at all — picker still returns something stable.
+	links := []ast.LocatorAnchor{
+		{Aria: "/foo", Tag: "link-a"},
+		{Aria: "/bar", Tag: "link-a"},
+	}
+	got := rankedNavTargets(links, 1)
+	if len(got) != 1 {
+		t.Fatalf("expected 1, got %d", len(got))
+	}
+}
+
+func TestContentLocator(t *testing.T) {
+	cases := []struct {
+		in   ast.ContentAnchor
+		want string
+	}{
+		{ast.ContentAnchor{Tag: "h1", Text: "Test your software"}, "getByRole('heading', { level: 1, name: /Test your software/i })"},
+		{ast.ContentAnchor{Tag: "cta", Text: "Get started"}, "getByText(/Get started/i)"},
+	}
+	for _, tc := range cases {
+		if got := contentLocator(tc.in); got != tc.want {
+			t.Errorf("contentLocator(%+v) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestRender_QualityReport_ProactiveOnTestidlessPage(t *testing.T) {
+	// Symbol has substantial signal (one input + many anchors) but ZERO
+	// testid on anything. Proactive report should fire even though no
+	// fallback was triggered during render.
+	sym := ast.Symbol{
+		Kind: ast.KindComponent, Name: "Marketing",
+		File: "marketing.html", Language: "ts",
+		Anchors: []ast.LocatorAnchor{
+			{Role: "banner", Tag: "header"},
+			{Role: "navigation", Tag: "nav"},
+			{Role: "contentinfo", Tag: "footer"},
+		},
+		Inputs: []ast.FormInput{{Name: "email", Type: "email", Required: true}},
+	}
+	items := []plan.Item{{
+		Symbol:   sym,
+		Symbols:  []ast.Symbol{sym},
+		PageURL:  "/",
+		Template: plan.TmplPlaywrightHappyFlow,
+		OutPath:  "tests/e2e/Marketing.spec.ts",
+	}}
+	out, _ := Render(items, ".")
+	body := string(out[0].Content)
+	if !strings.Contains(body, "no data-testid attributes found") {
+		t.Errorf("proactive quality report missing:\n%s", body)
+	}
+}
+
 func TestRenderPlaywrightE2E_OnSubmitValidation(t *testing.T) {
 	sym := ast.Symbol{
 		Kind: ast.KindComponent, Name: "LoginForm",

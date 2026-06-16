@@ -149,19 +149,23 @@ func BuildItem(target string, html []byte) (plan.Item, error) {
 	anchors := ast.DedupAnchors(plan.ExtractHTMLAnchors(target, html))
 	inputs := ast.DedupInputs(plan.ExtractHTMLInputs(target, html))
 	links := ast.DedupLinks(plan.ExtractHTMLLinks(target, html))
+	contents := plan.ExtractContentAnchors(html)
+	pageTitle := plan.PageTitle(html)
 	hasForm := strings.Contains(strings.ToLower(string(html)), "<form")
 
 	name := hostToName(u.Hostname())
 	stem := outPathStem(u)
 	symbol := ast.Symbol{
-		Name:     name,
-		Kind:     ast.KindComponent,
-		File:     target,
-		Language: "ts",
-		Anchors:  anchors,
-		Inputs:   inputs,
-		Links:    links,
-		HasForm:  hasForm,
+		Name:      name,
+		Kind:      ast.KindComponent,
+		File:      target,
+		Language:  "ts",
+		Anchors:   anchors,
+		Inputs:    inputs,
+		Links:     links,
+		Contents:  contents,
+		PageTitle: pageTitle,
+		HasForm:   hasForm,
 	}
 	return plan.Item{
 		Symbol:   symbol,
@@ -206,15 +210,19 @@ func outPathStem(u *url.URL) string {
 
 // RunAll fetches every URL and returns the synthesised Items. Errors per
 // URL are returned alongside successes — caller decides whether to fail
-// or warn.
+// or warn. When a URL's intent is `nav`, the top-ranked same-origin link
+// is also probed; bounded to keep total items ≤ 4 per invocation.
 func RunAll(ctx context.Context, urls []string) ([]plan.Item, []error) {
+	const maxItems = 4
 	var items []plan.Item
 	var errs []error
+	visited := map[string]bool{}
 	for _, raw := range urls {
 		u := strings.TrimSpace(raw)
-		if u == "" {
+		if u == "" || visited[u] {
 			continue
 		}
+		visited[u] = true
 		res, err := Fetch(ctx, u)
 		if err != nil {
 			errs = append(errs, err)
@@ -226,6 +234,113 @@ func RunAll(ctx context.Context, urls []string) ([]plan.Item, []error) {
 			continue
 		}
 		items = append(items, item)
+		if len(items) >= maxItems {
+			break
+		}
+		// Chain ONE additional probe: follow the top same-origin link.
+		// Bounded — no recursion, max 2 probes per source URL.
+		if next := topNavTarget(item, res.URL); next != "" && !visited[next] {
+			visited[next] = true
+			nextRes, err := Fetch(ctx, next)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("chained probe of %s: %w", next, err))
+				continue
+			}
+			nextItem, err := BuildItem(nextRes.URL, nextRes.Body)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			items = append(items, nextItem)
+			if len(items) >= maxItems {
+				break
+			}
+		}
 	}
 	return items, errs
+}
+
+// topNavTarget returns the absolute URL of the highest-scoring same-origin
+// link on the page — same heuristic the template uses for nav-intent specs,
+// inlined here so the probe layer doesn't depend on gen. Returns empty when
+// no link qualifies.
+func topNavTarget(item plan.Item, sourceURL string) string {
+	if len(item.Symbol.Links) == 0 {
+		return ""
+	}
+	base, err := url.Parse(sourceURL)
+	if err != nil {
+		return ""
+	}
+	bestHref := pickBestLink(item.Symbol.Links)
+	if bestHref == "" {
+		return ""
+	}
+	abs := *base
+	abs.Path = bestHref
+	abs.RawQuery = ""
+	abs.Fragment = ""
+	return abs.String()
+}
+
+func pickBestLink(links []ast.LocatorAnchor) string {
+	var bestHref string
+	bestScore := 0
+	for _, l := range links {
+		if !sameOriginPath(l.Aria) {
+			continue
+		}
+		if s := scoreLink(l); s > bestScore {
+			bestScore = s
+			bestHref = l.Aria
+		}
+	}
+	return bestHref
+}
+
+func sameOriginPath(href string) bool {
+	return strings.HasPrefix(href, "/") && !strings.HasPrefix(href, "//")
+}
+
+func scoreLink(l ast.LocatorAnchor) int {
+	score := 0
+	if containsAny(strings.ToLower(l.Text), navHints) {
+		score += 3
+	}
+	if containsAnyDashed(strings.ToLower(l.Aria), navHints) {
+		score += 2
+	}
+	if containsAny(strings.ToLower(l.Aria), avoidHints) {
+		score -= 3
+	}
+	if strings.Count(l.Aria, "/") <= 1 {
+		score++
+	}
+	return score
+}
+
+func containsAny(s string, hints []string) bool {
+	for _, h := range hints {
+		if strings.Contains(s, h) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsAnyDashed(s string, hints []string) bool {
+	for _, h := range hints {
+		if strings.Contains(s, strings.ReplaceAll(h, " ", "-")) {
+			return true
+		}
+	}
+	return false
+}
+
+var navHints = []string{
+	"contact", "pricing", "case studies", "case study", "services", "products",
+	"features", "learn more", "book a demo", "get started", "sign up",
+}
+var avoidHints = []string{
+	"privacy", "terms", "cookie", "legal", "sitemap",
 }

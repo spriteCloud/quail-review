@@ -15,10 +15,20 @@ test.describe('{{.Symbol.Name}} page happy flow', () => {
 {{- range $s := .Symbols }}
 {{- $intent := intentFor $s }}
     // --- {{$s.Name}} (intent: {{$intent}}) ---
+{{- if $s.PageTitle }}
+    await expect(page).toHaveTitle(/{{regexEscape $s.PageTitle}}/i)
+{{- end }}
 {{- range $a := $s.Anchors }}
 {{- $loc := locatorFor $a }}
 {{- if $loc }}
     await expect(page.{{$loc}}.first()).toBeVisible()
+{{- end }}
+{{- end }}
+{{- if not $s.Anchors }}
+{{- range $c := $s.Contents }}
+{{- if or (eq $c.Tag "h1") (eq $c.Tag "h2") (eq $c.Tag "cta") }}
+    await expect(page.{{contentLocator $c}}.first()).toBeVisible()
+{{- end }}
 {{- end }}
 {{- end }}
 {{- if eq $intent "form" }}
@@ -49,12 +59,13 @@ test.describe('{{.Symbol.Name}} page happy flow', () => {
     await expect(page.locator('text=/error|failed/i')).toHaveCount(0)
 {{- end }}
 {{- if eq $intent "nav" }}
-{{- with firstSameOriginLink $s.Links }}{{ $l := index . 0 }}
-    // Navigate via first same-origin link.
+{{- range $l := rankedNavTargets $s.Links 2 }}
+    // Navigate via ranked link {{linkHref $l}} ({{or $l.Text "no text"}})
     {
       const link = page.locator('a[href="{{linkHref $l}}"], [href="{{linkHref $l}}"]').first()
       await link.click()
       await expect(page).toHaveURL(new RegExp('{{linkHref $l}}$'))
+      await page.goto(TARGET)
     }
 {{- end }}
 {{- end }}

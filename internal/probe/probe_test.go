@@ -112,6 +112,76 @@ func TestBuildItem_DedupsRepeatedAnchors(t *testing.T) {
 	}
 }
 
+func TestBuildItem_SpritecloudShape_FormIntent(t *testing.T) {
+	// The actual shape of spritecloud.com's hero form. v0.6.x got this
+	// wrong (classified as nav). After Fix 1 it must be form intent.
+	html := []byte(`<!doctype html><html><head><title>spriteCloud — Test</title></head><body>
+<header role="banner">x</header>
+<h1>Test your software, not your reputation!</h1>
+<form>
+  <input type="email" name="email-2" placeholder="Your email address" required />
+  <input type="submit" value="Submit" />
+</form>
+<a href="/contact">Contact us</a>
+<a href="/case-studies">Case studies</a>
+</body></html>`)
+	item, err := BuildItem("https://www.spritecloud.com/", html)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Submit anchor with the input[type=submit] should be present with Tag=submit.
+	hasSubmit := false
+	for _, a := range item.Symbol.Anchors {
+		if a.Tag == "submit" {
+			hasSubmit = true
+		}
+	}
+	if !hasSubmit {
+		t.Fatalf("expected a submit anchor; got %+v", item.Symbol.Anchors)
+	}
+	// PageTitle captured.
+	if !strings.Contains(item.Symbol.PageTitle, "spriteCloud") {
+		t.Errorf("PageTitle = %q", item.Symbol.PageTitle)
+	}
+	// Content anchors include the h1.
+	hasH1 := false
+	for _, c := range item.Symbol.Contents {
+		if c.Tag == "h1" && strings.Contains(c.Text, "Test your software") {
+			hasH1 = true
+		}
+	}
+	if !hasH1 {
+		t.Errorf("expected h1 content anchor; got %+v", item.Symbol.Contents)
+	}
+}
+
+func TestRunAll_MultiStepProbe(t *testing.T) {
+	t.Setenv("REVIEWQA_PROBE_ALLOW_LOOPBACK", "1")
+	// Two-page site: '/' has a nav link to '/about'; both pages return
+	// distinct markup. RunAll should produce 2 items.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`<html><body><h1>Home</h1><a href="/contact">Contact us</a></body></html>`))
+	})
+	mux.HandleFunc("/contact", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`<html><body><h1>Contact</h1></body></html>`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	items, errs := RunAll(context.Background(), []string{srv.URL + "/"})
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %+v", errs)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items (source + chained), got %d", len(items))
+	}
+}
+
 func TestRunAll_AggregatesErrors(t *testing.T) {
 	t.Setenv("REVIEWQA_PROBE_ALLOW_LOOPBACK", "1")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

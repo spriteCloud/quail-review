@@ -54,6 +54,7 @@ var (
 	reHref             = regexp.MustCompile(`href\s*=\s*['"]([^'"]+)['"]`)
 	reLinkTo           = regexp.MustCompile(`(?:^|\s)to\s*=\s*['"]([^'"]+)['"]`)
 	reSubmitType       = regexp.MustCompile(`type\s*=\s*['"]submit['"]`)
+	reInputImageType   = regexp.MustCompile(`type\s*=\s*['"]image['"]`)
 )
 
 func (extractor) Extract(file string, content []byte) ([]ast.Symbol, []ast.LocatorAnchor) {
@@ -523,7 +524,12 @@ func extractAnchors(file string, content []byte) []ast.LocatorAnchor {
 		// (testid/aria/role) on the same line ride along; we don't emit a
 		// separate locator-less anchor.
 		anchorTag := tag
-		if tag == "button" && reSubmitType.MatchString(text) {
+		// <button type="submit"> and <input type="submit"> / <input type="image">
+		// both behave as form submitters; mark either as Tag="submit".
+		if (tag == "button" || tag == "input") && reSubmitType.MatchString(text) {
+			anchorTag = "submit"
+		}
+		if tag == "input" && reInputImageType.MatchString(text) {
 			anchorTag = "submit"
 		}
 		if m := reTestID.FindStringSubmatch(text); m != nil {
