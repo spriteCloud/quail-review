@@ -243,3 +243,8 @@ func contains(ts []string, t string) bool {
 	}
 	return false
 }
+func TestCrawl(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		Crawl(nil, "", nil, nil)
+	})
+}
