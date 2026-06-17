@@ -16,9 +16,9 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — API contract: POST to https://www.spritecloud.com', () => {
+test.describe('WwwSpritecloudCom — API contract @ https://www.spritecloud.com', () => {
 
-  test('Happy path: valid form data gets 2xx response', async ({ request }) => {
+  test('@kind:api @smoke happy path: realistic form body returns 2xx', async ({ request }) => {
     const response = await request.get('https://www.spritecloud.com', {
       form: {
         'email-2': 'test@example.com',
@@ -29,7 +29,7 @@ test.describe('WwwSpritecloudCom — API contract: POST to https://www.spriteclo
     expect(response.status()).toBeLessThan(400)
   })
 
-  test('Missing required fields returns 4xx error', async ({ request }) => {
+  test('@kind:api @negative missing required fields returns 4xx', async ({ request }) => {
     const response = await request.get('https://www.spritecloud.com', {
       form: {},
     })
@@ -39,7 +39,7 @@ test.describe('WwwSpritecloudCom — API contract: POST to https://www.spriteclo
     expect(response.status()).toBeLessThan(500)
   })
 
-  test('Invalid email format returns 4xx or validation error', async ({ request }) => {
+  test('@kind:api @negative malformed email returns 4xx', async ({ request }) => {
     const response = await request.get('https://www.spritecloud.com', {
       form: {
         'email-2': 'not-an-email',
@@ -56,7 +56,7 @@ test.describe('WwwSpritecloudCom — API contract: POST to https://www.spriteclo
     }
   })
 
-  test('Oversized payload does not cause server error (5xx)', async ({ request }) => {
+  test('@kind:api @negative oversized payload does not cause 5xx', async ({ request }) => {
     const huge = 'a'.repeat(50_000)
     const response = await request.get('https://www.spritecloud.com', {
       form: {

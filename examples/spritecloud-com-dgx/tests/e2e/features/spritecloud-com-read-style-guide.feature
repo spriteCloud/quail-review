@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — read journey
   So that the page delivers on its user goal
 
   @journey:read @priority:nice-to-have @smoke
-  Scenario: read journey completes on the style guide page
+  Scenario: read journey reaches its destination page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,39 +26,13 @@ Feature: WwwSpritecloudCom — read journey
     And the page title contains "Style Guide - Healix Webflow website HTML template"
 
   @journey:read @priority:nice-to-have @kind:resume
-  Scenario: read — deep-linking to the style guide page shows content correctly
+  Scenario: read — deep-link to the destination page renders correctly
     Given I open the page "/style-guide"
     Then I see the heading "Aa"
 
   @journey:read @priority:nice-to-have @kind:back-button
-  Scenario: read — using the back button after navigation returns to the landing page
+  Scenario: read — back button returns to landing page after navigation
     Given I open the landing page
     When I click the link to "/style-guide"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
-
-  # ───────────────────────────────────────────────────────────────
-  # LLM-composed scenarios (model: qwen3-coder-next:latest)
-  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
-  # ───────────────────────────────────────────────────────────────
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: navigate to the contact page from the landing page
-    Given I am on the landing page
-    When I click the link to "/contact"
-    Then the URL contains "/contact"
-    Then the main heading reads "Contact Us"
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: verify at least six service links are present
-    Given I am on the landing page
-    Then the page has at least 6 items
-    Then I see the heading "Functional Testing"
-    Then I see the heading "Performance Testing"
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: interact with the first form field
-    Given I am on the landing page
-    When I focus the "Name" field
-    Then no error message is shown in the form region
-    Then no success message is shown

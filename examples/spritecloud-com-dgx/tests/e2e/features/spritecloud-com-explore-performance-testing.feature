@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — explore journey
   So that the page delivers on its user goal
 
   @journey:explore @priority:nice-to-have @smoke
-  Scenario: navigating to performance testing shows the expected page
+  Scenario: navigating to performance testing shows the expected terminal page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,29 +26,13 @@ Feature: WwwSpritecloudCom — explore journey
     And the page title contains "spriteCloud - Performance Testing"
 
   @journey:explore @priority:nice-to-have @kind:resume
-  Scenario: directly visiting performance testing page works
+  Scenario: directly visiting performance testing page displays correctly
     Given I open the page "/performance-testing"
     Then I see the heading "Your Software Put Through its Paces."
 
   @journey:explore @priority:nice-to-have @kind:back-button
-  Scenario: using back button from performance testing returns to home
+  Scenario: using the back button after navigation returns to the homepage
     Given I open the landing page
     When I click the link to "/performance-testing"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
-
-  # ───────────────────────────────────────────────────────────────
-  # LLM-composed scenarios (model: qwen3-coder-next:latest)
-  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
-  # ───────────────────────────────────────────────────────────────
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: landing page displays the main heading
-    Given I open the landing page
-    Then the main heading reads "Test your software, not your reputation."
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: scrolling to page bottom shows expected content
-    Given I am on the landing page
-    When I scroll to the bottom of the page
-    Then the page has at least 5 items

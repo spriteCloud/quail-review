@@ -11,28 +11,28 @@
 #   npx playwright test --grep @journey:explore
 #   npx playwright test --grep @smoke
 
-Feature: Spritecloud website — explore flow
+Feature: WwwSpritecloudCom — explore journey
   As a visitor of https://www.spritecloud.com
   I want to complete the explore flow
   So that the page delivers on its user goal
 
   @journey:explore @priority:nice-to-have @smoke
-  Scenario: User completes the explore journey and lands on contact page
-    Given I open the landing page
+  Scenario: explore journey reaches its destination page
+    Given I open the homepage
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
-    When I click the link to "/contact"
+    When I click the link to the contact page
     Then I see the heading "Let's Chat"
     And the page title contains "spriteCloud — Meeting Booking Form"
 
   @journey:explore @priority:nice-to-have @kind:resume
-  Scenario: Direct link to contact page loads successfully
-    Given I open the page "/contact"
+  Scenario: explore — deep-linking to the destination page renders correctly
+    Given I navigate directly to the contact page
     Then I see the heading "Let's Chat"
 
   @journey:explore @priority:nice-to-have @kind:back-button
-  Scenario: Browser back button returns user to landing page
-    Given I open the landing page
-    When I click the link to "/contact"
-    When I go back in the browser history
+  Scenario: explore — using browser back button returns to the landing page
+    Given I open the homepage
+    When I click the link to the contact page
+    When I go back in browser history
     Then the main heading reads "Test your software, not your reputation."

@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — research journey
   So that the page delivers on its user goal
 
   @journey:research @priority:standard @smoke
-  Scenario: Research journey completes on the case study page
+  Scenario: Research Journey Ends on Correct Page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,12 +26,12 @@ Feature: WwwSpritecloudCom — research journey
     And the page title contains "Case Study - eCommerce Platform"
 
   @journey:research @priority:standard @kind:resume
-  Scenario: Direct link to case study page loads properly
+  Scenario: Direct URL to Research Page Loads Correctly
     Given I open the page "/case-study-ecomm-platform"
     Then I see the heading "Performance Testing for an eCommerce Platform"
 
   @journey:research @priority:standard @kind:back-button
-  Scenario: Using the back button returns to the homepage
+  Scenario: Back Button Returns to Landing Page
     Given I open the landing page
     When I click the link to "/case-study-ecomm-platform"
     When I go back in the browser history
@@ -43,22 +43,20 @@ Feature: WwwSpritecloudCom — research journey
   # ───────────────────────────────────────────────────────────────
 
   @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Visiting case studies from the homepage works
+  Scenario: Main Navigation Links Appear
     Given I open the landing page
-    When I click the link to "/case-studies"
-    Then the page title contains "Case Studies"
-    Then I see the heading "Case Studies"
+    Then I see the heading "Test your software, not your reputation."
+    Then the page has at least 10 items
 
   @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Navigating to the blog page displays articles
-    Given I am on the landing page
-    When I click the link to "/blog"
-    Then the page title contains "Blog"
-    Then the page has at least 1 items
-
-  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Visiting the contact page succeeds
+  Scenario: Contact Page Accessible via Header Link
     Given I open the landing page
     When I click the link to "/contact"
     Then the URL contains "/contact"
-    Then the main heading reads "Contact Us"
+
+  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Empty Form Submission Shows No Errors
+    Given I open the landing page
+    Then no error message is shown in the form region
+    When I submit the form without filling any required field
+    Then no success message is shown

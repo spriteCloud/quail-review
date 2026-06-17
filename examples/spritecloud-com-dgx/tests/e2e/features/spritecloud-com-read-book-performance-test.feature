@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — read journey
   So that the page delivers on its user goal
 
   @journey:read @priority:nice-to-have @smoke
-  Scenario: read journey ends on the correct page
+  Scenario: Visit the terminal page directly and verify correct rendering
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,12 +26,12 @@ Feature: WwwSpritecloudCom — read journey
     And the page title contains "Book - Performance Test"
 
   @journey:read @priority:nice-to-have @kind:resume
-  Scenario: read — deep-link to the terminal page loads properly
+  Scenario: Directly open the terminal page URL and confirm it loads properly
     Given I open the page "/book-performance-test"
     Then I see the heading "Performance Test"
 
   @journey:read @priority:nice-to-have @kind:back-button
-  Scenario: read — using the back button after navigation returns to the landing page
+  Scenario: Navigate to the terminal page, then use browser back to confirm return to landing
     Given I open the landing page
     When I click the link to "/book-performance-test"
     When I go back in the browser history
@@ -43,7 +43,15 @@ Feature: WwwSpritecloudCom — read journey
   # ───────────────────────────────────────────────────────────────
 
   @journey:read @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: scroll to bottom and confirm footer shows expected content
-    Given I am on the homepage
+  Scenario: Scroll to the test automation section and verify it contains at least one item
+    Given I am on the landing page
     When I scroll to the bottom of the page
-    Then I see the heading "Test your software, not your reputation."
+    Then the page has at least 1 items
+
+  @journey:read @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Open and close the navigation menu without errors
+    Given I am on the landing page
+    When I open the menu
+    Then no error message is shown in the form region
+    When I close the menu
+    Then I remain on the same page

@@ -12,13 +12,13 @@ import { test, expect } from '@playwright/test'
 const SLO_MS = Number(process.env.PERF_SLO_MS ?? 3000)
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Spritecloud cybersecurity page loads under performance SLO', () => {
-  test(`loads under ${SLO_MS}ms (performance smoke test)`, async ({ page }) => {
+test.describe('WwwSpritecloudCom — performance @ https://www.spritecloud.com/cybersecurity', () => {
+  test(`@kind:perf @smoke loads under ${SLO_MS}ms`, async ({ page }) => {
     const start = Date.now()
     await page.goto('/cybersecurity', { waitUntil: 'load' })
     const elapsed = Date.now() - start
-    console.log(`Page loaded in ${elapsed}ms (SLO: ${SLO_MS}ms)`)
-    expect.soft(elapsed, `Load time ${elapsed}ms exceeds SLO of ${SLO_MS}ms`).toBeLessThan(SLO_MS)
+    console.log(`load time: ${elapsed}ms (SLO ${SLO_MS}ms)`)
+    expect.soft(elapsed, `load took ${elapsed}ms — over SLO ${SLO_MS}ms`).toBeLessThan(SLO_MS)
     // Hard fail at 2x SLO so a deeply broken site still surfaces.
     expect(elapsed).toBeLessThan(SLO_MS * 2)
   })

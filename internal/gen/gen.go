@@ -640,6 +640,13 @@ var funcs = template.FuncMap{
 	"oversizedValueFor": func(i ast.FormInput) string {
 		return strings.Repeat("a", 5000)
 	},
+	// paramRowsFor returns 0-3 deterministic valid-value rows for a
+	// text-like input, used to drive Scenario Outline `Examples:`
+	// tables. Empty slice when the input shape doesn't support
+	// parameterized sweeps (e.g. checkbox, select).
+	"paramRowsFor": paramRowsFor,
+	"paramRowVariant": func(r paramRow) string { return r.Variant },
+	"paramRowValue":   func(r paramRow) string { return r.Value },
 	// pageIsListLike reports whether the symbol's tags / content
 	// suggest a list / search shape that warrants an empty-state test.
 	"pageIsListLike": func(s ast.Symbol) bool {
@@ -970,6 +977,59 @@ func firstOversizableInput(inputs []ast.FormInput) []ast.FormInput {
 	for _, i := range inputs {
 		if i.Type == "text" || i.Type == "email" || i.Type == "url" || i.Type == "tel" {
 			return []ast.FormInput{i}
+		}
+	}
+	return nil
+}
+
+// paramRow is one row of a Scenario Outline `Examples:` table for the
+// v0.37 parameterized form scenarios.
+type paramRow struct {
+	Variant string
+	Value   string
+}
+
+// paramRowsFor returns up to 3 deterministic valid-value rows for a
+// text-like input. The row table is intentionally short — Gherkin
+// Examples blocks bloat .feature files fast, and three rows already
+// surface 90% of the variation a typical input mishandles.
+func paramRowsFor(i ast.FormInput) []paramRow {
+	switch i.Type {
+	case "email":
+		return []paramRow{
+			{"typical", "jane@example.com"},
+			{"plus-alias", "jane+alias@example.com"},
+			{"subdomain", "user@mail.example.co.uk"},
+		}
+	case "password":
+		return []paramRow{
+			{"min-len", "Pass1234"},
+			{"with-symbols", "Pa$$w0rd!"},
+			{"long-passphrase", "correct-horse-battery-staple-1"},
+		}
+	case "tel":
+		return []paramRow{
+			{"us-e164", "+15551234567"},
+			{"uk-e164", "+442012345678"},
+			{"br-mobile", "+5511987654321"},
+		}
+	case "url":
+		return []paramRow{
+			{"https", "https://example.com"},
+			{"with-path", "https://example.com/docs/getting-started"},
+			{"with-query", "https://example.com/search?q=test"},
+		}
+	case "number":
+		return []paramRow{
+			{"zero", "0"},
+			{"typical", "42"},
+			{"large", "1000000"},
+		}
+	case "text", "search", "textarea":
+		return []paramRow{
+			{"short", "sample"},
+			{"with-spaces", "sample text with spaces"},
+			{"unicode", "café-niño-ümlaut"},
 		}
 	}
 	return nil

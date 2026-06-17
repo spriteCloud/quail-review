@@ -17,15 +17,15 @@ const VIEWPORTS = [
 ] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('spritecloud.com/cybersecurity — responsive smoke test', () => {
+test.describe('WwwSpritecloudCom — responsive smoke test for cybersecurity page', () => {
   for (const vp of VIEWPORTS) {
-    test(`@kind:responsive @smoke renders at ${vp.name} (${vp.width}×${vp.height})`, async ({ page }) => {
+    test(`renders on ${vp.name} viewport (${vp.width}x${vp.height})`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height })
       await page.goto('/cybersecurity')
       await expect(page.locator('h1').first()).toBeVisible()
       // Hard-fail signals: no body content rendered, document overflow.
       const bodyHasText = await page.evaluate(() => (document.body.innerText || '').trim().length > 0)
-      expect(bodyHasText, 'body should contain visible text at this viewport').toBe(true)
+      expect(bodyHasText, 'body should have text at this viewport').toBe(true)
     })
   }
 })

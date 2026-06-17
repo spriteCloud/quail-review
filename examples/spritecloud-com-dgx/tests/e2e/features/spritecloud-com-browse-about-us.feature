@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — browse journey
   So that the page delivers on its user goal
 
   @journey:browse @priority:standard @smoke
-  Scenario: User can navigate through the browse journey to its final page
+  Scenario: user completes the browse flow and lands on the about page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -28,12 +28,12 @@ Feature: WwwSpritecloudCom — browse journey
     And the page title contains "About Us"
 
   @journey:browse @priority:standard @kind:resume
-  Scenario: Direct navigation to the about-us page loads successfully
+  Scenario: deep-link to the about page loads correctly
     Given I open the page "/about-us"
     Then I see the heading "Testing is in our DNA."
 
   @journey:browse @priority:standard @kind:back-button
-  Scenario: Using browser back button returns user to the landing page
+  Scenario: browser back button returns user to the landing page
     Given I open the landing page
     When I click the link to "/about-us"
     When I go back in the browser history
@@ -45,19 +45,20 @@ Feature: WwwSpritecloudCom — browse journey
   # ───────────────────────────────────────────────────────────────
 
   @journey:browse @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: User can open the contact page via the header navigation
-    Given I am on the landing page
-    When I click the link to "/contact"
-    Then the URL contains "/contact"
-
-  @journey:browse @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Scrolling to the bottom of the landing page displays correct content
+  Scenario: user scrolls to view all top navigation links
     Given I am on the landing page
     When I scroll to the bottom of the page
+    Then the page has at least 10 items
+
+  @journey:browse @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: user opens the navigation menu
+    Given I am on the landing page
+    When I open the menu
     Then the main heading reads "Test your software, not your reputation."
 
   @journey:browse @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Opening the navigation menu shows expected number of items
+  Scenario: user closes the navigation menu
     Given I am on the landing page
     When I open the menu
-    Then the page has at least 10 items
+    And I close the menu
+    Then no error message is shown in the form region

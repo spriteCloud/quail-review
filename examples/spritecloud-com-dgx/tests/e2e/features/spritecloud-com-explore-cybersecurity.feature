@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — explore journey
   So that the page delivers on its user goal
 
   @journey:explore @priority:nice-to-have @smoke
-  Scenario: explore journey ends on the expected cybersecurity page
+  Scenario: The explore journey successfully reaches its final page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,12 +26,12 @@ Feature: WwwSpritecloudCom — explore journey
     And the page title contains "spriteCloud - Penetration Testing"
 
   @journey:explore @priority:nice-to-have @kind:resume
-  Scenario: deep-link to the cybersecurity page loads correctly
+  Scenario: Deep-linking directly to the cybersecurity page displays it correctly
     Given I open the page "/cybersecurity"
     Then I see the heading "Fully Tailored Cybersecurity."
 
   @journey:explore @priority:nice-to-have @kind:back-button
-  Scenario: browser back button returns to the landing page after visiting cybersecurity
+  Scenario: Using the browser back button after navigation returns to the landing page
     Given I open the landing page
     When I click the link to "/cybersecurity"
     When I go back in the browser history
@@ -43,23 +43,14 @@ Feature: WwwSpritecloudCom — explore journey
   # ───────────────────────────────────────────────────────────────
 
   @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: navigating to guides shows the guides landing page
-    Given I open the landing page
-    When I click the link to "/guides"
-    Then the page title contains "Guides"
-    Then I see the heading "Guides"
+  Scenario: Navigating to the Test Automation page works as expected
+    Given I am on the landing page
+    When I click the link to "/test-automation"
+    Then the URL contains "/test-automation"
+    Then the main heading reads "Test your software, not your reputation."
 
-  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: clicking case studies in footer loads the case studies page
-    Given I open the landing page
-    When I scroll to the bottom of the page
-    When I click the link to "/case-studies"
-    Then the page title contains "Case Studies"
-    Then I see the heading "Case Studies"
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: navigating to contact from the header shows the contact page
-    Given I open the landing page
-    When I click the link to "/contact"
-    Then the URL contains "/contact"
-    Then the page title contains "Contact"
+  @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Visiting the Case Studies page directly loads content correctly
+    Given I open the page "/case-studies"
+    Then the URL contains "/case-studies"
+    Then the page has at least 1 items

@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — research journey
   So that the page delivers on its user goal
 
   @journey:research @priority:standard @smoke
-  Scenario: research journey ends on the correct page
+  Scenario: research journey reaches its final page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,12 +26,12 @@ Feature: WwwSpritecloudCom — research journey
     And the page title contains "Case Study - GrandVision"
 
   @journey:research @priority:standard @kind:resume
-  Scenario: research — deep-linking to the case study page loads properly
+  Scenario: research — deep-link to the final page renders correctly
     Given I open the page "/case-study-grandvision"
     Then I see the heading "GrandVision"
 
   @journey:research @priority:standard @kind:back-button
-  Scenario: research — using the back button after navigation restores the landing page
+  Scenario: research — back button after navigation returns to landing page
     Given I open the landing page
     When I click the link to "/case-study-grandvision"
     When I go back in the browser history
@@ -43,18 +43,21 @@ Feature: WwwSpritecloudCom — research journey
   # ───────────────────────────────────────────────────────────────
 
   @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: User can access the case studies page
+  Scenario: Verify contact link navigation works
     Given I am on the landing page
-    When I click the link to "/case-studies"
-    Then the URL contains "/case-studies"
-
-  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: User can navigate to the guides page from the menu
-    Given I am on the landing page
-    When I click the link to "/guides"
-    Then the URL contains "/guides"
+    When I click the link to "/contact"
+    Then the URL contains "/contact"
+    Then the page title contains "Contact"
 
   @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: User can access the contact page directly
-    Given I open the page "/contact"
-    Then the URL contains "/contact"
+  Scenario: Check guides navigation from footer works
+    Given I open the landing page
+    When I click the link to "/guides"
+    Then the URL contains "/guides"
+    Then I see the heading "Guides"
+
+  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Scroll to view case studies section
+    Given I am on the landing page
+    When I scroll to the bottom of the page
+    Then I scroll into view of the "Case Studies" element

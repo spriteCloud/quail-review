@@ -13,8 +13,8 @@ import { test, expect } from '@playwright/test'
 const HEALTH_PATHS = ['/health', '/healthz', '/ready', '/readyz', '/status', '/livez']
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Spritecloud health-check probe test', () => {
-  test('@kind:health @smoke at least one well-known health endpoint responds', async ({ request }) => {
+test.describe('WwwSpritecloudCom — health probe smoke test @ https://www.spritecloud.com', () => {
+  test('@kind:health @smoke — at least one well-known health endpoint returns 2xx', async ({ request }) => {
     const results: Array<{ path: string; status: number }> = []
     for (const path of HEALTH_PATHS) {
       try {
