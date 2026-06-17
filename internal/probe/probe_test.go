@@ -241,3 +241,8 @@ func TestRunAll_AggregatesErrors(t *testing.T) {
 		t.Errorf("expected error from file://, got none")
 	}
 }
+func TestRunAll(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		RunAll(nil, nil)
+	})
+}

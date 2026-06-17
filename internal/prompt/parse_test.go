@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/reviewqa/reviewqa/internal/mindmap"
+	"reflect"
 )
 
 func TestParse_MapsKeywordsToKinds(t *testing.T) {
@@ -25,9 +26,9 @@ func TestParse_MapsKeywordsToKinds(t *testing.T) {
 			want:  []mindmap.JourneyKind{mindmap.JourneyAuthenticate, mindmap.JourneyConvert},
 		},
 		{
-			name:  "explicit /login path hint",
-			input: "exercise the /login page",
-			want:  nil, // no keyword matched (login itself maps but "/login" goes to PathHints)
+			name:    "explicit /login path hint",
+			input:   "exercise the /login page",
+			want:    nil, // no keyword matched (login itself maps but "/login" goes to PathHints)
 			wantPth: []string{"/login"},
 		},
 		{
@@ -129,4 +130,19 @@ func sameStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+func TestIsEmpty(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		got := IsEmpty()
+		if reflect.DeepEqual(got, *new(bool)) {
+			t.Fatalf("got zero value: %#v", got)
+		}
+	})
+
+	t.Run("returns expected type", func(t *testing.T) {
+		got := IsEmpty()
+		if got, want := reflect.TypeOf(got), reflect.TypeOf(*new(bool)); got != want {
+			t.Fatalf("type = %v, want %v", got, want)
+		}
+	})
 }

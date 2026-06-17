@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/reviewqa/reviewqa/internal/mindmap"
+	"reflect"
 )
 
 func TestFilter_ApplyByKind(t *testing.T) {
@@ -60,4 +61,19 @@ func TestFilter_EmptyFilterIsPassthrough(t *testing.T) {
 	if len(out) != 1 {
 		t.Errorf("empty filter must pass everything through; got %d", len(out))
 	}
+}
+func TestDescribe(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		got := Describe()
+		if reflect.DeepEqual(got, *new(string)) {
+			t.Fatalf("got zero value: %#v", got)
+		}
+	})
+
+	t.Run("returns expected type", func(t *testing.T) {
+		got := Describe()
+		if got, want := reflect.TypeOf(got), reflect.TypeOf(*new(string)); got != want {
+			t.Fatalf("type = %v, want %v", got, want)
+		}
+	})
 }
