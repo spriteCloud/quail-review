@@ -34,6 +34,25 @@ when the site advertises a schema, webhook endpoint, or hreflang
 siblings. `tests/grpc/` emits in diff mode when a PR touches a
 `.proto` file.
 
+## LLM-composer demo: spritecloud.com against the DGX
+
+`examples/spritecloud-com-dgx/` is a complete suite generated with the
+v0.34 binary against `https://www.spritecloud.com` with the LLM
+composer enabled (qwen3-coder-next running on the local DGX). Output:
+
+- 45 files total (9 Gherkin journeys + a11y / responsive / perf /
+  security / health / observability / API contracts / fuzz / docs)
+- **17 LLM-composed Scenarios across 7 of 9 journeys** appended below
+  the deterministic baseline, tagged `@llm-composed @model:qwen3-coder-next-latest`
+- Scenarios use the v0.32 vocabulary (`I focus`, `field has the value`,
+  `the URL contains`, …) that the model couldn't reach pre-v0.32
+- Zero parse failures (v0.31 dirty-JSON sanitizer + retry working)
+- Composer ran ladder-mode with 1 rung; v0.34 supports
+  `REVIEWQA_LLM_LADDER` to fall back to e.g. `gpt-oss:120b` on failures
+
+See [`examples/spritecloud-com-dgx/README.md`](./examples/spritecloud-com-dgx/README.md)
+for the per-journey breakdown and step-pattern examples.
+
 ## v1.0 release candidate — full release history
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for the v0.19 → v0.30 arc that closed

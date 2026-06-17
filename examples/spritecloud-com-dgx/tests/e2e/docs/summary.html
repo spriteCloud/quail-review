@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>reviewqa work summary — https://www.spritecloud.com</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #161924;
+    --panel-2: #1d2130;
+    --text: #e7ebf3;
+    --muted: #8a93a8;
+    --accent: #7aa2ff;
+    --crit: #ff6f6f;
+    --std: #ffb86b;
+    --nice: #7ee0a2;
+  }
+  * { box-sizing: border-box }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+    line-height: 1.5;
+  }
+  header {
+    padding: 32px 48px 16px;
+    border-bottom: 1px solid #232839;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; font-weight: 600 }
+  .sub { color: var(--muted); font-size: 13px }
+  main { padding: 24px 48px 64px }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin: 24px 0 32px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid #232839;
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .card .n { font-size: 28px; font-weight: 700 }
+  .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em }
+  section { margin-top: 32px }
+  h2 { font-size: 16px; font-weight: 600; margin: 0 0 12px; letter-spacing: 0.01em }
+  table { width: 100%; border-collapse: collapse; font-size: 13px }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #232839 }
+  th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--accent) }
+  .pri { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600 }
+  .pri-critical { background: rgba(255, 111, 111, 0.16); color: var(--crit) }
+  .pri-standard { background: rgba(255, 184, 107, 0.16); color: var(--std) }
+  .pri-nice-to-have { background: rgba(126, 224, 162, 0.16); color: var(--nice) }
+  .bar { height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; display: flex }
+  .bar > span { display: block; height: 100% }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 8px }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle }
+</style>
+</head>
+<body>
+<header>
+  <h1>reviewqa work summary</h1>
+  <div class="sub">https://www.spritecloud.com · coverage: <code>standard</code></div>
+</header>
+<main>
+
+  <div class="grid">
+    <div class="card"><div class="n">20</div><div class="label">pages crawled</div></div>
+    <div class="card"><div class="n">9</div><div class="label">journeys identified</div></div>
+    <div class="card"><div class="n">1</div><div class="label">critical specs</div></div>
+    <div class="card"><div class="n">1</div><div class="label">fuzz specs</div></div>
+  </div>
+
+  <section>
+    <h2>Priority mix</h2>
+    <div class="bar">
+      <span class="pri-critical" style="width: 11%; background: var(--crit)"></span>
+      <span class="pri-standard" style="width: 33%; background: var(--std)"></span>
+      <span class="pri-nice-to-have" style="width: 55%; background: var(--nice)"></span>
+    </div>
+    <div class="legend">
+      <span><i style="background: var(--crit)"></i>critical (1)</span>
+      <span><i style="background: var(--std)"></i>standard (3)</span>
+      <span><i style="background: var(--nice)"></i>nice-to-have (5)</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Journeys</h2>
+    <table>
+      <thead><tr><th>Feature file</th><th>Kind</th><th>Priority</th><th>Steps</th></tr></thead>
+      <tbody>
+      <tr>
+        <td><code>tests/e2e/features/spritecloud-com-convert.feature</code></td>
+        <td><code>convert</code></td>
+        <td><span class="pri pri-critical">critical</span></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>tests/e2e/features/spritecloud-com-research-case-study-grandvision.feature</code></td>
+        <td><code>research</code></td>
+        <td><span class="pri pri-standard">standard</span></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>tests/e2e/features/spritecloud-com-research-case-study-ecomm-platform.feature</code></td>
+        <td><code>research</code></td>
+        <td><span class="pri pri-standard">standard</span></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>tests/e2e/features/spritecloud-com-browse-about-us.feature</code></td>
+        <td><code>browse</code></td>
+        <td><span class="pri pri-standard">standard</span></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>tests/e2e/features/spritecloud-com-explore-contact.feature</code></td>
+        <td><code>explore</code></td>
+        <td><span class="pri pri-nice-to-have">nice-to-have</span></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>tests/e2e/features/spritecloud-com-explore-cybersecurity.feature</code></td>
+        <td><code>explore</code></td>
+        <td><span class="pri pri-nice-to-have">nice-to-have</span></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>tests/e2e/features/spritecloud-com-explore-performance-testing.feature</code></td>
+        <td><code>explore</code></td>
+        <td><span class="pri pri-nice-to-have">nice-to-have</span></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>tests/e2e/features/spritecloud-com-read-style-guide.feature</code></td>
+        <td><code>read</code></td>
+        <td><span class="pri pri-nice-to-have">nice-to-have</span></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>tests/e2e/features/spritecloud-com-read-book-performance-test.feature</code></td>
+        <td><code>read</code></td>
+        <td><span class="pri pri-nice-to-have">nice-to-have</span></td>
+        <td>2</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+  <section>
+    <h2>Pages</h2>
+    <table>
+      <thead><tr><th>URL</th><th>Title</th></tr></thead>
+      <tbody>
+      <tr><td><code>https://www.spritecloud.com</code></td><td>spriteCloud - Test your software, not your reputation!</td></tr>
+      <tr><td><code>https://www.spritecloud.com/guides</code></td><td>spriteCloud - Your Software Testing and QA partner</td></tr>
+      <tr><td><code>https://www.spritecloud.com/style-guide</code></td><td>Style Guide - Healix Webflow website HTML template</td></tr>
+      <tr><td><code>https://www.spritecloud.com/on-demand</code></td><td>On-Demand Software Testing</td></tr>
+      <tr><td><code>https://www.spritecloud.com/cybersecurity</code></td><td>spriteCloud - Penetration Testing</td></tr>
+      <tr><td><code>https://www.spritecloud.com/performance-testing</code></td><td>spriteCloud - Performance Testing</td></tr>
+      <tr><td><code>https://www.spritecloud.com/vciso</code></td><td>spriteCloud - vCISO</td></tr>
+      <tr><td><code>https://www.spritecloud.com/contact</code></td><td>spriteCloud — Meeting Booking Form</td></tr>
+      <tr><td><code>https://www.spritecloud.com/msa</code></td><td>MSA</td></tr>
+      <tr><td><code>https://www.spritecloud.com/case-study-grandvision</code></td><td>Case Study - GrandVision</td></tr>
+      <tr><td><code>https://www.spritecloud.com/case-study-ecomm-platform</code></td><td>Case Study - eCommerce Platform</td></tr>
+      <tr><td><code>https://www.spritecloud.com/book-performance-test</code></td><td>Book - Performance Test</td></tr>
+      <tr><td><code>https://www.spritecloud.com/book-pentest</code></td><td>Book - PenTest</td></tr>
+      <tr><td><code>https://www.spritecloud.com/book-free-scan</code></td><td>Book-Free Scan</td></tr>
+      <tr><td><code>https://www.spritecloud.com/blog</code></td><td>Blog</td></tr>
+      <tr><td><code>https://www.spritecloud.com/typeform-test</code></td><td>Typeform Test</td></tr>
+      <tr><td><code>https://www.spritecloud.com/test-choice</code></td><td>Test Choice</td></tr>
+      <tr><td><code>https://www.spritecloud.com/software-testing</code></td><td>Software Testing</td></tr>
+      <tr><td><code>https://www.spritecloud.com/about-us</code></td><td>About Us</td></tr>
+      <tr><td><code>https://www.spritecloud.com/careers</code></td><td>Careers</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="sub">
+    Re-generate this deck by re-running <code>reviewqa probe</code> or <code>reviewqa prompt</code>.
+    A fresh run picks up new pages, new forms, and any priority re-classifications.
+  </section>
+
+</main>
+</body>
+</html>

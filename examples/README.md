@@ -20,12 +20,13 @@ templates ship and are exercised by the test suite. See the section
 
 ## Sites
 
-| Directory | URL | Shape |
-|---|---|---|
-| [`playwright-dev/`](./playwright-dev/) | <https://playwright.dev> | SaaS-shaped docs, JS-heavy |
-| [`gohugo-io/`](./gohugo-io/) | <https://gohugo.io> | OSS marketing + content |
-| [`books-toscrape-com/`](./books-toscrape-com/) | <https://books.toscrape.com> | E-commerce list-and-detail |
-| [`es-wikipedia-org-madrid/`](./es-wikipedia-org-madrid/) | <https://es.wikipedia.org/wiki/Madrid> | Non-English content page |
+| Directory | URL | Shape | LLM composer |
+|---|---|---|---|
+| [`playwright-dev/`](./playwright-dev/) | <https://playwright.dev> | SaaS-shaped docs, JS-heavy | off (deterministic baseline) |
+| [`gohugo-io/`](./gohugo-io/) | <https://gohugo.io> | OSS marketing + content | off |
+| [`books-toscrape-com/`](./books-toscrape-com/) | <https://books.toscrape.com> | E-commerce list-and-detail | off |
+| [`es-wikipedia-org-madrid/`](./es-wikipedia-org-madrid/) | <https://es.wikipedia.org/wiki/Madrid> | Non-English content page | off |
+| [`spritecloud-com-dgx/`](./spritecloud-com-dgx/) | <https://www.spritecloud.com> | Marketing + lead-gen forms | **on** (DGX `qwen3-coder-next:latest`) — adds 17 `@llm-composed` Scenarios on top of 10 deterministic |
 
 ## What's in each subdirectory
 
