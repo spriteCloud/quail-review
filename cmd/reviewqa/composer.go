@@ -21,6 +21,12 @@ func composeScenarios(ctx context.Context, cfg config.Config, items []plan.Item)
 		return items
 	}
 	rlog.Info("composer: requesting LLM scenarios", "model", cfg.Model, "endpoint", cfg.OpenAIBaseURL)
+	// v0.31 cross-journey dedup. Track every step-sequence we've
+	// accepted across the whole suite — duplicate scenarios from
+	// different journeys (e.g. "no error and no success" repeated
+	// across three journeys in the spritecloud.com run) get dropped
+	// after the first.
+	seenKeys := map[string]bool{}
 	for i := range items {
 		if items[i].Template != plan.TmplPlaywrightFeature {
 			continue
@@ -31,12 +37,22 @@ func composeScenarios(ctx context.Context, cfg config.Config, items []plan.Item)
 			rlog.Warn("composer: skipped journey", "kind", j.Kind, "err", err)
 			continue
 		}
-		if len(extras) == 0 {
+		extras = composer.Dedup(extras)
+		fresh := extras[:0]
+		for _, s := range extras {
+			k := composer.ScenarioKey(s)
+			if seenKeys[k] {
+				continue
+			}
+			seenKeys[k] = true
+			fresh = append(fresh, s)
+		}
+		if len(fresh) == 0 {
 			continue
 		}
-		items[i].ExtraScenarios = toExtraScenarios(extras)
+		items[i].ExtraScenarios = toExtraScenarios(fresh)
 		items[i].LLMModel = cfg.Model
-		rlog.Info("composer: added scenarios", "journey", j.Kind, "count", len(extras))
+		rlog.Info("composer: added scenarios", "journey", j.Kind, "count", len(fresh))
 	}
 	return items
 }
