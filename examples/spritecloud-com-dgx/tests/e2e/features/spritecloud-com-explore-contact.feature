@@ -16,7 +16,7 @@ Feature: WwwSpritecloudCom — explore journey
   I want to complete the explore flow
   So that the page delivers on its user goal
 
-  @journey:explore @priority:nice-to-have @smoke
+@journey:explore @priority:nice-to-have @smoke
   Scenario: explore journey reaches its terminal page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
@@ -24,7 +24,8 @@ Feature: WwwSpritecloudCom — explore journey
     When I click the link to "/contact"
     Then I see the heading "Let's Chat"
     And the page title contains "spriteCloud — Meeting Booking Form"
-
+    And the form contains an email address field
+    And the form contains a submit button
   @journey:explore @priority:nice-to-have @kind:resume
   Scenario: explore — deep-link to the terminal page renders correctly
     Given I open the page "/contact"

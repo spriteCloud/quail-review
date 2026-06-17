@@ -41,6 +41,29 @@ func TestChat_RequiresUserMessage(t *testing.T) {
 	}
 }
 
+func TestFirstUnregisteredStep_FindsHallucinatedStep(t *testing.T) {
+	block := `  @ai-refined
+  Scenario: hallucinated
+    Given I open the landing page
+    Then the form contains an email address field
+`
+	got := firstUnregisteredStep(block)
+	if got == "" || !strings.Contains(got, "the form contains an email address field") {
+		t.Errorf("expected the hallucinated step to be surfaced; got %q", got)
+	}
+}
+
+func TestFirstUnregisteredStep_AllValidReturnsEmpty(t *testing.T) {
+	block := `  @ai-refined
+  Scenario: clean
+    Given I open the landing page
+    Then I see the heading "Hello"
+`
+	if got := firstUnregisteredStep(block); got != "" {
+		t.Errorf("expected empty; got %q", got)
+	}
+}
+
 func TestBuildChatUserPrompt_IncludesHistoryAndScenario(t *testing.T) {
 	prompt := buildChatUserPrompt(ChatInput{
 		Scenario: "Scenario: foo",

@@ -7,6 +7,53 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.71 — chat-flow hardening + always-on suggest + step validity
+
+Surfaced two real problems from a v0.70 chat round-trip in the
+user's hands:
+
+1. The LLM proposed two extra steps that LOOKED like Gherkin but
+   didn't match any registered playwright-bdd pattern ("Then the
+   form contains an email address field", "Then the form contains
+   a submit button"). The chat validator only checked structural
+   parse, so they sailed through as `valid:true` and would have
+   crashed the suite at test time.
+2. The 🔍 suggest button was hidden on those new steps because the
+   client-side predicate required a quoted argument or
+   `<placeholder>` in the step text. The user couldn't reach the
+   locator probe for the steps the AI just wrote.
+
+This release closes both gaps:
+
+- `internal/composer/composer.go` exports `MatchesRegisteredPattern`
+  (thin wrapper over the existing private matcher). The serve
+  package uses it to evaluate every step.
+- `internal/serve/feature.go` Step now carries `Valid bool`,
+  populated by the parser. Surfaced through `/api/project`,
+  `/api/feature`, and `/api/scenario-chat`.
+- `internal/serve/chat.go` adds `firstUnregisteredStep` — after the
+  existing structural validation, it walks the proposed block and
+  surfaces the first step that doesn't match a registered pattern.
+  `Valid:false` + `Notes:"step does not match a registered
+  pattern: <text>"`. The UI's Apply button stays disabled until
+  the user asks the chat to rewrite.
+- `chatSystemPrompt` got firmer language and a self-check
+  instruction ("locate each step verbatim in the pattern list
+  below; if you cannot, REWRITE that step"). Live-tested against
+  the DGX — the model now adapts to the closest registered pattern
+  instead of inventing new step text.
+- Frontend always renders the 🔍 suggest button on every step
+  (predicate dropped). Modal copy reworded: "Suggest a Playwright
+  locator. Hint can be the visible text of the element you're
+  after."
+- Invalid steps render with a red left border + " · not a
+  registered pattern" inline label so existing scenarios with
+  hand-edited drift are visible at a glance.
+
+Tests: 3 new (parser Valid field; firstUnregisteredStep finds
+hallucinated step; clean block returns empty). Suite 547 / 547
+green.
+
 ## v0.70 — per-Scenario chat for non-technical maintenance
 
 A non-technical reviewer can now talk to the configured LLM about a

@@ -93,12 +93,10 @@ function renderFeature (feature, gherkin) {
       ),
       renderTags(sc.tags),
       el('ol', { class: 'steps' }, ...sc.steps.map(st =>
-        el('li', {},
+        el('li', { class: st.valid === false ? 'step-invalid' : '', title: st.valid === false ? 'This step text does not match any registered playwright-bdd pattern — it will not run.' : '' },
           el('span', { class: 'kw kw-' + st.keyword }, st.keyword),
           el('span', { class: 'text', html: highlightPlaceholders(st.text) }),
-          stepNeedsLocatorPick(st.text)
-            ? el('button', { class: 'step-suggest', title: 'Suggest a locator from the live DOM', onclick: () => openLocatorSuggest(feature, sc, st) }, '🔍 suggest')
-            : null,
+          el('button', { class: 'step-suggest', title: 'Suggest a Playwright locator from the live DOM', onclick: () => openLocatorSuggest(feature, sc, st) }, '🔍 suggest'),
         ),
       )),
     )
@@ -276,12 +274,21 @@ function openLocatorSuggest (feature, scenario, step) {
     }
   }
 
+  const hintHelp = el('div', { class: 'meta locator-help' }, hintInput.value
+    ? 'Probing for an element matching this hint.'
+    : 'Type the visible text of the element you want — link label, button name, heading copy, field label.')
+  hintInput.addEventListener('input', () => {
+    hintHelp.textContent = hintInput.value
+      ? 'Probing for an element matching this hint.'
+      : 'Type the visible text of the element you want — link label, button name, heading copy, field label.'
+  })
   const modal = el('div', { class: 'modal modal-wide' },
-    el('h2', {}, 'Suggest locator'),
+    el('h2', {}, 'Suggest a Playwright locator'),
     el('div', { class: 'locator-form' },
       el('label', {}, 'Probe URL', urlInput),
       el('label', {}, 'Kind', kindSelect),
       el('label', {}, 'Hint', hintInput),
+      hintHelp,
     ),
     el('div', { class: 'modal-actions' },
       el('span', { class: 'copied meta' }),

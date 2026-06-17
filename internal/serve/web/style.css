@@ -365,6 +365,42 @@ code, pre { font-family: 'Fira Code', ui-monospace, monospace; }
 .steps li:hover .step-suggest { opacity: 1; border-color: var(--border-warm); }
 .step-suggest:hover { border-color: var(--copper); background: var(--copper-soft); }
 
+/* Invalid step — step text not in the registered playwright-bdd
+ * pattern set. Surfaced so the user knows the LLM produced
+ * something that won't actually run. */
+.steps li.step-invalid {
+  background: rgba(192, 57, 43, 0.045);
+  border-left: 2px solid #c0392b;
+  padding: 5px 0 5px 10px;
+  margin: 2px 0 2px -12px;
+  border-radius: 0 4px 4px 0;
+}
+.steps li.step-invalid .kw { color: #c0392b; }
+.steps li.step-invalid .text { color: #6b2118; }
+.steps li.step-invalid::after {
+  content: '· not a registered pattern';
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: #c0392b;
+  margin-left: auto;
+  padding-right: 12px;
+  white-space: nowrap;
+  align-self: center;
+}
+.steps li.step-invalid .step-suggest { color: #c0392b; }
+.steps li.step-invalid .step-suggest:hover { border-color: #c0392b; background: rgba(192, 57, 43, 0.06); }
+
+/* Friendly help line under the hint input in the suggest modal. */
+.locator-help {
+  font-size: 11px;
+  color: var(--mist);
+  margin-top: 4px;
+  padding-left: 90px;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0;
+}
+
 /* BUTTONS — same shape as the public site. */
 .btn-ghost {
   font-family: 'Inter', sans-serif;

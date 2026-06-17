@@ -565,3 +565,9 @@ func matchesRegisteredPattern(text string) bool {
 	}
 	return false
 }
+
+// MatchesRegisteredPattern is the public-facing alias for
+// matchesRegisteredPattern. Callers outside the composer (notably
+// the serve package, which needs to flag invalid steps in the UI)
+// use this to avoid duplicating the regex registry.
+func MatchesRegisteredPattern(text string) bool { return matchesRegisteredPattern(text) }

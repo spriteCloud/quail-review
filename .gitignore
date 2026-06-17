@@ -42,3 +42,6 @@ web/test-results/
 web/playwright-report/
 web/playwright-report.json
 web/.cache/
+
+# reviewqa serve per-edit backups — local-only, never committed
+**/.reviewqa-history/

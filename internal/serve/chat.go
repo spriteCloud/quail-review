@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/reviewqa/reviewqa/internal/composer"
 	"github.com/reviewqa/reviewqa/internal/llm"
 )
 
@@ -59,8 +60,10 @@ If the user is just asking a question (no edit needed), reply in plain text only
 Hard rules for the updated block:
 - Exactly one Scenario.
 - All step keywords are Given / When / Then / And / But.
-- Each step text MUST match one of the registered patterns below (substitute angle-bracketed placeholders with concrete values from the DOM when applicable).
+- Each step text MUST be a verbatim match (after placeholder substitution) of one of the registered patterns below. There are no other allowed step texts. If the user asks for something the registered set doesn't express (e.g. "assert the form contains an email field"), pick the CLOSEST registered pattern (e.g. "When I enter \"x@y.com\" into the \"email\" field") rather than inventing a new step.
 - Tag the Scenario with @ai-refined.
+
+Self-check before emitting the block: for each step you wrote, locate it verbatim in the pattern list below (with placeholders substituted). If you cannot, REWRITE that step.
 
 Registered step patterns:
 Given I open the landing page
@@ -118,11 +121,37 @@ func Chat(ctx context.Context, in ChatInput) (*ChatResult, error) {
 		if err := validateScenarioBlock(res.Proposed); err != nil {
 			res.Valid = false
 			res.Notes = "proposed block failed validation: " + err.Error()
+		} else if offender := firstUnregisteredStep(res.Proposed); offender != "" {
+			// The block parses, but contains step text that does not
+			// match any registered pattern. playwright-bdd would refuse
+			// to bind it; surface the offending text so the user can
+			// ask the chat to rewrite using only registered patterns.
+			res.Valid = false
+			res.Notes = "step does not match a registered pattern: " + offender
 		} else {
 			res.Valid = true
 		}
 	}
 	return res, nil
+}
+
+// firstUnregisteredStep parses block, walks the steps, and returns
+// the first step text that does NOT match a registered pattern.
+// Empty string when every step is registered (or the block didn't
+// produce any steps — that case is already trapped upstream by
+// validateScenarioBlock).
+func firstUnregisteredStep(block string) string {
+	wrapped := "Feature: __reviewqa_chat_validate__\n\n" + block + "\n"
+	feat, err := ParseFeatureBytes([]byte(wrapped))
+	if err != nil || len(feat.Scenarios) == 0 {
+		return ""
+	}
+	for _, st := range feat.Scenarios[0].Steps {
+		if !composer.MatchesRegisteredPattern(st.Text) {
+			return st.Keyword + " " + st.Text
+		}
+	}
+	return ""
 }
 
 func buildChatUserPrompt(in ChatInput, lm *DOMLandmarks) string {

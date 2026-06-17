@@ -80,6 +80,26 @@ func TestParseFeatureBytes_NarrativeCaptured(t *testing.T) {
 	}
 }
 
+func TestParseFeatureBytes_StepValidity(t *testing.T) {
+	src := `Feature: validity demo
+
+  Scenario: mixed validity
+    Given I open the landing page
+    Then the form contains an email address field
+`
+	f, _ := ParseFeatureBytes([]byte(src))
+	if len(f.Scenarios) != 1 || len(f.Scenarios[0].Steps) != 2 {
+		t.Fatalf("unexpected shape: %+v", f)
+	}
+	steps := f.Scenarios[0].Steps
+	if !steps[0].Valid {
+		t.Errorf("step 0 (Given I open the landing page) should be Valid=true")
+	}
+	if steps[1].Valid {
+		t.Errorf("step 1 (hallucinated 'the form contains an email address field') should be Valid=false")
+	}
+}
+
 func TestParseFeatureBytes_EmptyDocument(t *testing.T) {
 	f, err := ParseFeatureBytes([]byte("# only a comment\n\n"))
 	if err != nil {

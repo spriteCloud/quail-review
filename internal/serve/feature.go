@@ -14,6 +14,8 @@ import (
 	"bufio"
 	"os"
 	"strings"
+
+	"github.com/reviewqa/reviewqa/internal/composer"
 )
 
 // Feature is the parsed shape of one .feature file.
@@ -33,9 +35,15 @@ type Scenario struct {
 }
 
 // Step is one Given/When/Then/And/But line.
+//
+// Valid reports whether Text matches one of the registered step
+// patterns in internal/composer. The UI uses it to surface
+// LLM-hallucinated steps that wouldn't actually run through
+// playwright-bdd — see [composer.MatchesRegisteredPattern].
 type Step struct {
 	Keyword string `json:"keyword"`
 	Text    string `json:"text"`
+	Valid   bool   `json:"valid"`
 }
 
 // ParseFeatureFile reads path and returns the parsed Feature.
@@ -117,7 +125,11 @@ func parseFeature(sc *bufio.Scanner) (*Feature, error) {
 			if current == nil {
 				continue
 			}
-			current.Steps = append(current.Steps, Step{Keyword: kw, Text: rest})
+			current.Steps = append(current.Steps, Step{
+				Keyword: kw,
+				Text:    rest,
+				Valid:   composer.MatchesRegisteredPattern(rest),
+			})
 			continue
 		}
 
