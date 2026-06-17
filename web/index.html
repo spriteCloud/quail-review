@@ -268,7 +268,7 @@
         UI, API, Contract, Integration, Mobile, Non-functional — plus
         per-form adversarial negatives, an a11y trio on every crawled page,
         the stakeholder catalogue, a bug-discovery ledger, and locator
-        self-heal when the DOM drifts. One Go binary. <strong>v0.59</strong>.
+        self-heal when the DOM drifts. One Go binary. <strong>v0.62</strong>.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/marketplace/actions/reviewqa" data-testid="cta-install">Add to your repo</a>
@@ -342,12 +342,31 @@
         <h2>See it on six real sites.</h2>
       </div>
       <p style="max-width:720px; margin-bottom:20px; color:var(--mist);">
-        Output from the <strong>v0.59 binary</strong>, committed to the repo.
+        Output from the <strong>v0.59 binary</strong> — the
+        deterministic templates and the composer remain current through
+        <strong>v0.62</strong>. (v0.61 fixed four templates against findings
+        from the first live run; v0.62 added composer destination-DOM
+        validation. Re-emit at any time with <code>reviewqa probe</code>.)
         Each example is a complete Playwright + Gherkin project: features,
         step definitions, the Steps API, API + Contract + Integration specs,
         a11y trio on every crawled page (30 pages × 3 sub-templates × 5 tests),
         catalogue, summary HTML, ledger seed, and the Playwright config.
       </p>
+      <div style="max-width:720px; margin-bottom:24px; padding:14px 18px; border-left:3px solid var(--copper); background:rgba(214,114,57,0.06); color:var(--mist); font-size:14px; line-height:1.55;" data-testid="whats-new-callout">
+        <strong style="color:var(--copper);">What's new in v0.61 + v0.62.</strong>
+        <em>v0.61</em> — first time the generated suite was actually
+        executed against a live production site (spritecloud.com), shipping
+        four template fixes: <code>playwright-bdd</code> bumped to 9, mobile
+        device matrix moved from <code>test.use()</code> in
+        <code>describe()</code> to <code>browser.newContext()</code> per test,
+        <code>.feature</code> files no longer get a JS comment header (Gherkin
+        rejects it), and the <code>submit()</code> helper now skips disabled
+        buttons and scopes to filled forms. <em>v0.62</em> — the LLM scenario
+        composer now walks each composed scenario tracking the current page,
+        dropping any scenario whose heading or title assertion conflicts with
+        the destination metadata the probe recorded. See
+        <a href="https://github.com/spriteCloud/reviewqa/blob/main/examples/spritecloud-com-dgx/_run/v0.61-run-report.md">v0.61-run-report.md</a>.
+      </div>
       <div class="grid" data-testid="examples-grid">
         <div class="card">
           <div class="num">01</div>

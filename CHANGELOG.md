@@ -2,7 +2,101 @@
 
 reviewqa's release-by-release history. v0.19 → v0.30 was the
 taxonomy-closure arc that took the framework from a single-Playwright
-happy-flow generator to a 10-layer deterministic test author.
+happy-flow generator to a 10-layer deterministic test author. v0.55+
+shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
+v0.61–v0.62 are the live-execution + composer-validation arc — first
+real-site run + composer destination-DOM enforcement.
+
+## v0.63 — repo-wide consistency sweep + force gh-pages redeploy
+
+Live https://spritecloud.github.io/reviewqa/ was showing **v0.23-era**
+content because the pages.yml workflow did not fire for the v0.60 merge
+(missed-push window during the v0.60/v0.61/v0.62 cluster on 2026-06-17)
+and v0.61/v0.62 did not touch web/. Net effect: the live site was two
+arcs behind, and the repo's web/ source itself was at v0.59-era prose.
+
+This release does not change any code. It:
+
+- Brings web/index.html and web/docs.html up to v0.62. Hero badge
+  bumped from v0.59 to v0.62. "What's new in v0.61 + v0.62" callout
+  added above the examples grid. docs.html gains two new callouts
+  (live execution validated; composer destination-DOM validation).
+- Brings README.md and examples/README.md up to v0.62. The committed
+  example output remains v0.59-emitted — that's labelled explicitly
+  ("committed at v0.59; current binary v0.62"). The deterministic
+  templates beneath the examples ARE current through v0.62.
+- Backfills CHANGELOG.md with the v0.61 and v0.62 entries that were
+  shipped without changelog notes.
+- Bumps cmd/reviewqa/main.go's source-default version constant from
+  "0.1.0" to "0.62" so a locally-built binary's --version output
+  matches the release line (release.yml still ldflags-overrides this).
+- Triggers pages.yml via `gh workflow run pages.yml` so the live
+  site picks up the new content even if the path-filter misfires
+  again.
+
+## v0.62 — composer destination-DOM validation (F-1 fix)
+
+Adds `composer.ValidateAgainst(scenarios, journey)` after the existing
+pattern-syntax `Validate` in the propose pipeline. The new pass walks
+each composed scenario tracking the "current page" as the journey
+progresses through link clicks / direct navigations, then drops any
+scenario whose H1 or title assertion conflicts with the destination
+metadata recorded in `Journey.Pages`.
+
+Match is loose (case-insensitive substring either direction) so
+real human-quality assertions like `the main heading reads "About"`
+still pass when the page H1 is `About us`. Pages with no recorded
+metadata pass through — the validator is strictly additive, it only
+ever drops scenarios it can prove wrong.
+
+Closes the F-1 finding from the v0.61 spritecloud run (3 of 66
+composed scenarios asserted destination H1 text the page does not
+render). Future generations against any site will silently drop
+these instead of shipping broken specs.
+
+7 new tests in `internal/composer/composer_destination_test.go`.
+Full suite 502/502 green.
+
+## v0.61 — execute spritecloud-com-dgx locally + 4 template fixes
+
+First time the generated suite was actually executed against a real
+production site (https://www.spritecloud.com). Until v0.61 reviewqa
+had been validated only at the **emission layer** — Go tests asserted
+templates rendered correctly, file counts were right, Scenarios
+contained the expected blocks. The execution surfaced four template
+bugs that compile cleanly but fail at runtime, all now fixed:
+
+- **T-1** — `pw_package.tmpl` pinned `playwright-bdd@^7.4.0` which
+  resolves to 7.5.0; that version imports
+  `playwright/lib/common/configLoader.js`, removed in playwright
+  1.51+. Every test died at config load. Bumped to `^9.0.0`.
+- **T-2** — `gen.go::annotateQualityReport` prepended a C-style
+  block comment to `.feature` files; Gherkin only allows `#` line
+  comments. Added `TmplPlaywrightFeature` to the exclusion switch.
+- **T-3** — `pw_mobile.tmpl` put `test.use({...devices[name]})` inside
+  `test.describe()`. Playwright forbids this ("forces a new
+  worker"). Refactored to `browser.newContext({...devices[name]})`
+  per test — same coverage, no `test.use()` violation.
+- **T-4** — `pw_steps.tmpl::submit()` grabbed the first submit-like
+  button on the page. On spritecloud.com that's the disabled footer
+  newsletter "Subscribe" — `click()` hung for 30s waiting for it to
+  enable. Rewrote to skip disabled buttons and prefer buttons inside
+  filled forms.
+
+Real spritecloud findings (S category) — kept as sentinel candidates,
+not template bugs: 5 footer social-icon links with no accessible name
+(WCAG 2.4.4, 4.1.2); /guides page has zero `<h1>` tags (WCAG 1.3.1);
+color-contrast violations on the homepage; unlabeled form inputs.
+
+LLM-design issues (F category) — 3 of 66 composed scenarios asserted
+against destination-page H1 text not actually rendered. Addressed in
+v0.62.
+
+Numbers after all four fixes: 32/40 mobile pass (8 fails all on the
+/guides h1 S finding), 67/71 Gherkin pass (3 F-1, 1 tab-order S),
+25/25 stub specs cleanly skip.
+
+Run report: `examples/spritecloud-com-dgx/_run/v0.61-run-report.md`.
 
 ## v0.60 — doc sweep + refresh all 6 examples
 

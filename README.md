@@ -18,9 +18,12 @@ broken locators when they drift.
 
 ## See it on real sites
 
-Live output from the **v0.59 binary** is committed under [`examples/`](./examples/).
-Six reference probes covering a spread of site shapes; each is a complete,
-runnable Playwright + Gherkin project.
+Live output from the **v0.59 binary** is committed under [`examples/`](./examples/) —
+the deterministic templates and the LLM composer remain current through
+**v0.62** (v0.61 fixed four templates after the first live run against
+spritecloud.com; v0.62 added composer destination-DOM validation; both
+apply to any new emission). Six reference probes covering a spread of
+site shapes; each is a complete, runnable Playwright + Gherkin project.
 
 | Example | Site | Files | Pages w/ a11y | Notes |
 |---|---|---:|---:|---|
@@ -31,8 +34,8 @@ runnable Playwright + Gherkin project.
 | [`spritecloud-com-dgx/`](./examples/spritecloud-com-dgx/) | <https://www.spritecloud.com> | **197** | 30 | Marketing + lead-gen, **LLM composer ON** (DGX `qwen3-coder-next`) |
 | [`petstore-swagger-io-dgx/`](./examples/petstore-swagger-io-dgx/) | <https://petstore3.swagger.io> | **46** | 1 | API service exposing OpenAPI 3 — **lights up Contract layer with 12 specs × 9 tests each** |
 
-Every example exercises the v0.41+ template families: a11y trio (uncapped,
-v0.59) + responsive + perf + visual + visual-states + security + health +
+Every example exercises the v0.41+ template families: a11y trio
+(uncapped since v0.59, current in v0.62) + responsive + perf + visual + visual-states + security + health +
 observability + i18n + mobile (4 devices × 2 orientations) + network +
 storage + zoom + prefs + print + history-depth + touch + auth-expiry +
 integration stubs (api / db / cache / obs / auth) + graphql/webhook stubs.
@@ -231,4 +234,4 @@ By submitting a pull request you agree to the
 [Contributor License Agreement](./CLA.md). The `cla-assistant` check on PRs
 will prompt you to sign if you haven't.
 
-For the release-by-release history (v0.19 → v0.59), see [`CHANGELOG.md`](./CHANGELOG.md).
+For the release-by-release history (v0.19 → v0.62), see [`CHANGELOG.md`](./CHANGELOG.md).

@@ -405,7 +405,7 @@
           <tr><td>4</td><td>Contract</td><td>OpenAPI / GraphQL / Webhook discovered, OR always-attempt stubs (v0.49+)</td><td><strong>9 per endpoint</strong> (contract) · <strong>6 per origin</strong> (gql/webhook stub) <span style="color:var(--copper)">v0.55</span></td><td><code>pw_contract</code> · <code>openapi_compat</code> · <code>pw_graphql_stub</code> · <code>pw_webhook_stub</code></td><td><strong>petstore: 12 contract specs × 9 tests = 108</strong></td></tr>
           <tr><td>5</td><td>Integration</td><td>Always-on scaffold; real Testcontainers specs when <code>reviewqa.yml</code> declares resources</td><td><strong>15 per origin</strong> (5 stubs × 3 blocks) <span style="color:var(--copper)">v0.57</span></td><td><code>pw_integration_api_stub</code> · <code>db_stub</code> · <code>cache_stub</code> · <code>obs_stub</code> · <code>auth_stub</code> · real <code>integration_*</code> via yml</td><td>both example projects</td></tr>
           <tr><td>6</td><td>Backend</td><td>PR diff touches gRPC source</td><td>1+ per method</td><td><code>grpc_unary</code> · <code>grpc_server_stream</code> · <code>grpc_client_stream</code> · <code>grpc_bidi</code></td><td><code>generate</code> against a gRPC PR</td></tr>
-          <tr><td>7</td><td>UI</td><td>Every probed page</td><td><strong>a11y trio: 5+5+5 tests on EVERY crawled page</strong> (uncapped, <span style="color:var(--copper)">v0.59</span>); responsive / perf / visual / etc. capped at <code>coverage.FuzzCap()</code></td><td>a11y (5 axe gates) · landmarks (5 structural) · keyboard (5 gestures) · responsive · perf · visual · visual-states · security · health · observability · i18n</td><td>both example projects</td></tr>
+          <tr><td>7</td><td>UI</td><td>Every probed page</td><td><strong>a11y trio: 5+5+5 tests on EVERY crawled page</strong> (uncapped — introduced <span style="color:var(--copper)">v0.59</span>, current in v0.62); responsive / perf / visual / etc. capped at <code>coverage.FuzzCap()</code></td><td>a11y (5 axe gates) · landmarks (5 structural) · keyboard (5 gestures) · responsive · perf · visual · visual-states · security · health · observability · i18n</td><td>both example projects</td></tr>
           <tr><td>8</td><td>Mobile</td><td>Every probed page</td><td><strong>8 per page</strong> (4 devices × 2 scenarios) <span style="color:var(--copper)">v0.56</span></td><td><code>pw_mobile</code> (iPhone 13 · Pixel 5 · iPad Pro 11 · Galaxy S9+) · <code>pw_touch</code> (5 gestures) · <code>pw_deeplink</code></td><td>both example projects</td></tr>
           <tr><td>9</td><td>Data</td><td>PR diff touches dbt / pandera / Great-Expectations files</td><td>1+ per schema</td><td><code>dbt_schema</code> · <code>pandera_conformance</code> · <code>great_expectations</code></td><td><code>generate</code> against a data PR</td></tr>
           <tr><td>10</td><td>Non-functional</td><td>Every probed page</td><td><strong>17+ templates</strong>, ~1–3 tests each</td><td>network · race · storage · zoom · a11y-prefs · print · clipboard · http-chains · file-upload · iframe · date-edges · pwa · history-depth · touch · dragdrop · auth-expiry · locale-switch · sentinels</td><td>both example projects</td></tr>
@@ -413,6 +413,41 @@
       </table>
       <div class="callout">
         <strong>Depth parity (v0.55–v0.57).</strong> Layers 4 (Contract), 5 (Integration), and 8 (Mobile) used to ship 1–2 tests per emission while the API + UI + Non-functional layers shipped 5–15. v0.55 brought Contract to 9 tests per endpoint (parallel to <code>pw_api</code>'s adversarial set); v0.56 expanded Mobile to a 4-device × 2-orientation matrix plus five gesture families; v0.57 fanned the Integration scaffold into four kind-specific stubs (DB / cache / obs / auth). The "tests per emit" column above reflects the current state.
+      </div>
+      <div class="callout" style="border-left-color:var(--copper);">
+        <strong>Live execution validated (v0.61).</strong> v0.61 was the
+        first time the generated suite was actually executed against a
+        live production site (spritecloud.com) instead of validated only
+        at emission time. The run produced four template fixes that all
+        v0.62+ users benefit from: <em>T-1</em> bumped
+        <code>playwright-bdd</code> from ^7.4.0 to ^9.0.0 (the 7.x line
+        imported a <code>configLoader.js</code> removed in playwright
+        1.51+); <em>T-2</em> excluded <code>.feature</code> files from
+        the quality-report annotation (Gherkin rejects C-style block
+        comments); <em>T-3</em> moved the mobile device matrix from
+        <code>test.use(devices[name])</code> inside a
+        <code>test.describe()</code> (which Playwright forbids) to
+        <code>browser.newContext(...)</code> per test; <em>T-4</em>
+        rewrote the <code>submit()</code> helper to skip disabled
+        buttons and prefer buttons inside filled forms (was hanging
+        on the disabled newsletter "Subscribe" button at the site
+        footer). See
+        <a href="https://github.com/spriteCloud/reviewqa/blob/main/examples/spritecloud-com-dgx/_run/v0.61-run-report.md">v0.61 run report</a>.
+      </div>
+      <div class="callout" style="border-left-color:var(--copper);">
+        <strong>Composer destination-DOM validation (v0.62).</strong>
+        v0.41+ probes give the composer a list of destination pages
+        with their title + h1 so it can write assertions against the
+        page the navigation lands on, not the journey's landing. v0.62
+        adds a second pass that ENFORCES this — the validator walks
+        each composed scenario tracking the current page as link
+        clicks / direct navigations progress, then drops any scenario
+        whose heading or title assertion conflicts with the destination
+        metadata in the probe record. Match is loose (case-insensitive
+        substring either direction) so real human-quality assertions
+        still pass; unknown pages (no recorded metadata) pass through
+        — the validator is strictly additive, it only ever drops
+        scenarios it can prove wrong.
       </div>
     </div>
   </section>
@@ -489,7 +524,7 @@
           <tr><td>Target shape</td><td>Marketing + lead-gen forms</td><td>API service with OpenAPI 3</td></tr>
           <tr><td>Files emitted</td><td><strong>197</strong></td><td><strong>46</strong></td></tr>
           <tr><td>Gherkin Scenarios</td><td>66 (34 <code>@llm-composed</code>)</td><td>0 (no UI journeys)</td></tr>
-          <tr><td>A11y trio (uncapped, v0.59)</td><td>30 pages × 3 sub-templates × 5 tests = <strong>450 a11y blocks</strong></td><td>1 page × 3 × 5 = 15</td></tr>
+          <tr><td>A11y trio (uncapped — v0.59+, current in v0.62)</td><td>30 pages × 3 sub-templates × 5 tests = <strong>450 a11y blocks</strong></td><td>1 page × 3 × 5 = 15</td></tr>
           <tr><td>Contract layer</td><td>0 (no schema surface)</td><td><strong>12 contract specs × 9 tests = 108 contract assertions</strong> (v0.55)</td></tr>
           <tr><td>API layer</td><td>1 form-based contract (10 tests)</td><td>4 endpoint-based contracts</td></tr>
           <tr><td>Integration layer (v0.57)</td><td>5 stubs (api + db + cache + obs + auth) × 3 blocks</td><td>same</td></tr>
@@ -497,7 +532,7 @@
           <tr><td>Demonstrates</td><td>Per-page edge-case depth + composer-driven journey variants + uncapped a11y</td><td>Schema-driven contract generation against a real OpenAPI 3 surface</td></tr>
         </tbody>
       </table>
-      <p style="margin-top:8px;">Together they show all six probe-accessible taxonomy layers in action. The four non-DGX example projects (<code>playwright-dev</code>, <code>gohugo-io</code>, <code>books-toscrape-com</code>, <code>es-wikipedia-org-madrid</code>) have also been refreshed against the v0.59 binary — each ships 183–201 files exercising the full v0.41+ template family with the LLM composer OFF.</p>
+      <p style="margin-top:8px;">Together they show all six probe-accessible taxonomy layers in action. The four non-DGX example projects (<code>playwright-dev</code>, <code>gohugo-io</code>, <code>books-toscrape-com</code>, <code>es-wikipedia-org-madrid</code>) were last re-emitted against the v0.59 binary — the deterministic templates underneath those examples remain current through <strong>v0.62</strong>, with v0.61's four template fixes (playwright-bdd 9, mobile context, .feature header, submit()) and v0.62's composer destination-DOM validation applying to any new emission. Each ships 183–201 files exercising the full v0.41+ template family with the LLM composer OFF.</p>
     </div>
   </section>
 
