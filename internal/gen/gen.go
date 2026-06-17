@@ -139,6 +139,10 @@ func templateLocation(t plan.Template) (string, string) {
 		return "ts", "pw_tsconfig.tmpl"
 	case plan.TmplPlaywrightCIFile:
 		return "ts", "pw_ci_workflow.tmpl"
+	case plan.TmplPlaywrightFuzz:
+		return "ts", "pw_fuzz.tmpl"
+	case plan.TmplPlaywrightFeature:
+		return "ts", "pw_feature.tmpl"
 	case plan.TmplPytestUnit:
 		return "py", "pytest_unit.tmpl"
 	case plan.TmplPytestAPI:
@@ -223,8 +227,10 @@ var funcs = template.FuncMap{
 	"firstSameOriginLink": firstSameOriginLink,
 	"linkHref":            linkHref,
 	"shouldCheck":         func(i ast.FormInput) bool { return i.Type == "checkbox" || i.Type == "radio" },
-	"hasRequiredInput":    hasRequiredInput,
-	"firstRequiredInput":  firstRequiredInput,
+	"hasRequiredInput":      hasRequiredInput,
+	"firstRequiredInput":    firstRequiredInput,
+	"firstEmailInput":       firstEmailInput,
+	"firstOversizableInput": firstOversizableInput,
 	"isAbsoluteURL": func(s string) bool {
 		return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
 	},
@@ -650,6 +656,35 @@ func hasRequiredInput(inputs []ast.FormInput) bool {
 func firstRequiredInput(inputs []ast.FormInput) []ast.FormInput {
 	for _, i := range inputs {
 		if i.Required {
+			return []ast.FormInput{i}
+		}
+	}
+	return nil
+}
+
+// firstEmailInput returns a single-element slice with the first input
+// whose type is "email". Gates the "rejects malformed email" negative
+// test family.
+func firstEmailInput(inputs []ast.FormInput) []ast.FormInput {
+	for _, i := range inputs {
+		if i.Type == "email" {
+			return []ast.FormInput{i}
+		}
+	}
+	return nil
+}
+
+// firstOversizableInput returns the first textarea or text input — the
+// fields where an oversized payload would meaningfully exercise input
+// length handling. textarea wins over text when both exist.
+func firstOversizableInput(inputs []ast.FormInput) []ast.FormInput {
+	for _, i := range inputs {
+		if i.Type == "textarea" {
+			return []ast.FormInput{i}
+		}
+	}
+	for _, i := range inputs {
+		if i.Type == "text" || i.Type == "email" || i.Type == "url" || i.Type == "tel" {
 			return []ast.FormInput{i}
 		}
 	}

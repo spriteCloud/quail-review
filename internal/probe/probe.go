@@ -318,7 +318,31 @@ func runAllImpl(ctx context.Context, urls []string, filter JourneyFilter) ([]pla
 		// instead of duplicating the page-error tracking in every file.
 		items = append(items, companionItems(u, m)...)
 		for _, j := range journeys {
-			items = append(items, itemFromJourney(j, u))
+			item := itemFromJourney(j, u)
+			items = append(items, item)
+			// Gherkin documentation sibling: same plan.Item shape, different
+			// template + .feature extension. The TS spec stays the source of
+			// truth; the feature file is generated from the same Symbol so
+			// they can't drift.
+			featureItem := item
+			featureItem.Template = plan.TmplPlaywrightFeature
+			featureItem.OutPath = featurePathFor(item.OutPath)
+			items = append(items, featureItem)
+		}
+		// Per-page fuzz specs: one per page that carries either text-like
+		// inputs OR interactive components. Bounded at 5 emissions total
+		// per probe so triage stays tractable on large sites.
+		fuzzEmitted := 0
+		for _, url := range m.Order {
+			if fuzzEmitted >= 5 {
+				break
+			}
+			page := m.Pages[url]
+			if !pageNeedsFuzz(page) {
+				continue
+			}
+			items = append(items, fuzzItemForPage(page, u))
+			fuzzEmitted++
 		}
 	}
 	return items, errs
@@ -497,6 +521,68 @@ func symbolFromPage(p *mindmap.Page) ast.Symbol {
 		Meta:         p.Meta,
 		PageTitle:    p.Title,
 		HasForm:      p.HasForm,
+	}
+}
+
+// featurePathFor rewrites a `tests/e2e/<x>.spec.ts` path to its sibling
+// Gherkin documentation path `tests/e2e/features/<x>.feature`.
+func featurePathFor(specPath string) string {
+	base := strings.TrimSuffix(filepath.Base(specPath), ".spec.ts")
+	return "tests/e2e/features/" + base + ".feature"
+}
+
+// pageNeedsFuzz reports whether a page has enough surface to make a fuzz
+// spec worthwhile — at least one text-like input or one interactive
+// component the keyboard branch can exercise.
+func pageNeedsFuzz(p *mindmap.Page) bool {
+	if p == nil {
+		return false
+	}
+	for _, i := range p.Inputs {
+		switch i.Type {
+		case "text", "email", "search", "url", "tel", "textarea":
+			return true
+		}
+	}
+	for _, ix := range p.Interactions {
+		switch ix.Kind {
+		case "details", "collapse", "tab", "popup":
+			return true
+		}
+	}
+	return false
+}
+
+// fuzzItemForPage builds the plan.Item that drives pw_fuzz.tmpl. The
+// item's Symbol carries the page's inputs + interactions (the template
+// loops over them with bounded caps inside).
+func fuzzItemForPage(p *mindmap.Page, sourceURL string) plan.Item {
+	u, _ := url.Parse(p.URL)
+	host := ""
+	if u != nil {
+		host = u.Hostname()
+	}
+	sym := ast.Symbol{
+		Name:         hostToName(host),
+		Kind:         ast.KindComponent,
+		File:         p.URL,
+		Language:     "ts",
+		Inputs:       p.Inputs,
+		Interactions: p.Interactions,
+		PageTitle:    p.Title,
+	}
+	hostStem := strings.TrimPrefix(strings.ReplaceAll(host, ".", "-"), "www-")
+	stem := hostStem
+	if slug := pathSlug(p.URL); slug != "" {
+		stem += "-" + slug
+	}
+	return plan.Item{
+		Symbol:      sym,
+		Symbols:     []ast.Symbol{sym},
+		PageURL:     p.URL,
+		Template:    plan.TmplPlaywrightFuzz,
+		OutPath:     "tests/e2e/" + stem + "-fuzz.spec.ts",
+		JourneyKind: "fuzz",
 	}
 }
 

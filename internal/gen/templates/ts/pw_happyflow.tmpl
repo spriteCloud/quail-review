@@ -252,19 +252,78 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
   })
 {{- end }}{{/* end of if-exercise/else */}}
 {{- range $s := .Symbols }}
-{{- if and (eq (intentFor $s) "form") $s.HasOnSubmit (hasRequiredInput $s.Inputs) }}
+{{- /* Gate: form-intent symbol with a submit element. Drop the legacy
+       $s.HasOnSubmit check — that field is only set by the TSX extractor
+       (React onSubmit handlers); probe-derived symbols never carried it,
+       which meant the entire negative-test block was dead code on the
+       probe path. The submit element + required input combo is enough. */ -}}
+{{- if eq (intentFor $s) "form" }}
 {{- with firstSubmit $s.Anchors }}{{ $sub := index . 0 }}
 {{- $subloc := locatorFor $sub }}
 {{- with firstRequiredInput $s.Inputs }}{{ $req := index . 0 }}
 {{- $reqloc := inputLocator $req }}
 {{- if and $subloc $reqloc }}
 
+{{- if hasKnownFailurePattern $.Symbol }}
+  test.fail('@journey:{{$.JourneyKind}} @negative {{$.Symbol.Name}}: {{$s.Name}} blocks submit when required fields are empty', async ({ page }) => {
+{{- else }}
   test('@journey:{{$.JourneyKind}} @negative {{$.Symbol.Name}}: {{$s.Name}} blocks submit when required fields are empty', async ({ page }) => {
+{{- end }}
     await page.{{$subloc}}.first().click()
     await expect(page.{{$reqloc}}.first()).toBeVisible()
     await expect(page.locator('text=/success|welcome|signed in/i')).toHaveCount(0)
   })
 {{- end }}
+{{- end }}
+{{- end }}
+{{- /* Email-shape negative: when the form has an <input type="email">,
+       verify a malformed value is either rejected by the browser's
+       built-in validation or surfaces a visible error. Two outcomes
+       are acceptable so the test passes against either UX choice. */ -}}
+{{- with firstEmailInput $s.Inputs }}{{ $email := index . 0 }}
+{{- $eloc := inputLocator $email }}
+{{- with firstSubmit $s.Anchors }}{{ $sub := index . 0 }}
+{{- $subloc := locatorFor $sub }}
+{{- if and $eloc $subloc }}
+
+{{- if hasKnownFailurePattern $.Symbol }}
+  test.fail('@journey:{{$.JourneyKind}} @negative {{$.Symbol.Name}}: {{$s.Name}} rejects a malformed email', async ({ page }) => {
+{{- else }}
+  test('@journey:{{$.JourneyKind}} @negative {{$.Symbol.Name}}: {{$s.Name}} rejects a malformed email', async ({ page }) => {
+{{- end }}
+    const field = page.{{$eloc}}.first()
+    await field.fill('not-an-email')
+    await page.{{$subloc}}.first().click()
+    // Acceptable outcomes:
+    //   (1) the browser blocks submit (input is invalid → form unsubmitted)
+    //   (2) the page surfaces a visible error region.
+    // We assert at least one of those signals; the test fails only
+    // when the form accepts the malformed value AND shows success.
+    const stillInvalid = await field.evaluate((el: HTMLInputElement) => !el.checkValidity()).catch(() => false)
+    const errorVisible = await page.locator('text=/invalid|enter a valid|must be a valid email|wrong format/i').first().isVisible().catch(() => false)
+    expect(stillInvalid || errorVisible).toBeTruthy()
+  })
+{{- end }}
+{{- end }}
+{{- end }}
+{{- /* Oversized payload negative: fill the longest text-shaped field
+       with 5000 chars. We assert the field doesn't crash the page
+       (pageErrors fixture catches that) and that submit either gets
+       handled gracefully or the input gets truncated by the consumer's
+       JS. */ -}}
+{{- with firstOversizableInput $s.Inputs }}{{ $ov := index . 0 }}
+{{- $oloc := inputLocator $ov }}
+{{- if $oloc }}
+
+  test('@journey:{{$.JourneyKind}} @negative {{$.Symbol.Name}}: {{$s.Name}} handles oversized input without crashing', async ({ page }) => {
+    const field = page.{{$oloc}}.first()
+    const huge = 'a'.repeat(5000)
+    await field.fill(huge)
+    // No assertion about exact value retained — sites legitimately
+    // truncate. The crash signal lives in the pageErrors fixture
+    // (afterEach in _fixtures.ts).
+    await expect(field).toBeAttached()
+  })
 {{- end }}
 {{- end }}
 {{- end }}

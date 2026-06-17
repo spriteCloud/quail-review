@@ -23,6 +23,8 @@ const (
 	TmplPlaywrightPackage   Template = "pw_package"
 	TmplPlaywrightTsconfig  Template = "pw_tsconfig"
 	TmplPlaywrightCIFile    Template = "pw_ci_workflow"
+	TmplPlaywrightFuzz      Template = "pw_fuzz"
+	TmplPlaywrightFeature   Template = "pw_feature"
 	TmplPytestUnit          Template = "pytest_unit"
 	TmplPytestAPI           Template = "pytest_api"
 	TmplGoUnit              Template = "gotest_unit"
