@@ -7,6 +7,66 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.78 — Settings polish + actions-left + Stakeholder Summary rewrite + history + project switcher
+
+Five UX threads from one v0.77 screenshot tour.
+
+### Settings polish
+- LLM endpoint / model / API key / timeout inputs no longer stretch
+  into 250-px-tall boxes. Pinned to 40px with `flex: 0 0 auto`.
+- Toast helper (`toast()`) emits a brief top-right notification.
+  Wired into Settings save, probe finish, project switch, and any
+  future "did this work?" affordance.
+
+### Scenario action row, always left, always below
+- `.scenario-head` switched from `flex-wrap: wrap` (v0.76) to
+  `flex-direction: column`. Run / Chat / Edit / Delete now sit on
+  their own row at the bottom-left of every scenario card on every
+  viewport — including wide screens.
+
+### Stakeholder Summary rewrite + history
+- **Hero compacted.** The 50-px URL hero that wrapped into three
+  lines (`https:// www.spritec loud.com`) is replaced with
+  `"Coverage map for <brand>."`. New `brandFromOrigin` template
+  helper strips the scheme and `www.` so the headline reads as the
+  brand. Full URL drops into the cover meta strip.
+- **Risk strip** under the hero — three KPI tiles in `--charcoal`:
+  *Gated on release* (critical journey count), *Standard
+  regression* (standard journey count), *Awaiting wireup*
+  (Integration scaffold count).
+- **Sharper prose.** "At a glance" rewritten with stakeholder verbs
+  — *green-lit, gated, unverified*. New "Unverified surface"
+  paragraph calls out scaffold-only layers explicitly.
+- **History storage.** `writeRenderedLocal` now also writes
+  timestamped copies under `tests/e2e/docs/history/summary-
+  <UTC>.html` and `findings-<UTC>.md` on every probe. The
+  canonical `summary.html` / `findings.md` always reflect the
+  latest generation; history is append-only.
+- **History in the sidebar.** `loadProject` scans `docs/history/`;
+  the serve UI gets a collapsible "Past summaries · findings"
+  group at the bottom of the sidebar, sorted newest-first.
+
+### Project switcher
+- The header pill (`spritecloud-com-dgx`) is now a clickable
+  dropdown trigger. Click → menu listing Current, Siblings
+  (auto-discovered reviewqa projects in the parent dir), Recents
+  (from settings), plus an "Open path" input for free-form
+  workdirs.
+- Backend: `workdir` promoted to a mutex-protected `workdirState`
+  shared by every handler closure. The `Handler(workdir string)`
+  signature is preserved (it now wraps the string in a state) so
+  existing tests don't change.
+- New endpoints:
+  - `GET /api/projects` → `{current, siblings, recents}`
+  - `POST /api/switch-project` → validate, set state, push to
+    recents (capped at 8, dedup) in `~/.config/reviewqa/serve.json`.
+- Frontend swaps the project state on switch, re-fetches
+  `/api/project`, and toasts the new path.
+
+### Tests
+6 new tests across project switcher (`projects_test.go`) and
+sibling discovery. 568 → 574 total passing.
+
 ## v0.77 — Settings page + probe `--local` (no GitHub token required)
 
 Two threads from the same v0.76 HOME session:

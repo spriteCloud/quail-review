@@ -42,6 +42,19 @@ function escapeHTML (s) {
   return s.replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]))
 }
 
+// toast surfaces a short ephemeral message at the top-right. Used by
+// Settings save, the project switcher, the probe-finish path — any
+// action whose completion isn't otherwise visible. kind: ok | fail | info.
+function toast (msg, kind = 'ok') {
+  const t = el('div', { class: 'toast toast-' + kind }, msg)
+  document.body.appendChild(t)
+  requestAnimationFrame(() => t.classList.add('show'))
+  setTimeout(() => {
+    t.classList.remove('show')
+    setTimeout(() => t.remove(), 220)
+  }, 2200)
+}
+
 function highlightPlaceholders (text) {
   return escapeHTML(text).replace(/"[^"]*"/g, m => `<span class="placeholder-arg">${m}</span>`)
 }
@@ -802,6 +815,7 @@ async function init () {
         ))
       }
     }
+    renderHistoryList(project)
   } catch (err) {
     $content.replaceChildren(el('div', { class: 'error' }, 'Failed to load project: ' + err.message))
   }
@@ -920,6 +934,7 @@ async function renderHome () {
               ? `Probe succeeded (exit ${payload.exitCode}) — refreshing project…`
               : `Probe failed (exit ${payload.exitCode})${payload.error ? ' — ' + payload.error : ''}`
             $verdict.className = 'home-probe-verdict ' + (ok ? 'pass' : 'fail')
+            toast(ok ? 'Probe finished' : 'Probe failed', ok ? 'ok' : 'fail')
             if (ok) await reloadProject()
           }
         }
@@ -1033,8 +1048,30 @@ async function reloadProject () {
         ))
       }
     }
+    renderHistoryList(project)
     refreshSidebarSelection()
   } catch (_) { /* non-fatal */ }
+}
+
+function renderHistoryList (project) {
+  // Find or create the history container under the DOCS list.
+  let $box = document.querySelector('[data-history-box]')
+  if (!$box) {
+    $box = el('details', { class: 'history-list', 'data-history-box': '' })
+    document.querySelector('.sidebar')?.appendChild($box)
+  }
+  $box.replaceChildren()
+  if (!project.history || !project.history.length) {
+    $box.style.display = 'none'
+    return
+  }
+  $box.style.display = ''
+  $box.appendChild(el('summary', {}, `Past summaries · findings (${project.history.length})`))
+  const $ul = el('ul', {})
+  for (const h of project.history) {
+    $ul.appendChild(el('li', { 'data-path': h.path, onclick: () => openDoc(h.path, h.kind) }, h.title))
+  }
+  $box.appendChild($ul)
 }
 
 // ---------- SETTINGS view ----------
@@ -1129,11 +1166,13 @@ async function renderSettings () {
       if (!res.ok) throw new Error('HTTP ' + res.status)
       $status.textContent = 'Saved.'
       $status.className = 'home-probe-verdict pass'
+      toast('Settings saved')
       // Refresh LLM status so the run/chat affordances re-evaluate.
       llmStatus = await fetchJSON('/api/llm-status').catch(() => llmStatus)
     } catch (err) {
       $status.textContent = 'Save failed: ' + err.message
       $status.className = 'home-probe-verdict fail'
+      toast('Save failed: ' + err.message, 'fail')
     }
   }
 
@@ -1177,5 +1216,106 @@ async function renderSettings () {
     $status,
   )
 }
+
+// ---------- PROJECT SWITCHER ----------
+
+async function openProjectMenu () {
+  // Close any existing menu before opening a new one.
+  const existing = document.querySelector('.project-menu')
+  if (existing) { existing.remove(); return }
+
+  let data
+  try {
+    data = await fetchJSON('/api/projects')
+  } catch (err) {
+    toast('Failed to list projects: ' + err.message, 'fail')
+    return
+  }
+
+  const menu = el('div', { class: 'project-menu' })
+
+  menu.appendChild(el('div', { class: 'project-menu-section' }, 'Current'))
+  menu.appendChild(el('div', { class: 'project-menu-row current' },
+    el('span', { class: 'name' }, data.current.name),
+    el('span', { class: 'path' }, data.current.path),
+  ))
+
+  if (data.siblings && data.siblings.length) {
+    menu.appendChild(el('div', { class: 'project-menu-section' }, 'Siblings'))
+    for (const p of data.siblings) {
+      menu.appendChild(el('div', { class: 'project-menu-row', onclick: () => switchTo(p.path) },
+        el('span', { class: 'name' }, p.name),
+        el('span', { class: 'path' }, p.path),
+      ))
+    }
+  }
+
+  if (data.recents && data.recents.length) {
+    menu.appendChild(el('div', { class: 'project-menu-section' }, 'Recent'))
+    for (const p of data.recents) {
+      menu.appendChild(el('div', { class: 'project-menu-row', onclick: () => switchTo(p.path) },
+        el('span', { class: 'name' }, p.name),
+        el('span', { class: 'path' }, p.path),
+      ))
+    }
+  }
+
+  if ((!data.siblings || !data.siblings.length) && (!data.recents || !data.recents.length)) {
+    menu.appendChild(el('div', { class: 'project-menu-empty' }, 'No sibling reviewqa projects found and no recents yet.'))
+  }
+
+  const $open = el('input', { type: 'text', placeholder: '/absolute/path/to/workdir', autocomplete: 'off' })
+  const $openBtn = el('button', { class: 'btn-ghost', onclick: () => switchTo($open.value.trim()) }, 'Open')
+  $open.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); switchTo($open.value.trim()) }
+  })
+  menu.appendChild(el('div', { class: 'project-menu-open' }, $open, $openBtn))
+
+  const $trigger = document.querySelector('[data-project-trigger]')
+  $trigger.parentNode.appendChild(menu)
+
+  // Close on outside click.
+  const closer = (ev) => {
+    if (!menu.contains(ev.target) && !$trigger.contains(ev.target)) {
+      menu.remove()
+      document.removeEventListener('mousedown', closer)
+    }
+  }
+  setTimeout(() => document.addEventListener('mousedown', closer), 0)
+}
+
+async function switchTo (path) {
+  if (!path) {
+    toast('Empty path', 'fail')
+    return
+  }
+  try {
+    const res = await fetch('/api/switch-project', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    })
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '')
+      throw new Error(`HTTP ${res.status} — ${txt}`)
+    }
+    const j = await res.json()
+    toast('Switched to ' + (j.current || path), 'ok')
+    document.querySelector('.project-menu')?.remove()
+    // Reload everything.
+    activeFeature = null
+    activeDoc = null
+    await init()
+  } catch (err) {
+    toast('Switch failed: ' + err.message, 'fail')
+  }
+}
+
+// Wire the trigger once. The script tag is at end of <body> so the
+// element already exists by the time this runs.
+;(function bindProjectTrigger () {
+  const $trigger = document.querySelector('[data-project-trigger]')
+  if ($trigger) $trigger.addEventListener('click', openProjectMenu)
+})()
 
 init()

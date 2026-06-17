@@ -298,11 +298,14 @@ code, pre { font-family: 'Fira Code', ui-monospace, monospace; }
   border-color: rgba(192, 128, 90, 0.4);
   box-shadow: 0 4px 14px rgba(15, 17, 23, 0.04);
 }
+/* Scenario card head: title + last-run pill on top, action row
+ * (Run / Chat / Edit / Delete) ALWAYS on its own line below,
+ * left-aligned. Stays consistent across every viewport width. */
 .scenario-head {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  gap: 12px 16px;
-  flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 4px;
 }
 .scenario-name {
@@ -316,7 +319,6 @@ code, pre { font-family: 'Fira Code', ui-monospace, monospace; }
   display: flex;
   gap: 6px;
   flex-shrink: 0;
-  margin-left: auto;
 }
 
 .steps {
@@ -1295,3 +1297,144 @@ code, pre { font-family: 'Fira Code', ui-monospace, monospace; }
   margin-top: 8px;
   flex-wrap: wrap;
 }
+
+/* Settings inputs lived under .home-probe-input which uses `flex:
+ * 1 1 280px` (correct for the HOME probe row), but inside the
+ * column-flex .settings-row the inputs were getting stretched into
+ * 250px-tall boxes. Pin them back to a normal single-line height. */
+.settings-row .home-probe-input,
+.settings-row .home-probe-coverage {
+  height: 40px;
+  flex: 0 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* TOAST — short ephemeral feedback (saved / probed / switched). */
+.toast {
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  z-index: 9999;
+  background: var(--deep-water);
+  color: var(--white);
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(15, 17, 23, 0.18);
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity .18s ease, transform .18s ease;
+  max-width: 380px;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast-ok { background: #15803D; }
+.toast-fail { background: #B91C1C; }
+.toast-info { background: var(--deep-water); }
+
+/* PROJECT SWITCHER dropdown — anchored to the header brand pill. */
+.project-pill {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+.project-pill::after {
+  content: '▾';
+  margin-left: 6px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+.project-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  width: 360px;
+  max-width: 90vw;
+  background: var(--white);
+  border: 1px solid var(--border-warm);
+  border-radius: 10px;
+  box-shadow: 0 12px 36px rgba(15, 17, 23, 0.16);
+  padding: 10px;
+  z-index: 1000;
+}
+.project-menu-section {
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--copper);
+  padding: 8px 8px 4px;
+}
+.project-menu-row {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.project-menu-row:hover { background: var(--copper-soft); }
+.project-menu-row.current { background: var(--warm-white); cursor: default; }
+.project-menu-row .name {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--deep-water);
+}
+.project-menu-row .path {
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--mist);
+  margin-top: 2px;
+  word-break: break-all;
+}
+.project-menu-empty {
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--mist);
+  font-style: italic;
+}
+.project-menu-open {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--border-warm);
+  margin-top: 6px;
+}
+.project-menu-open input {
+  flex: 1;
+  height: 32px;
+  padding: 4px 8px;
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  border: 1px solid var(--border-warm);
+  border-radius: 6px;
+}
+
+/* Stakeholder summary "Past summaries / findings" sidebar group. */
+.history-list { margin-top: 8px; }
+.history-list summary {
+  list-style: none;
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--copper);
+  cursor: pointer;
+  padding: 8px 4px;
+}
+.history-list summary::marker { content: ''; }
+.history-list summary::-webkit-details-marker { display: none; }
+.history-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.history-list li {
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--deep-water);
+}
+.history-list li:hover { background: var(--copper-soft); }
+.history-list li.active { background: var(--copper-soft); color: var(--copper); }

@@ -66,12 +66,60 @@
   .cover h1 {
     font-family: 'Sora', sans-serif;
     font-weight: 800;
-    font-size: clamp(36px, 4.6vw, 52px);
-    line-height: 1.04;
-    letter-spacing: -0.035em;
+    font-size: clamp(26px, 2.8vw, 36px);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
     color: var(--white);
-    margin: 12px 0 18px;
-    word-break: break-word;
+    margin: 10px 0 14px;
+    overflow-wrap: anywhere;
+  }
+  .cover .origin {
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--copper);
+    word-break: break-all;
+    margin-bottom: 10px;
+    display: block;
+  }
+  /* Risk strip — three KPI tiles right under the cover band. */
+  .risk-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    background: var(--charcoal);
+    color: var(--white);
+    padding: 0;
+  }
+  .risk-tile {
+    padding: 18px 24px;
+    border-right: 1px solid rgba(255,255,255,0.08);
+  }
+  .risk-tile:last-child { border-right: 0; }
+  .risk-tile .num {
+    font-family: 'Sora', sans-serif;
+    font-weight: 800;
+    font-size: 32px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .risk-tile .label {
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--copper);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .risk-tile .sub {
+    font-size: 11px;
+    color: var(--mist);
+    margin-top: 4px;
+  }
+  @media (max-width: 720px) {
+    .risk-strip { grid-template-columns: 1fr; }
+    .risk-tile { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .risk-tile:last-child { border-bottom: 0; }
   }
   .cover-meta {
     display: flex;
@@ -310,15 +358,32 @@
       <span class="label">reviewqa · stakeholder summary</span>
       <span class="wm"><span class="s">sprite</span><span class="c">Cloud</span></span>
     </div>
-    <h1>{{.Catalogue.Origin}}</h1>
+    <h1>Coverage map for {{brandFromOrigin .Catalogue.Origin}}.</h1>
+    <span class="origin">{{.Catalogue.Origin}}</span>
     <div class="cover-meta">
       <span>Generated {{.Catalogue.GeneratedAt}}</span>
       <span class="dot">·</span>
       <span class="pill">{{.Catalogue.CoverageMode}} coverage</span>
-      <span class="dot">·</span>
-      <span>{{$pages}} pages · {{$total}} journeys · {{$fuzz}} fuzz specs</span>
     </div>
   </header>
+
+  <section class="risk-strip" aria-label="Risk snapshot">
+    <div class="risk-tile">
+      <span class="label">Gated on release</span>
+      <div class="num">{{$crit}}</div>
+      <div class="sub">critical {{if eq $crit 1}}journey{{else}}journeys{{end}} the suite blocks shipping on</div>
+    </div>
+    <div class="risk-tile">
+      <span class="label">Standard regression</span>
+      <div class="num">{{$std}}</div>
+      <div class="sub">standard {{if eq $std 1}}journey{{else}}journeys{{end}} monitored every nightly</div>
+    </div>
+    <div class="risk-tile">
+      <span class="label">Awaiting wireup</span>
+      <div class="num">1</div>
+      <div class="sub">Integration layer is scaffold-only until `reviewqa.yml` wires the backing resource</div>
+    </div>
+  </section>
 
   <div class="pixel-rail" aria-hidden="true">
     <div class="pixel-rail-inner">
@@ -334,23 +399,27 @@
     <section class="section">
       <div class="section-head">
         <span class="label">At a glance</span>
-        <h2>What reviewqa did on this site.</h2>
+        <h2>What's green-lit, what's gated, what's unverified.</h2>
       </div>
       <div class="glance">
         <p>
-          reviewqa crawled <span class="num">{{$pages}}</span> pages on <strong>{{.Catalogue.Origin}}</strong>
-          and identified <span class="num">{{$total}}</span> user {{if eq $total 1}}journey{{else}}journeys{{end}}, classified by business priority.
-          {{- if gt $crit 0 }} <span class="num">{{$crit}}</span> {{if eq $crit 1}}is{{else}}are{{end}} <strong>critical</strong> &mdash; the suite is gated on these passing before every release.{{- end }}
-          {{- if gt $std 0 }} <span class="num">{{$std}}</span> {{if eq $std 1}}is{{else}}are{{end}} <strong>standard</strong> &mdash; nightly regression coverage.{{- end }}
-          {{- if gt $nice 0 }} <span class="num">{{$nice}}</span> {{if eq $nice 1}}is{{else}}are{{end}} <strong>nice-to-have</strong> &mdash; longer-tail flows worth keeping warm.{{- end }}
+          reviewqa observed <span class="num">{{$pages}}</span> {{if eq $pages 1}}page{{else}}pages{{end}}
+          on this surface and translated them into <span class="num">{{$total}}</span> user
+          {{if eq $total 1}}journey{{else}}journeys{{end}}.
+          {{- if gt $crit 0 }} <strong>{{$crit}}</strong> {{if eq $crit 1}}gates{{else}}gate{{end}} the release &mdash; every PR must pass these before merge.{{- end }}
+          {{- if gt $std 0 }} <strong>{{$std}}</strong> {{if eq $std 1}}runs{{else}}run{{end}} on nightly regression &mdash; the early-warning net.{{- end }}
+          {{- if gt $nice 0 }} <strong>{{$nice}}</strong> {{if eq $nice 1}}is{{else}}are{{end}} kept warm but won't block a ship.{{- end }}
         </p>
         <p>
-          The emitted suite spans <strong>{{.Catalogue.CoverageMode}}</strong> coverage:
-          a Playwright + Gherkin journey suite (one .feature file per journey),
-          an accessibility trio on every crawled page (5 axe-core gates, 5 landmark checks, 5 keyboard gestures),
-          responsive / performance / security / health / observability quality specs,
-          a 4-device × 2-orientation mobile matrix, and
-          {{- if gt $fuzz 0 }} <span class="num">{{$fuzz}}</span> adversarial fuzz {{if eq $fuzz 1}}spec{{else}}specs{{end}} per form.{{- else }} adversarial fuzz specs (only emitted when a form is present).{{- end }}
+          Beyond the journey suite, every crawled page is checked for accessibility
+          (5 axe-core gates, 5 landmark, 5 keyboard), mobile rendering on 4 devices ×
+          2 orientations, network resilience, security headers, and performance budgets.
+          {{- if gt $fuzz 0 }} <span class="num">{{$fuzz}}</span> adversarial fuzz {{if eq $fuzz 1}}spec{{else}}specs{{end}} hammer the discovered {{if eq $fuzz 1}}form{{else}}forms{{end}} with 9 negative payloads each.{{- else }} Fuzz specs sit dormant &mdash; no form was discovered on the crawl.{{- end }}
+        </p>
+        <p>
+          <strong>Unverified surface:</strong> the Integration layer (DB / cache / auth /
+          observability) ships as scaffolds that skip until <code>reviewqa.yml</code> binds them
+          to the backing resources. Until then, the suite cannot prove cross-system contracts.
         </p>
       </div>
     </section>

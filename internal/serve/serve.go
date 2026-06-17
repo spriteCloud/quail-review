@@ -14,8 +14,30 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
+
+// workdirState holds the current serve workdir behind an RWMutex so
+// the project switcher can swap it at request time. Every handler
+// closure reads state.get() so a POST /api/switch-project takes
+// effect on the next request without rebuilding the mux.
+type workdirState struct {
+	mu   sync.RWMutex
+	path string
+}
+
+func (s *workdirState) get() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.path
+}
+
+func (s *workdirState) set(p string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.path = p
+}
 
 //go:embed web
 var webFS embed.FS
@@ -74,7 +96,16 @@ func Run(ctx context.Context, opts Options) error {
 
 // Handler returns the mux for the given workdir. Exposed for tests via
 // httptest so the JSON contract can be asserted without a live socket.
+//
+// Internally the workdir is held in a mutex-protected state so the
+// project switcher (POST /api/switch-project) can swap it on the fly
+// without rebuilding the mux. Test callers still pass a plain string.
 func Handler(workdir string) http.Handler {
+	state := &workdirState{path: workdir}
+	return handlerForState(state)
+}
+
+func handlerForState(state *workdirState) http.Handler {
 	mux := http.NewServeMux()
 
 	assets, err := fs.Sub(webFS, "web")
@@ -91,9 +122,10 @@ func Handler(workdir string) http.Handler {
 	}))
 
 	mux.HandleFunc("/api/project", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, loadProject(workdir))
+		writeJSON(w, loadProject(state.get()))
 	})
 	mux.HandleFunc("/api/feature", func(w http.ResponseWriter, r *http.Request) {
+		workdir := state.get()
 		rel := r.URL.Query().Get("path")
 		path, ok := safeJoin(workdir, rel)
 		if !ok {
@@ -121,9 +153,10 @@ func Handler(workdir string) http.Handler {
 		})
 	})
 	mux.HandleFunc("/api/steps", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, loadSteps(workdir))
+		writeJSON(w, loadSteps(state.get()))
 	})
 	mux.HandleFunc("/api/doc", func(w http.ResponseWriter, r *http.Request) {
+		workdir := state.get()
 		rel := r.URL.Query().Get("path")
 		path, ok := safeJoin(workdir, rel)
 		if !ok {
@@ -143,6 +176,7 @@ func Handler(workdir string) http.Handler {
 	})
 
 	mux.HandleFunc("/api/scenario", func(w http.ResponseWriter, r *http.Request) {
+		workdir := state.get()
 		rel := r.URL.Query().Get("feature")
 		name := r.URL.Query().Get("name")
 		path, ok := safeJoin(workdir, rel)
@@ -278,10 +312,12 @@ func Handler(workdir string) http.Handler {
 	})
 
 	mux.HandleFunc("/api/run-preflight", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, Preflight(workdir))
+		writeJSON(w, Preflight(state.get()))
 	})
 
-	mux.HandleFunc("/api/probe", handleProbe(workdir))
+	mux.HandleFunc("/api/probe", handleProbeWithState(state))
+	mux.HandleFunc("/api/projects", handleProjects(state))
+	mux.HandleFunc("/api/switch-project", handleSwitchProject(state))
 
 	mux.HandleFunc("/api/settings", handleSettings)
 	mux.HandleFunc("/api/llm-test", handleLLMTest)
@@ -299,7 +335,7 @@ func Handler(workdir string) http.Handler {
 		// No timeout on the request context — playwright runs can be
 		// long. The user can stop via the UI which closes the
 		// connection; r.Context().Done() will cancel the exec.
-		if _, err := RunScenarioStream(r.Context(), w, workdir, req.Feature, req.Scenario); err != nil {
+		if _, err := RunScenarioStream(r.Context(), w, state.get(), req.Feature, req.Scenario); err != nil {
 			// If headers haven't been flushed yet, surface the error
 			// as a JSON 400. After the stream has started, errors
 			// arrive as the final "done" event.
@@ -423,6 +459,7 @@ type Project struct {
 	Version  string       `json:"version,omitempty"`
 	Features []FeatureRef `json:"features"`
 	Docs     []DocRef     `json:"docs,omitempty"`
+	History  []DocRef     `json:"history,omitempty"`
 }
 
 // BinaryVersion is the version constant injected by main at process
@@ -485,6 +522,34 @@ func loadProject(workdir string) Project {
 			rel, _ := filepath.Rel(workdir, path)
 			p.Docs = append(p.Docs, DocRef{Path: filepath.ToSlash(rel), Kind: d.kind, Title: d.title})
 		}
+	}
+	// Scan tests/e2e/docs/history/ for timestamped past summaries +
+	// findings (written by writeRenderedLocal on every probe). Sorted
+	// newest-first so the most recent snapshots surface at the top of
+	// the History list in the sidebar.
+	historyDir := filepath.Join(docsDir, "history")
+	if entries, err := os.ReadDir(historyDir); err == nil {
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			name := e.Name()
+			path := filepath.Join(historyDir, name)
+			rel, _ := filepath.Rel(workdir, path)
+			var kind, title string
+			switch {
+			case strings.HasPrefix(name, "summary-"):
+				kind = "summary-history"
+				title = "Summary · " + strings.TrimSuffix(strings.TrimPrefix(name, "summary-"), filepath.Ext(name))
+			case strings.HasPrefix(name, "findings-"):
+				kind = "findings-history"
+				title = "Findings · " + strings.TrimSuffix(strings.TrimPrefix(name, "findings-"), filepath.Ext(name))
+			default:
+				continue
+			}
+			p.History = append(p.History, DocRef{Path: filepath.ToSlash(rel), Kind: kind, Title: title})
+		}
+		sort.Slice(p.History, func(i, j int) bool { return p.History[i].Path > p.History[j].Path })
 	}
 	return p
 }
