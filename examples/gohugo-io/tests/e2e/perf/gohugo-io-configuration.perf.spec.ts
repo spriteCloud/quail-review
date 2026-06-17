@@ -23,3 +23,4 @@ test.describe('GohugoIo — performance @ https://gohugo.io/configuration', () =
     expect(elapsed).toBeLessThan(SLO_MS * 2)
   })
 })
+

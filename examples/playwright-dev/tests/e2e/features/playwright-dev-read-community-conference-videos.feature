@@ -23,3 +23,15 @@ Feature: PlaywrightDev — read journey
     When I navigate directly to "/community/conference-videos"
     Then I see the heading "Conference Videos"
     And the page title contains "Conference Videos | Playwright"
+
+  @journey:read @priority:nice-to-have @kind:resume
+  Scenario: read — deep-link to the terminal page renders correctly
+    Given I open the page "/community/conference-videos"
+    Then I see the heading "Conference Videos"
+
+  @journey:read @priority:nice-to-have @kind:back-button
+  Scenario: read — back button after navigation returns to landing
+    Given I open the landing page
+    When I click the link to "/community/conference-videos"
+    When I go back in the browser history
+

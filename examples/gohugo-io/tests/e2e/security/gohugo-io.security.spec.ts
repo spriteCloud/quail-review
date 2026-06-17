@@ -31,3 +31,4 @@ test.describe('GohugoIo — security headers @ https://gohugo.io', () => {
     expect.soft(headers['referrer-policy'], 'Referrer-Policy not set').toBeTruthy()
   })
 })
+

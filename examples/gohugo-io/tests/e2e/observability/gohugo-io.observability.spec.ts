@@ -27,3 +27,4 @@ test.describe('GohugoIo — observability headers @ https://gohugo.io', () => {
     expect.soft(any, 'no observability headers found — consider emitting x-request-id or server-timing for ops').toBe(true)
   })
 })
+

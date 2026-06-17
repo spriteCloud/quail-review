@@ -90,3 +90,4 @@ The generator deliberately does NOT emit:
 - Visual regression baselines — `toHaveScreenshot()` requires a
   baseline-management story you'll want to design once.
 - Accessibility scans — add `@axe-core/playwright` if you want them.
+

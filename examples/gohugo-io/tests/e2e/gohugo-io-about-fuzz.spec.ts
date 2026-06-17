@@ -38,3 +38,4 @@ test.describe('GohugoIo — fuzz / negative input', () => {
     await expect(field).toBeAttached()
   })
 })
+

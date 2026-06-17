@@ -42,32 +42,34 @@ Feature: WwwSpritecloudCom — research journey
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
-  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Reload thank-you page mid-flow
+  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Navigate to case study, reload mid-flow
     Given I open the landing page
-    When I click the link to "/case-study-grandvision"
+    When I click the link to "/case-studies"
     When I reload the page
-    Then the page title contains "Case Study - GrandVision"
-    Then the main heading reads "GrandVision"
+    Then the page title contains "Case Studies"
+    Then I see the heading "Case Studies"
 
   @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Form double-submit edge case
+  Scenario: Submit a contact form without required fields
     Given I open the landing page
-    When I click the link to "/case-study-grandvision"
+    When I click the link to "/contact"
+    When I submit the form without filling any required field
+    Then no error message is shown in the form region
+
+  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Attempt double submission of contact form
+    Given I am on the landing page
+    When I click the link to "/contact"
     When I submit the form twice in rapid succession
     Then the form is not double-submitted
 
   @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Navigate directly to case study
-    Given I am not signed in
-    When I navigate directly to "/case-study-grandvision"
-    Then the page title contains "Case Study - GrandVision"
-    Then the main heading reads "GrandVision"
-
-  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Back browser navigation after form
+  Scenario: Fill contact form, submit, then reload
     Given I open the landing page
-    When I click the link to "/case-study-grandvision"
-    When I go back in the browser history
-    Then the page title contains "Test your software, not your reputation!"
+    When I click the link to "/contact"
+    When I enter "test@example.com" into the "Email" field
+    When I submit the form
+    When I reload the page
+    Then no success message is shown
 

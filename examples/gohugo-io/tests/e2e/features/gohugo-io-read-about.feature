@@ -28,3 +28,15 @@ Feature: GohugoIo — read journey
     And the main heading reads "The world’s fastest framework for building websites"
     When I navigate directly to "/about"
     And the page title contains "About Hugo"
+
+  @journey:read @priority:nice-to-have @kind:resume
+  Scenario: read — deep-link to the terminal page renders correctly
+    Given I open the page "/about"
+
+  @journey:read @priority:nice-to-have @kind:back-button
+  Scenario: read — back button after navigation returns to landing
+    Given I open the landing page
+    When I click the link to "/about"
+    When I go back in the browser history
+    Then the main heading reads "The world’s fastest framework for building websites"
+

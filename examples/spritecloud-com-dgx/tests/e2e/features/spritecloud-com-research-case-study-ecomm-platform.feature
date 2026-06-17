@@ -43,29 +43,32 @@ Feature: WwwSpritecloudCom — research journey
   # ───────────────────────────────────────────────────────────────
 
   @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Navigate to case study and reload
+  Scenario: Reload landing page mid-form
     Given I open the landing page
-    When I click the link to "/case-studies"
+    When I open the menu
     When I click the link to "/case-study-ecomm-platform"
+    When I reload the page
     Then the page title contains "Case Study - eCommerce Platform"
+
+  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Navigate then go back
+    Given I open the landing page
+    When I click the link to "/case-study-ecomm-platform"
     Then the main heading reads "Performance Testing for an eCommerce Platform"
+    When I go back in the browser history
+    Then the main heading reads "Test your software, not your reputation."
+
+  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Direct URL navigation and reload
+    When I navigate directly to "/case-study-ecomm-platform"
+    Then the page title contains "Case Study - eCommerce Platform"
     When I reload the page
     Then the main heading reads "Performance Testing for an eCommerce Platform"
 
   @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Back navigation from case study
+  Scenario: Race on navigation click
     Given I open the landing page
-    When I click the link to "/case-studies"
+    When I click the link to "/case-study-ecomm-platform"
     When I click the link to "/case-study-ecomm-platform"
     Then the page title contains "Case Study - eCommerce Platform"
-    When I go back in the browser history
-    Then the page title contains "spriteCloud - Test your software, not your reputation!"
-
-  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Direct URL reload preserves state
-    Given I open the page "/case-study-ecomm-platform"
-    Then the page title contains "Case Study - eCommerce Platform"
-    Then the main heading reads "Performance Testing for an eCommerce Platform"
-    When I reload the page
-    Then the main heading reads "Performance Testing for an eCommerce Platform"
 

@@ -31,3 +31,4 @@ test.describe('BooksToscrapeCom — security headers @ https://books.toscrape.co
     expect.soft(headers['referrer-policy'], 'Referrer-Policy not set').toBeTruthy()
   })
 })
+

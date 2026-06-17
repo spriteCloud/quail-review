@@ -25,3 +25,16 @@ Feature: BooksToscrapeCom — browse journey
     Then I see the heading "Travel"
     And the page title contains "Travel | 
      Books to Scrape - Sandbox"
+
+  @journey:browse @priority:standard @kind:resume
+  Scenario: browse — deep-link to the terminal page renders correctly
+    Given I open the page "/catalogue/category/books/travel_2/index.html"
+    Then I see the heading "Travel"
+
+  @journey:browse @priority:standard @kind:back-button
+  Scenario: browse — back button after navigation returns to landing
+    Given I open the landing page
+    When I click the link to "/catalogue/category/books/travel_2/index.html"
+    When I go back in the browser history
+    Then the main heading reads "All products"
+

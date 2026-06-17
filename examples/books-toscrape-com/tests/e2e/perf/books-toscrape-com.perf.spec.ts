@@ -23,3 +23,4 @@ test.describe('BooksToscrapeCom — performance @ https://books.toscrape.com', (
     expect(elapsed).toBeLessThan(SLO_MS * 2)
   })
 })
+

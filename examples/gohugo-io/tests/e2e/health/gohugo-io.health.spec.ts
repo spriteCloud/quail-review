@@ -37,3 +37,4 @@ test.describe('GohugoIo — health probes @ https://gohugo.io', () => {
     expect(allErrored, 'all health probes errored — origin unreachable?').toBe(false)
   })
 })
+

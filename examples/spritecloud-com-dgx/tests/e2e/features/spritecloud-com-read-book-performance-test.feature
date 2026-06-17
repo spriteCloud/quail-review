@@ -44,3 +44,32 @@ Feature: WwwSpritecloudCom — read journey
     And I go back in the browser history
     Then no error message is shown in the form region
 
+  # ───────────────────────────────────────────────────────────────
+  # LLM-composed scenarios (model: qwen3-coder-next:latest)
+  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
+  # ───────────────────────────────────────────────────────────────
+
+  @journey:read @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Book performance test via direct navigation
+    Given I am on the landing page
+    When I navigate directly to "/book-performance-test"
+    Then the page title contains "Book - Performance Test"
+    Then the main heading reads "Performance Test"
+
+  @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Submit form then reload preserves state
+    Given I open the page "/book-performance-test"
+    When I scroll to the bottom of the page
+    When I focus the "name" field
+    When I enter "Test User" into the "name" field
+    When I reload the page
+    Then the "name" field has the value "Test User"
+
+  @journey:read @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Rapid double-form submit rejected
+    Given I am on the landing page
+    When I click the link to "/book-performance-test"
+    When I submit the form twice in rapid succession
+    Then the form is not double-submitted
+    Then no success message is shown
+

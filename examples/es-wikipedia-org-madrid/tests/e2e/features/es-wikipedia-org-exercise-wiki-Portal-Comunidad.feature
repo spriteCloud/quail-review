@@ -25,3 +25,9 @@ Feature: EsWikipediaOrg — exercise journey
   Scenario: exercise journey reaches its terminal page
     Given I open the landing page
     And the page title contains "Portal:Comunidad - Wikipedia, la enciclopedia libre"
+
+  @journey:exercise @priority:standard @kind:empty-state
+  Scenario: exercise — page renders the landing list
+    Given I open the landing page
+    Then the page has at least 1 items
+

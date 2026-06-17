@@ -23,3 +23,4 @@ test.describe('PlaywrightDev — performance @ https://playwright.dev/community/
     expect(elapsed).toBeLessThan(SLO_MS * 2)
   })
 })
+

@@ -37,3 +37,4 @@ test.describe('PlaywrightDev — visual regression @ https://playwright.dev', ()
     })
   }
 })
+

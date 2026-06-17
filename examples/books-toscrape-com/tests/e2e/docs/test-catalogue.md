@@ -9,7 +9,7 @@ journeys it identified, the priority bucket each journey falls into, and
 the spec file generated for it. Treat it as the contract for what this
 suite covers — anything missing here is a coverage gap.
 
-## Pages crawled (20)
+## Pages crawled (30)
 
 | URL | Title | Tags |
 |---|---|---|
@@ -50,6 +50,26 @@ suite covers — anything missing here is a coverage gap.
 | `https://books.toscrape.com/catalogue/category/books/sports-and-games_17/index.html` | Sports and Games | 
      Books to Scrape - Sandbox | `list` |
 | `https://books.toscrape.com/catalogue/category/books/add-a-comment_18/index.html` | Add a comment | 
+     Books to Scrape - Sandbox | `list` |
+| `https://books.toscrape.com/catalogue/category/books/fantasy_19/index.html` | Fantasy | 
+     Books to Scrape - Sandbox | `list` |
+| `https://books.toscrape.com/catalogue/category/books/new-adult_20/index.html` | New Adult | 
+     Books to Scrape - Sandbox | `list` |
+| `https://books.toscrape.com/catalogue/category/books/young-adult_21/index.html` | Young Adult | 
+     Books to Scrape - Sandbox | `list` |
+| `https://books.toscrape.com/catalogue/category/books/science_22/index.html` | Science | 
+     Books to Scrape - Sandbox | `list` |
+| `https://books.toscrape.com/catalogue/category/books/poetry_23/index.html` | Poetry | 
+     Books to Scrape - Sandbox | `list` |
+| `https://books.toscrape.com/catalogue/category/books/paranormal_24/index.html` | Paranormal | 
+     Books to Scrape - Sandbox | `list` |
+| `https://books.toscrape.com/catalogue/category/books/art_25/index.html` | Art | 
+     Books to Scrape - Sandbox | `list` |
+| `https://books.toscrape.com/catalogue/category/books/psychology_26/index.html` | Psychology | 
+     Books to Scrape - Sandbox | `list` |
+| `https://books.toscrape.com/catalogue/category/books/autobiography_27/index.html` | Autobiography | 
+     Books to Scrape - Sandbox | `list` |
+| `https://books.toscrape.com/catalogue/category/books/parenting_28/index.html` | Parenting | 
      Books to Scrape - Sandbox | `list` |
 
 ## Journeys identified (3)
@@ -134,3 +154,4 @@ Where reviewqa recognises a known-broken pattern (e.g. Webflow
 `data-wait` submit), the test is marked `test.fail()` so it stays
 visible without burning CI on a known issue. Remove the annotation once
 the underlying form handling is sorted.
+

@@ -51,26 +51,39 @@ Feature: WwwSpritecloudCom — browse journey
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
-  @journey:browse @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Double form submission
-    Given I am on the landing page
-    When I navigate directly to "/contact"
-    When I submit the form twice in rapid succession
-    Then the form is not double-submitted
-
-  @journey:browse @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Navigate to guides, then reload
+  @journey:browse @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Navigate to guides, reload, verify content persists
     Given I open the landing page
     When I click the link to "/guides"
-    Then the page title contains "spriteCloud - Your Software Testing and QA partner"
+    Then the page title contains "Your Software Testing and QA partner"
     When I reload the page
-    Then the page title contains "spriteCloud - Your Software Testing and QA partner"
+    Then the page title contains "Your Software Testing and QA partner"
 
   @journey:browse @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Navigate to about-us, go back
-    Given I am on the landing page
-    When I navigate directly to "/about-us"
+  Scenario: Navigate to about-us, go back, assert landing page restored
+    Given I open the landing page
+    When I click the link to "/about-us"
     Then the main heading reads "Testing is in our DNA."
     When I go back in the browser history
-    Then the page title contains "spriteCloud - Test your software, not your reputation!"
+    Then the main heading reads "Test your software, not your reputation."
+
+  @journey:browse @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Submit form without filling required fields
+    Given I open the landing page
+    When I submit the form without filling any required field
+    Then no success message is shown
+    Then I remain on the same page
+
+  @journey:browse @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Press Enter on form to submit
+    Given I open the landing page
+    When I focus the "email" field
+    When I press the "Enter" key
+    Then I remain on the same page
+
+  @journey:browse @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Submit form twice rapidly, verify no double-submission
+    Given I open the landing page
+    When I submit the form twice in rapid succession
+    Then the form is not double-submitted
 

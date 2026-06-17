@@ -27,3 +27,4 @@ test.describe('PlaywrightDev — observability headers @ https://playwright.dev'
     expect.soft(any, 'no observability headers found — consider emitting x-request-id or server-timing for ops').toBe(true)
   })
 })
+

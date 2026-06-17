@@ -44,25 +44,3 @@ Feature: WwwSpritecloudCom — explore journey
     And I go back in the browser history
     Then no error message is shown in the form region
 
-  # ───────────────────────────────────────────────────────────────
-  # LLM-composed scenarios (model: qwen3-coder-next:latest)
-  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
-  # ───────────────────────────────────────────────────────────────
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Submit contact form twice rapidly
-    Given I am on the landing page
-    When I click the link to "/contact"
-    Then I see the heading "Let's Chat"
-    When I submit the form twice in rapid succession
-    Then the form is not double-submitted
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Submit form without required fields
-    Given I am on the landing page
-    When I click the link to "/contact"
-    Then I see the heading "Let's Chat"
-    When I submit the form without filling any required field
-    Then no success message is shown
-    Then I remain on the same page
-

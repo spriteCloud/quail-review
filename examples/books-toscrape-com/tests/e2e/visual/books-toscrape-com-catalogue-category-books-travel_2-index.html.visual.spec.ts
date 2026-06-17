@@ -37,3 +37,4 @@ test.describe('BooksToscrapeCom — visual regression @ https://books.toscrape.c
     })
   }
 })
+

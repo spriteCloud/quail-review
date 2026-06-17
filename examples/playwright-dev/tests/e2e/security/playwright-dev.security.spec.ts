@@ -31,3 +31,4 @@ test.describe('PlaywrightDev — security headers @ https://playwright.dev', () 
     expect.soft(headers['referrer-policy'], 'Referrer-Policy not set').toBeTruthy()
   })
 })
+

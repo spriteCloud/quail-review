@@ -37,3 +37,4 @@ test.describe('EsWikipediaOrg — visual regression @ https://es.wikipedia.org/w
     })
   }
 })
+

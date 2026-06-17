@@ -9,7 +9,7 @@ journeys it identified, the priority bucket each journey falls into, and
 the spec file generated for it. Treat it as the contract for what this
 suite covers — anything missing here is a coverage gap.
 
-## Pages crawled (20)
+## Pages crawled (30)
 
 | URL | Title | Tags |
 |---|---|---|
@@ -19,7 +19,7 @@ suite covers — anything missing here is a coverage gap.
 | `https://es.wikipedia.org/wiki/Portal:Actualidad` | Portal:Actualidad - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Especial:CambiosRecientes` | Cambios recientes - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Especial:P%C3%A1ginasNuevas` | Páginas nuevas - Wikipedia, la enciclopedia libre | `list`, `interactive` |
-| `https://es.wikipedia.org/wiki/Obelisco_conmemorativo_de_la_Batalla_de_Carabobo` | Obelisco conmemorativo de la Batalla de Carabobo - Wikipedia, la enciclopedia libre | `list`, `interactive` |
+| `https://es.wikipedia.org/wiki/Anexo:Sondeos_de_intenci%C3%B3n_de_voto_para_la_elecci%C3%B3n_presidencial_de_Venezuela_de_2012` | Anexo:Sondeos de intención de voto para la elección presidencial de Venezuela de 2012 - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Ayuda:Contenidos` | Ayuda:Contenidos - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Wikipedia:Informes_de_error` | Wikipedia:Informes de error - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Especial:P%C3%A1ginasEspeciales` | Páginas especiales - Wikipedia, la enciclopedia libre | `list`, `detail`, `interactive` |
@@ -33,6 +33,16 @@ suite covers — anything missing here is a coverage gap.
 | `https://es.wikipedia.org/wiki/Municipio_de_Espa%C3%B1a` | Municipio (España) - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Capital_%28pol%C3%ADtica%29` | Capital (política) - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Espa%C3%B1a` | España - Wikipedia, la enciclopedia libre | `list`, `interactive` |
+| `https://es.wikipedia.org/wiki/Archivo:Bandera_de_la_ciudad_de_Madrid.svg` | Archivo:Bandera de la ciudad de Madrid.svg - Wikipedia, la enciclopedia libre | `list`, `detail`, `interactive` |
+| `https://es.wikipedia.org/wiki/Bandera_de_Madrid` | Bandera de Madrid - Wikipedia, la enciclopedia libre | `list`, `interactive` |
+| `https://es.wikipedia.org/wiki/Archivo:Coat_of_Arms_of_Madrid_City.svg` | Archivo:Coat of Arms of Madrid City.svg - Wikipedia, la enciclopedia libre | `list`, `detail`, `interactive` |
+| `https://es.wikipedia.org/wiki/Escudo_de_Madrid` | Escudo de Madrid - Wikipedia, la enciclopedia libre | `list`, `interactive` |
+| `https://es.wikipedia.org/wiki/Archivo:Palaciorealycatedraldelaalmudena_retouched.jpg` | Archivo:Palaciorealycatedraldelaalmudena retouched.jpg - Wikipedia, la enciclopedia libre | `list`, `detail`, `interactive` |
+| `https://es.wikipedia.org/wiki/Archivo:Plaza_Mayor_De_Madrid_(215862629)_edited.jpeg` | Archivo:Plaza Mayor De Madrid (215862629) edited.jpeg - Wikipedia, la enciclopedia libre | `list`, `detail`, `interactive` |
+| `https://es.wikipedia.org/wiki/Archivo:Barajas_Airport_(Madrid)_(4684560779).jpg` | Archivo:Barajas Airport (Madrid) (4684560779).jpg - Wikipedia, la enciclopedia libre | `list`, `detail`, `interactive` |
+| `https://es.wikipedia.org/wiki/Archivo:Madrid_May_2014-45a_edited.jpg` | Archivo:Madrid May 2014-45a edited.jpg - Wikipedia, la enciclopedia libre | `list`, `detail`, `interactive` |
+| `https://es.wikipedia.org/wiki/Archivo:Escultura_del_Oso_y_el_Madro%C3%B1o,_Puerta_del_Sol,_Madrid,_Espa%C3%B1a,_Spain.jpg` | Archivo:Escultura del Oso y el Madroño, Puerta del Sol, Madrid, España, Spain.jpg - Wikipedia, la enciclopedia libre | `list`, `detail`, `interactive` |
+| `https://es.wikipedia.org/wiki/Archivo:Museo_del_Prado_2016_(25185969599).jpg` | Archivo:Museo del Prado 2016 (25185969599).jpg - Wikipedia, la enciclopedia libre | `list`, `detail`, `interactive` |
 
 ## Journeys identified (4)
 
@@ -134,3 +144,4 @@ Where reviewqa recognises a known-broken pattern (e.g. Webflow
 `data-wait` submit), the test is marked `test.fail()` so it stays
 visible without burning CI on a known issue. Remove the annotation once
 the underlying form handling is sorted.
+

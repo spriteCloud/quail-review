@@ -37,3 +37,4 @@ test.describe('GohugoIo — visual regression @ https://gohugo.io/configuration'
     })
   }
 })
+

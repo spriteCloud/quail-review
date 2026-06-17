@@ -29,3 +29,4 @@ test.describe('GohugoIo — responsive @ https://gohugo.io', () => {
     })
   }
 })
+

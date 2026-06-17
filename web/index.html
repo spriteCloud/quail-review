@@ -263,12 +263,12 @@
         Tests <em>write themselves.</em>
       </h1>
       <p class="lead">
-        Give it a PR or a URL. Get back Gherkin features (via playwright-bdd),
-        API + GraphQL + webhook contract tests, visual regression baselines,
-        accessibility / responsive / performance / security / health /
-        observability / i18n specs, gRPC tests from .proto diffs, a
-        stakeholder catalogue + work-summary deck, a bug-discovery ledger,
-        and locator self-heal when the DOM drifts. One Go binary. v0.23.
+        Give it a PR or a URL. Get back a Playwright + Gherkin suite covering
+        every layer of the 10-layer taxonomy that applies to the surface —
+        UI, API, Contract, Integration, Mobile, Non-functional — plus
+        per-form adversarial negatives, an a11y trio on every crawled page,
+        the stakeholder catalogue, a bug-discovery ledger, and locator
+        self-heal when the DOM drifts. One Go binary. <strong>v0.59</strong>.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/marketplace/actions/reviewqa" data-testid="cta-install">Add to your repo</a>
@@ -339,39 +339,45 @@
     <div class="container">
       <div class="section-head">
         <span class="label">Live examples</span>
-        <h2>See it on four real sites.</h2>
+        <h2>See it on six real sites.</h2>
       </div>
       <p style="max-width:720px; margin-bottom:20px; color:var(--mist);">
-        Output from the v0.21 binary, committed to the repo. Open any of
-        them to see a complete project: Gherkin features, step definitions,
-        the Steps API, API contract specs, fuzz specs, catalogue, summary
-        HTML, ledger seed, and the Playwright config that wires playwright-bdd.
+        Output from the <strong>v0.59 binary</strong>, committed to the repo.
+        Each example is a complete Playwright + Gherkin project: features,
+        step definitions, the Steps API, API + Contract + Integration specs,
+        a11y trio on every crawled page (30 pages × 3 sub-templates × 5 tests),
+        catalogue, summary HTML, ledger seed, and the Playwright config.
       </p>
       <div class="grid" data-testid="examples-grid">
         <div class="card">
           <div class="num">01</div>
           <h3><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/playwright-dev">playwright.dev</a></h3>
-          <p>SaaS docs, JS-heavy. 39 files · 3 Gherkin · 5 a11y · 5 resp · 5 perf · 5 visual · 1 API.</p>
+          <p>SaaS docs, JS-heavy. <strong>183 files</strong> · 3 Gherkin journeys · 30 pages with the a11y trio · full v0.41+ template family (integration stubs, mobile matrix, network, edge cases).</p>
         </div>
         <div class="card copper">
           <div class="num">02</div>
           <h3><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/gohugo-io">gohugo.io</a></h3>
-          <p>OSS marketing + content. 42 files · 3 Gherkin · 5 a11y · 5 resp · 5 perf · 5 visual · 5 fuzz.</p>
+          <p>OSS marketing + content. <strong>196 files</strong> · 3 Gherkin · 30 pages with a11y trio.</p>
         </div>
         <div class="card">
           <div class="num">03</div>
           <h3><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/books-toscrape-com">books.toscrape.com</a></h3>
-          <p>E-commerce list-and-detail. 37 files · 3 Gherkin · 5 a11y · 5 resp · 5 perf · 5 visual.</p>
+          <p>E-commerce list-and-detail. <strong>186 files</strong> · 3 Gherkin · 30 pages with a11y trio.</p>
         </div>
         <div class="card copper">
           <div class="num">04</div>
           <h3><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/es-wikipedia-org-madrid">es.wikipedia.org / Madrid</a></h3>
-          <p>Non-English content page. 51 files · 4 Gherkin · 5 a11y · 5 resp · 5 perf · 5 visual · 8 API · 5 fuzz.</p>
+          <p>Non-English content. <strong>201 files</strong> · 4 Gherkin · 30 pages with a11y trio.</p>
         </div>
         <div class="card">
           <div class="num">05</div>
-          <h3><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/spritecloud-com-dgx">spritecloud.com (LLM-on)</a></h3>
-          <p>v0.34 with the DGX-hosted <code>qwen3-coder-next</code> composer enabled. 45 files · 9 Gherkin journeys · <strong>17 @llm-composed Scenarios</strong> across 7 journeys, tagged with their producing model. Zero parse failures (v0.31 hardening).</p>
+          <h3><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/spritecloud-com-dgx">spritecloud.com <span style="color:var(--copper);font-size:12px;">DGX</span></a></h3>
+          <p>Marketing + lead-gen with the DGX-hosted <code>qwen3-coder-next</code> composer enabled. <strong>197 files</strong> · 10 Gherkin · <strong>34 @llm-composed Scenarios</strong> on top of the deterministic baseline.</p>
+        </div>
+        <div class="card copper">
+          <div class="num">06</div>
+          <h3><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/petstore-swagger-io-dgx">petstore.swagger.io <span style="color:var(--copper);font-size:12px;">DGX</span></a></h3>
+          <p>API service with OpenAPI 3. <strong>46 files</strong> · <strong>12 Contract specs × 9 tests = 108 contract-layer assertions</strong> auto-derived from the OpenAPI doc. Lights up Layer 4 like no marketing site can.</p>
         </div>
       </div>
     </div>

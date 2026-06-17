@@ -24,3 +24,16 @@ Feature: BooksToscrapeCom — browse journey
     When I click the link to "/index.html"
     Then I see the heading "All products"
     And the page title contains "All products | Books to Scrape - Sandbox"
+
+  @journey:browse @priority:standard @kind:resume
+  Scenario: browse — deep-link to the terminal page renders correctly
+    Given I open the page "/index.html"
+    Then I see the heading "All products"
+
+  @journey:browse @priority:standard @kind:back-button
+  Scenario: browse — back button after navigation returns to landing
+    Given I open the landing page
+    When I click the link to "/index.html"
+    When I go back in the browser history
+    Then the main heading reads "All products"
+

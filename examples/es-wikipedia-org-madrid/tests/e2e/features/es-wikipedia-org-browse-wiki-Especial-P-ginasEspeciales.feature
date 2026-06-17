@@ -30,3 +30,20 @@ Feature: EsWikipediaOrg — browse journey
     When I click the link to "/wiki/Especial:P%C3%A1ginasEspeciales"
     Then I see the heading "Páginas especiales"
     And the page title contains "Páginas especiales - Wikipedia, la enciclopedia libre"
+
+  @journey:browse @priority:standard @kind:empty-state
+  Scenario: browse — page renders the landing list
+    Given I open the landing page
+    Then the page has at least 1 items
+
+  @journey:browse @priority:standard @kind:resume
+  Scenario: browse — deep-link to the terminal page renders correctly
+    Given I open the page "/wiki/Especial:P%C3%A1ginasEspeciales"
+    Then I see the heading "Páginas especiales"
+
+  @journey:browse @priority:standard @kind:back-button
+  Scenario: browse — back button after navigation returns to landing
+    Given I open the landing page
+    When I click the link to "/wiki/Especial:P%C3%A1ginasEspeciales"
+    When I go back in the browser history
+

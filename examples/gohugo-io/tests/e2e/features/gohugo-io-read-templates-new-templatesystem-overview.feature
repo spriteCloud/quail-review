@@ -29,3 +29,16 @@ Feature: GohugoIo — read journey
     When I navigate directly to "/templates/new-templatesystem-overview"
     Then I see the heading "New template system in Hugo v0.146.0"
     And the page title contains "New template system in Hugo v0.146.0"
+
+  @journey:read @priority:nice-to-have @kind:resume
+  Scenario: read — deep-link to the terminal page renders correctly
+    Given I open the page "/templates/new-templatesystem-overview"
+    Then I see the heading "New template system in Hugo v0.146.0"
+
+  @journey:read @priority:nice-to-have @kind:back-button
+  Scenario: read — back button after navigation returns to landing
+    Given I open the landing page
+    When I click the link to "/templates/new-templatesystem-overview"
+    When I go back in the browser history
+    Then the main heading reads "The world’s fastest framework for building websites"
+

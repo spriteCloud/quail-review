@@ -25,3 +25,4 @@ Feature: EsWikipediaOrg — exercise journey
   Scenario: exercise journey reaches its terminal page
     Given I open the landing page
     And the page title contains "Wikipedia, la enciclopedia libre"
+

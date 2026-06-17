@@ -25,9 +25,9 @@ const ENDPOINT = 'https://petstore3.swagger.io/store/order/{orderId}'
 const METHOD = 'get'.toLowerCase()
 
 const ALLOWED_STATUSES: number[] = [
+  404,
   200,
   400,
-  404,
 ]
 
 // Centralised request helper so every negative block targets the same

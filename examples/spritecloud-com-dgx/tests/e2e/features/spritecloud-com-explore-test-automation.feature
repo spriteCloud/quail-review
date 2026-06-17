@@ -44,15 +44,3 @@ Feature: WwwSpritecloudCom — explore journey
     And I go back in the browser history
     Then no error message is shown in the form region
 
-  # ───────────────────────────────────────────────────────────────
-  # LLM-composed scenarios (model: qwen3-coder-next:latest)
-  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
-  # ───────────────────────────────────────────────────────────────
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Submit form twice rapidly
-    Given I am on the landing page
-    When I submit the form twice in rapid succession
-    Then the form is not double-submitted
-    Then no success message is shown
-

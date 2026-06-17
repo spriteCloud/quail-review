@@ -9,7 +9,7 @@ journeys it identified, the priority bucket each journey falls into, and
 the spec file generated for it. Treat it as the contract for what this
 suite covers — anything missing here is a coverage gap.
 
-## Pages crawled (20)
+## Pages crawled (30)
 
 | URL | Title | Tags |
 |---|---|---|
@@ -33,6 +33,16 @@ suite covers — anything missing here is a coverage gap.
 | `https://playwright.dev/agent-cli/commands/storage` | Storage & Authentication | Playwright | `detail` |
 | `https://playwright.dev/agent-cli/commands/tabs` | Tabs | Playwright | `detail` |
 | `https://playwright.dev/agent-cli/commands/test-debugging` | Test Debugging | Playwright | `detail` |
+| `https://playwright.dev/agent-cli/commands/tracing` | Tracing | Playwright | `detail` |
+| `https://playwright.dev/agent-cli/commands/video-recording` | Video Recording | Playwright | `detail` |
+| `https://playwright.dev/agent-cli/configuration` | Configuration | Playwright | `detail` |
+| `https://playwright.dev/agent-cli/installation` | Installation | Playwright | `detail` |
+| `https://playwright.dev/agent-cli/introduction` | Introduction | Playwright | `detail` |
+| `https://playwright.dev/agent-cli/quick-start` | Quick Start | Playwright | `detail` |
+| `https://playwright.dev/agent-cli/sessions` | Sessions & Dashboard | Playwright | `detail` |
+| `https://playwright.dev/agent-cli/skills` | Skills | Playwright | `detail` |
+| `https://playwright.dev/agent-cli/snapshots` | Snapshots | Playwright | `detail` |
+| `https://playwright.dev/agent-cli/vision-mode` | Vision Mode | Playwright | `detail` |
 
 ## Journeys identified (3)
 
@@ -123,3 +133,4 @@ Where reviewqa recognises a known-broken pattern (e.g. Webflow
 `data-wait` submit), the test is marked `test.fail()` so it stays
 visible without burning CI on a known issue. Remove the annotation once
 the underlying form handling is sorted.
+

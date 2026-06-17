@@ -15,10 +15,10 @@ test.describe.configure({ mode: 'parallel' })
 test.describe('Petstore3SwaggerIo — idempotency @ https://petstore3.swagger.io/pet', () => {
   test('@kind:api-idempotency @smoke same PUT twice → second call still succeeds', async ({ request }) => {
     const body = {
-      '404': '404-value',
-      '422': '422-value',
       '200': '200-value',
       '400': '400-value',
+      '404': '404-value',
+      '422': '422-value',
     }
     const first = await request.put('https://petstore3.swagger.io/pet', { form: body })
     expect(first.status(), 'first call should succeed').toBeLessThan(400)

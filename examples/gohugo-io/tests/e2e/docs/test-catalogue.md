@@ -9,7 +9,7 @@ journeys it identified, the priority bucket each journey falls into, and
 the spec file generated for it. Treat it as the contract for what this
 suite covers — anything missing here is a coverage gap.
 
-## Pages crawled (20)
+## Pages crawled (30)
 
 | URL | Title | Tags |
 |---|---|---|
@@ -33,6 +33,16 @@ suite covers — anything missing here is a coverage gap.
 | `https://gohugo.io/hugo-modules/introduction` | Introduction | `detail` |
 | `https://gohugo.io/hugo-pipes/introduction` | Hugo Pipes | `detail` |
 | `https://gohugo.io/render-hooks/introduction` | Introduction | `detail` |
+| `https://gohugo.io/templates/introduction` | Introduction to templating | `detail` |
+| `https://gohugo.io/installation/macos` | macOS | `detail` |
+| `https://gohugo.io/methods` | Methods | `detail` |
+| `https://gohugo.io/news` | News | `detail` |
+| `https://gohugo.io/quick-reference` | Quick reference guides | `detail` |
+| `https://gohugo.io/getting-started/quick-start` | Quick start | `detail` |
+| `https://gohugo.io/render-hooks` | Render hooks | `detail` |
+| `https://gohugo.io/shortcodes` | Shortcodes | `detail` |
+| `https://gohugo.io/templates` | Templates | `detail` |
+| `https://gohugo.io/troubleshooting` | Troubleshooting | `detail` |
 
 ## Journeys identified (3)
 
@@ -127,3 +137,4 @@ Where reviewqa recognises a known-broken pattern (e.g. Webflow
 `data-wait` submit), the test is marked `test.fail()` so it stays
 visible without burning CI on a known issue. Remove the annotation once
 the underlying form handling is sorted.
+

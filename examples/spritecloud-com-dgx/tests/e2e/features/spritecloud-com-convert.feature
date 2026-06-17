@@ -87,31 +87,9 @@ Feature: WwwSpritecloudCom — convert journey
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
-  @journey:convert @priority:critical @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Submit empty form shows error
-    Given I am on the landing page
-    When I submit the form without filling any required field
-    Then no success message is shown
-
   @journey:convert @priority:critical @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Fill form then reload preserves typed email
+  Scenario: submit form twice rapidly
     Given I am on the landing page
-    When I enter "test@example.com" into the "Your email address" field
-    When I reload the page
-    Then the "Your email address" field has the value "test@example.com"
-
-  @journey:convert @priority:critical @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Rapid double-submit prevents duplication
-    Given I am on the landing page
-    When I enter "duplicate@example.com" into the "Your email address" field
     When I submit the form twice in rapid succession
     Then the form is not double-submitted
-
-  @journey:convert @priority:critical @llm-composed @model:qwen3-coder-next-latest
-  Scenario: Fill form, go back, form preserved
-    Given I am on the landing page
-    When I enter "back@example.com" into the "Your email address" field
-    When I submit the form
-    When I go back in the browser history
-    Then the "Your email address" field has the value "back@example.com"
 

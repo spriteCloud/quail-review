@@ -23,3 +23,4 @@ test.describe('PlaywrightDev — performance @ https://playwright.dev', () => {
     expect(elapsed).toBeLessThan(SLO_MS * 2)
   })
 })
+

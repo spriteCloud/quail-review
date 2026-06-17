@@ -31,3 +31,4 @@ test.describe('EsWikipediaOrg — security headers @ https://es.wikipedia.org', 
     expect.soft(headers['referrer-policy'], 'Referrer-Policy not set').toBeTruthy()
   })
 })
+

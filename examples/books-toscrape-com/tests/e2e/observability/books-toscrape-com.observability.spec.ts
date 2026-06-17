@@ -27,3 +27,4 @@ test.describe('BooksToscrapeCom — observability headers @ https://books.toscra
     expect.soft(any, 'no observability headers found — consider emitting x-request-id or server-timing for ops').toBe(true)
   })
 })
+

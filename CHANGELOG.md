@@ -4,6 +4,49 @@ reviewqa's release-by-release history. v0.19 → v0.30 was the
 taxonomy-closure arc that took the framework from a single-Playwright
 happy-flow generator to a 10-layer deterministic test author.
 
+## v0.60 — doc sweep + refresh all 6 examples
+
+User audit: "the project sustain certain consistency. README, GitHub
+Pages, Docs and all are updated? They have any cognitive dissonance?
+Have we run the full reviewqa locally using the DGX for all the
+examples?"
+
+Two Explore agents confirmed the dissonance. README claimed v0.23,
+web/index.html hero said "One Go binary. v0.23.", web/docs.html
+example matrix carried stale v0.58 numbers, and the four non-DGX
+example directories were last refreshed at v0.30 — missing every
+v0.41+ template family (a11y trio, integration stubs, mobile matrix,
+edge family, etc.).
+
+No code logic changed. The sweep does three things:
+
+1. **Refreshed all 6 example projects against the v0.59 binary**:
+     playwright-dev          39 → 183 files
+     gohugo-io               42 → 196 files
+     books-toscrape-com      37 → 186 files
+     es-wikipedia-org-madrid 51 → 201 files
+     spritecloud-com-dgx     197 (refresh; 66 Scenarios, 34 @llm-composed)
+     petstore-swagger-io-dgx 46 (refresh; 108 contract test blocks)
+
+2. **Rewrote the stale README sections** into a single coherent v0.59
+   voice: hero, quick-start (probe / prompt / generate / scan / heal /
+   ledger update / run-once), 10-layer taxonomy table with depth column,
+   subcommand reference, environment-variable tables (LLM / probe /
+   CI / healing), workflow examples. Dropped per-version cruft from
+   v0.21/v0.23/v0.24/v0.25 that no longer matched the binary.
+
+3. **Aligned web/index.html + web/docs.html**: hero version v0.23 → v0.59,
+   examples grid 4 cards → 6 (added petstore-DGX), docs.html §05 matrix
+   numbers refreshed (118 → 197, 41 → 46), examples/README.md table
+   rebuilt against the v0.59 file counts.
+
+Verification:
+  - grep -r "v0\.\(23\|30\|34\)" README.md web/index.html web/docs.html examples/README.md
+    → only intentional history markers remain.
+  - Each of the 6 example directories has tests/e2e/integration-{db,cache,
+    obs,auth}/ subdirs (v0.57 templates) — confirms the refresh hit every dir.
+  - 495 tests still passing.
+
 ## v0.59 — a11y trio uncapped + deepened (1+2+2 → 5+5+5)
 
 Two gaps the post-v0.58 audit surfaced:

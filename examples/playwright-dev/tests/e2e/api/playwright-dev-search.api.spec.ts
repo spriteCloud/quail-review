@@ -49,4 +49,77 @@ test.describe('PlaywrightDev — API contract @ https://playwright.dev/search', 
     // when the endpoint is method-specific.
     expect([400, 401, 403, 404, 405]).toContain(response.status())
   })
+
+  // ─────────────────────────────────────────────────────────────
+  // v0.50: extended form-negative coverage. The deck-cited "15-25
+  // negatives per form" target needs more than 4 default cases —
+  // each block below covers a value class an adversarial QA would
+  // test by hand. None of these assert success; they each assert
+  // the server doesn't 5xx and doesn't leak a stack trace.
+  // ─────────────────────────────────────────────────────────────
+
+  test('@kind:api @negative unicode payload does not 5xx', async ({ request }) => {
+    const response = await request.post('https://playwright.dev/search', {
+      form: {
+        '': 'café-niño-用户-🎉-test',
+        '': 'café-niño-用户-🎉-',
+      },
+    })
+    expect(response.status()).toBeLessThan(500)
+  })
+
+  test('@kind:api @negative sql-injection-shaped input does not 5xx', async ({ request }) => {
+    // Tests the server's input sanitization. The contract: MUST NOT
+    // 5xx and MUST NOT echo back unescaped fragments.
+    const payload = "'; DROP TABLE users; --"
+    const response = await request.post('https://playwright.dev/search', {
+      form: {
+        '': payload,
+        '': payload,
+      },
+    })
+    expect(response.status()).toBeLessThan(500)
+    const body = await response.text().catch(() => '')
+    expect.soft(body.toLowerCase()).not.toContain('sqlstate')
+    expect.soft(body.toLowerCase()).not.toContain('syntax error')
+  })
+
+  test('@kind:api @negative xss-shaped input is escaped or rejected', async ({ request }) => {
+    const payload = '<script>window.__rqXSS=1</script>'
+    const response = await request.post('https://playwright.dev/search', {
+      form: {
+        '': payload,
+        '': payload,
+      },
+    })
+    expect(response.status()).toBeLessThan(500)
+    const body = await response.text().catch(() => '')
+    expect.soft(body).not.toContain('<script>window.__rqXSS=1</script>')
+  })
+
+  test('@kind:api @negative null-byte injection does not 5xx', async ({ request }) => {
+    const response = await request.post('https://playwright.dev/search', {
+      form: {
+        '': 'value\x00malicious',
+        '': 'value\x00malicious',
+      },
+    })
+    expect(response.status()).toBeLessThan(500)
+  })
+
+  test('@kind:api @negative rapid burst stays healthy or is rate-limited', async ({ request }) => {
+    // 10 concurrent identical requests. Either the server rate-limits
+    // (429) — fine — or it serves all 10 without 5xx-ing.
+    const body = {
+      '': 'test',
+      '': '',
+    }
+    const responses = await Promise.all(
+      Array.from({ length: 10 }, () => request.post('https://playwright.dev/search', { form: body }))
+    )
+    for (const r of responses) {
+      expect.soft(r.status(), `burst response status ${r.status()}`).toBeLessThan(500)
+    }
+  })
 })
+

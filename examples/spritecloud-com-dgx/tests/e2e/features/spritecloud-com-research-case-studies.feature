@@ -40,25 +40,11 @@ Feature: WwwSpritecloudCom — research journey
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
-  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Reload after navigating to case studies
+  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Navigate to case studies and reload
     Given I open the landing page
     When I click the link to "/case-studies"
     Then the page title contains "Case Studies"
     When I reload the page
-    Then the page title contains "Case Studies"
-
-  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Navigate then go back to landing
-    When I open the landing page
-    When I click the link to "/case-studies"
-    Then the page title contains "Case Studies"
-    When I go back in the browser history
-    Then the page title contains "Test your software, not your reputation!"
-
-  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Direct navigation to case studies
-    Given I am not signed in
-    When I navigate directly to "/case-studies"
     Then the page title contains "Case Studies"
 

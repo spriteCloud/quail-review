@@ -487,14 +487,17 @@
         <thead><tr><th></th><th><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/spritecloud-com-dgx">spritecloud-com-dgx</a></th><th><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/petstore-swagger-io-dgx">petstore-swagger-io-dgx</a></th></tr></thead>
         <tbody>
           <tr><td>Target shape</td><td>Marketing + lead-gen forms</td><td>API service with OpenAPI 3</td></tr>
-          <tr><td>Files emitted</td><td>118</td><td>41</td></tr>
-          <tr><td>Gherkin Scenarios</td><td>50 (14 <code>@llm-composed</code>)</td><td>0 (no UI journeys)</td></tr>
-          <tr><td>Contract layer</td><td>0 (no schema surface)</td><td><strong>12 contract specs</strong> from the OpenAPI 3 doc</td></tr>
-          <tr><td>API layer</td><td>1 form-based contract</td><td>4 endpoint-based contracts</td></tr>
-          <tr><td>Demonstrates</td><td>Per-page edge-case depth + composer-driven journey variants</td><td>Schema-driven test generation against a real OpenAPI 3 surface</td></tr>
+          <tr><td>Files emitted</td><td><strong>197</strong></td><td><strong>46</strong></td></tr>
+          <tr><td>Gherkin Scenarios</td><td>66 (34 <code>@llm-composed</code>)</td><td>0 (no UI journeys)</td></tr>
+          <tr><td>A11y trio (uncapped, v0.59)</td><td>30 pages × 3 sub-templates × 5 tests = <strong>450 a11y blocks</strong></td><td>1 page × 3 × 5 = 15</td></tr>
+          <tr><td>Contract layer</td><td>0 (no schema surface)</td><td><strong>12 contract specs × 9 tests = 108 contract assertions</strong> (v0.55)</td></tr>
+          <tr><td>API layer</td><td>1 form-based contract (10 tests)</td><td>4 endpoint-based contracts</td></tr>
+          <tr><td>Integration layer (v0.57)</td><td>5 stubs (api + db + cache + obs + auth) × 3 blocks</td><td>same</td></tr>
+          <tr><td>Mobile layer (v0.56)</td><td>4 devices × 2 orientations = 8 tests / page</td><td>same</td></tr>
+          <tr><td>Demonstrates</td><td>Per-page edge-case depth + composer-driven journey variants + uncapped a11y</td><td>Schema-driven contract generation against a real OpenAPI 3 surface</td></tr>
         </tbody>
       </table>
-      <p style="margin-top:8px;">Together they show all six probe-accessible taxonomy layers in action.</p>
+      <p style="margin-top:8px;">Together they show all six probe-accessible taxonomy layers in action. The four non-DGX example projects (<code>playwright-dev</code>, <code>gohugo-io</code>, <code>books-toscrape-com</code>, <code>es-wikipedia-org-madrid</code>) have also been refreshed against the v0.59 binary — each ships 183–201 files exercising the full v0.41+ template family with the LLM composer OFF.</p>
     </div>
   </section>
 

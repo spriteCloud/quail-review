@@ -23,3 +23,4 @@ test.describe('EsWikipediaOrg — performance @ https://es.wikipedia.org/wiki/Es
     expect(elapsed).toBeLessThan(SLO_MS * 2)
   })
 })
+

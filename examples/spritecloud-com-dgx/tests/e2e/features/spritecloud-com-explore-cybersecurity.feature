@@ -44,3 +44,38 @@ Feature: WwwSpritecloudCom — explore journey
     And I go back in the browser history
     Then no error message is shown in the form region
 
+  # ───────────────────────────────────────────────────────────────
+  # LLM-composed scenarios (model: qwen3-coder-next:latest)
+  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
+  # ───────────────────────────────────────────────────────────────
+
+  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Navigate to cybersecurity and reload
+    Given I open the landing page
+    When I click the link to "/cybersecurity"
+    Then I see the heading "Fully Tailored Cybersecurity."
+    When I reload the page
+    Then I see the heading "Fully Tailored Cybersecurity."
+
+  @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Navigate then go back
+    Given I open the landing page
+    When I click the link to "/cybersecurity"
+    Then I see the heading "Fully Tailored Cybersecurity."
+    When I go back in the browser history
+    Then I see the heading "Test your software, not your reputation."
+
+  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Direct navigation to cybersecurity page
+    Given I am not signed in
+    When I navigate directly to "/cybersecurity"
+    Then I see the heading "Fully Tailored Cybersecurity."
+
+  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Open cybersecurity page and scroll
+    Given I open the landing page
+    When I click the link to "/cybersecurity"
+    Then I see the heading "Fully Tailored Cybersecurity."
+    When I scroll to the bottom of the page
+    Then I remain on the same page
+
