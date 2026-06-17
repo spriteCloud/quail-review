@@ -47,6 +47,12 @@ type Page struct {
 	// action, method, enctype, fields. Drives the API-contract spec
 	// emitted as a sibling to the UI happy-flow.
 	Forms []ast.FormSpec
+	// HasIframe is true when the page embeds at least one <iframe>.
+	// v0.44 — drives pw_iframe.tmpl emission.
+	HasIframe bool
+	// HasManifestLink is true when the page declares <link rel="manifest">.
+	// v0.44 — drives pw_pwa.tmpl emission.
+	HasManifestLink bool
 }
 
 // Fetcher abstracts plan/probe's Fetch — injected so the mindmap package
@@ -157,7 +163,12 @@ func buildPage(u string, html []byte) *Page {
 	p.Images = plan.ExtractImages(u, html)
 	p.Meta = plan.ExtractMetaTags(html)
 	p.Title = plan.PageTitle(html)
-	p.HasForm = strings.Contains(strings.ToLower(string(html)), "<form")
+	lower := strings.ToLower(string(html))
+	p.HasForm = strings.Contains(lower, "<form")
+	p.HasIframe = strings.Contains(lower, "<iframe")
+	p.HasManifestLink = strings.Contains(lower, `rel="manifest"`) ||
+		strings.Contains(lower, `rel='manifest'`) ||
+		strings.Contains(lower, "rel=manifest")
 	p.Forms = plan.ExtractHTMLForms(u, html)
 	p.Tags = tagPage(p, html)
 	return p

@@ -99,6 +99,13 @@ const (
 	// API endpoint is detected. Test.skip()s until the consumer wires
 	// a real backing resource via reviewqa.yml.
 	TmplPlaywrightIntegrationStub Template = "pw_integration_api_stub"
+	// v0.44 — gated edge templates: emitted when the probe sees the
+	// matching signal on the page.
+	TmplPlaywrightFileUpload     Template = "pw_file_upload"
+	TmplPlaywrightIframe         Template = "pw_iframe"
+	TmplPlaywrightDateEdges      Template = "pw_date_edges"
+	TmplPlaywrightPWA            Template = "pw_pwa"
+	TmplPlaywrightHistoryDepth   Template = "pw_history_depth"
 	TmplRaw                 Template = "raw" // sentinel: emit Item.RawContent verbatim
 	TmplPytestUnit          Template = "pytest_unit"
 	TmplPytestAPI           Template = "pytest_api"

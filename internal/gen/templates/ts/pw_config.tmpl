@@ -30,7 +30,7 @@ const bddTestDir = defineBddConfig({
   steps: 'tests/e2e/steps/*.ts',
 })
 
-const extrasTestMatch = /\.(api|fuzz|a11y|responsive|perf|security|health|observability|contract|i18n|visual|visual-states|keyboard|landmarks|zoom|prefs|network|storage|print|race|clipboard|http-chains|graphql|webhook|mobile|deeplink|integration(-(db|broker|cache|storage|search|auth))?)\.spec\.ts$/
+const extrasTestMatch = /\.(api|fuzz|a11y|responsive|perf|security|health|observability|contract|i18n|visual|visual-states|keyboard|landmarks|zoom|prefs|network|storage|print|race|clipboard|http-chains|file-upload|iframe|date-edges|pwa|history-depth|graphql|webhook|mobile|deeplink|integration(-(db|broker|cache|storage|search|auth))?)\.spec\.ts$/
 
 function projectsForBrowser(browser: 'chromium' | 'firefox' | 'webkit') {
   const deviceProfile =

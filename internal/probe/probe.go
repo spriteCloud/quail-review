@@ -610,6 +610,54 @@ func qualityCompanions(sourceURL string, m *mindmap.Map, coverage CoverageMode) 
 				OutPath:  "tests/e2e/clipboard/" + stem + ".clipboard.spec.ts",
 			})
 		}
+		// v0.44: gated edge templates — emit only when the matching
+		// probe signal is present so the spec runs against real surface.
+		if pageHasInputType(page, "file") {
+			out = append(out, plan.Item{
+				Symbol:   pageStub,
+				Symbols:  []ast.Symbol{pageStub},
+				PageURL:  page.URL,
+				Template: plan.TmplPlaywrightFileUpload,
+				OutPath:  "tests/e2e/file-upload/" + stem + ".file-upload.spec.ts",
+			})
+		}
+		if page.HasIframe {
+			out = append(out, plan.Item{
+				Symbol:   pageStub,
+				Symbols:  []ast.Symbol{pageStub},
+				PageURL:  page.URL,
+				Template: plan.TmplPlaywrightIframe,
+				OutPath:  "tests/e2e/iframe/" + stem + ".iframe.spec.ts",
+			})
+		}
+		if pageHasInputType(page, "date", "datetime-local") {
+			out = append(out, plan.Item{
+				Symbol:   pageStub,
+				Symbols:  []ast.Symbol{pageStub},
+				PageURL:  page.URL,
+				Template: plan.TmplPlaywrightDateEdges,
+				OutPath:  "tests/e2e/date-edges/" + stem + ".date-edges.spec.ts",
+			})
+		}
+		if page.HasManifestLink {
+			out = append(out, plan.Item{
+				Symbol:   pageStub,
+				Symbols:  []ast.Symbol{pageStub},
+				PageURL:  page.URL,
+				Template: plan.TmplPlaywrightPWA,
+				OutPath:  "tests/e2e/pwa/" + stem + ".pwa.spec.ts",
+			})
+		}
+		// History-depth: always emit per page — every page benefits
+		// from the back-back-forward smoke; the test skips itself when
+		// the page has no outgoing links.
+		out = append(out, plan.Item{
+			Symbol:   pageStub,
+			Symbols:  []ast.Symbol{pageStub},
+			PageURL:  page.URL,
+			Template: plan.TmplPlaywrightHistoryDepth,
+			OutPath:  "tests/e2e/history-depth/" + stem + ".history-depth.spec.ts",
+		})
 		emitted++
 	}
 
@@ -1300,6 +1348,25 @@ func pageHasTextInput(p *mindmap.Page) bool {
 	for _, i := range p.Inputs {
 		switch i.Type {
 		case "text", "email", "search", "url", "tel", "textarea", "":
+			return true
+		}
+	}
+	return false
+}
+
+// pageHasInputType reports whether the page exposes at least one
+// <input> with one of the given type attributes. Drives v0.44 gated
+// edge templates (file-upload, date-edges).
+func pageHasInputType(p *mindmap.Page, types ...string) bool {
+	if p == nil {
+		return false
+	}
+	want := make(map[string]bool, len(types))
+	for _, t := range types {
+		want[t] = true
+	}
+	for _, i := range p.Inputs {
+		if want[i.Type] {
 			return true
 		}
 	}
