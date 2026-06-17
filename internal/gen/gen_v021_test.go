@@ -99,6 +99,10 @@ func TestStepDefsBDDTemplate_BindsToStepsAPI(t *testing.T) {
 		`Then('no error message is shown in the form region'`,
 		`Then('I remain on the same page'`,
 		`Then('no success message is shown'`,
+		`Then(/^the URL contains "([^"]+)"$/`,
+		`Then(/^the page has at least (\d+) items$/`,
+		`When('I scroll to the bottom of the page'`,
+		`When(/^I press the "([^"]+)" key$/`,
 	} {
 		if !strings.Contains(body, pattern) {
 			t.Errorf("steps file missing pattern %q", pattern)

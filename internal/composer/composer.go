@@ -95,6 +95,18 @@ Then I see the heading "<text>"
 Then no error message is shown in the form region
 Then I remain on the same page
 Then no success message is shown
+Then the URL contains "<fragment>"
+Then the page has at least <n> items
+When I scroll to the bottom of the page
+When I open the menu
+When I close the menu
+When I focus the "<field>" field
+Then the "<field>" field has the value "<value>"
+When I select "<option>" from the "<dropdown>" dropdown
+When I press the "<key>" key
+When I wait for <ms> milliseconds
+Then the response status is <code>
+Then I scroll into view of the "<text>" element
 `
 
 // Propose asks the LLM for up to n additional scenarios for the
@@ -296,6 +308,20 @@ var registeredPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`^no error message is shown in the form region$`),
 	regexp.MustCompile(`^I remain on the same page$`),
 	regexp.MustCompile(`^no success message is shown$`),
+	// v0.32 additions — keep the order matching the step-defs file
+	// for cross-reference.
+	regexp.MustCompile(`^the URL contains "[^"]+"$`),
+	regexp.MustCompile(`^the page has at least \d+ items$`),
+	regexp.MustCompile(`^I scroll to the bottom of the page$`),
+	regexp.MustCompile(`^I open the menu$`),
+	regexp.MustCompile(`^I close the menu$`),
+	regexp.MustCompile(`^I focus the "[^"]+" field$`),
+	regexp.MustCompile(`^the "[^"]+" field has the value "[^"]*"$`),
+	regexp.MustCompile(`^I select "[^"]+" from the "[^"]+" dropdown$`),
+	regexp.MustCompile(`^I press the "[^"]+" key$`),
+	regexp.MustCompile(`^I wait for \d+ milliseconds$`),
+	regexp.MustCompile(`^the response status is \d+$`),
+	regexp.MustCompile(`^I scroll into view of the "[^"]+" element$`),
 }
 
 func matchesRegisteredPattern(text string) bool {
