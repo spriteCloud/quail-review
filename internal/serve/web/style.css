@@ -1250,3 +1250,48 @@ code, pre { font-family: 'Fira Code', ui-monospace, monospace; }
   color: var(--mist);
   line-height: 1.45;
 }
+
+/* SETTINGS view — re-uses .home-card / .home-cover. */
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.settings-label {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--copper);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-hint {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--mist);
+}
+.settings-toggle-row {
+  margin-bottom: 12px;
+}
+.settings-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--deep-water);
+  cursor: pointer;
+}
+.settings-button-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}

@@ -132,7 +132,7 @@ func compareSchema(path string, old, new_ []byte) (string, []plan.CompatRegressi
 }
 
 var (
-	version = "0.76"
+	version = "0.77"
 )
 
 func main() {
@@ -224,6 +224,7 @@ func newHealCmd() *cobra.Command {
 func newProbeCmd() *cobra.Command {
 	var urls []string
 	var dryRun bool
+	var local bool
 	var coverage string
 	var llm string
 	var ignoreRobots bool
@@ -263,11 +264,12 @@ LLM scenario composer (OPTIONAL):
 			cfg.DryRun = dryRun
 			applyLLMOverride(&cfg, llm)
 			applyIgnoreRobots(ignoreRobots)
-			return runProbe(cmd.Context(), cfg, urls, probe.ParseCoverage(coverage))
+			return runProbe(cmd.Context(), cfg, urls, probe.ParseCoverage(coverage), local)
 		},
 	}
 	cmd.Flags().StringSliceVar(&urls, "url", nil, "URL to probe (repeatable; may also be set via REVIEWQA_TARGET_URLS env)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print rendered spec(s) instead of opening a PR")
+	cmd.Flags().BoolVar(&local, "local", false, "Write rendered files directly into the workdir; skip the gh PR-open path (no GITHUB_TOKEN needed). Used by reviewqa serve's HOME probe.")
 	cmd.Flags().StringVar(&coverage, "coverage", coverageDefault(), "Coverage mode: breadth | standard | depth | max (env: REVIEWQA_COVERAGE)")
 	cmd.Flags().StringVar(&llm, "llm", llmDefault(), "LLM scenario composer endpoint (e.g. http://100.82.34.115:11434). Local-only; never set in CI. (env: REVIEWQA_LLM)")
 	cmd.Flags().BoolVar(&ignoreRobots, "ignore-robots", false, "Crawl pages disallowed by robots.txt. Default OFF — only enable for QA of sites you own.")
@@ -537,20 +539,26 @@ func siblingPath(p string) string {
 // as runProbe but with a journey-filter applied before generation.
 func runProbeWithFilter(ctx context.Context, cfg config.Config, urls []string, f prompt.Filter, c probe.CoverageMode) error {
 	items, errs := probe.RunAllWithCoverage(ctx, urls, f, c)
-	return finishProbe(ctx, cfg, urls, items, errs)
+	return finishProbe(ctx, cfg, urls, items, errs, false)
 }
 
 // runProbe fetches each URL, renders a Playwright happy-flow per URL,
-// and either prints them (dry-run) or opens a PR with the new specs.
-func runProbe(ctx context.Context, cfg config.Config, urls []string, c probe.CoverageMode) error {
+// and either prints them (dry-run), writes them locally (local), or
+// opens a PR with the new specs.
+func runProbe(ctx context.Context, cfg config.Config, urls []string, c probe.CoverageMode, local bool) error {
 	items, errs := probe.RunAllWithCoverage(ctx, urls, nil, c)
-	return finishProbe(ctx, cfg, urls, items, errs)
+	return finishProbe(ctx, cfg, urls, items, errs, local)
 }
 
 // finishProbe shares the post-probe pipeline (render, humanize, dry-run
-// vs PR-open) between runProbe and runProbeWithFilter so neither path
-// drifts from the other.
-func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []plan.Item, errs []error) error {
+// vs local-write vs PR-open) between runProbe and runProbeWithFilter
+// so neither path drifts from the other.
+//
+// `local` (set by --local on the probe CLI, used by reviewqa serve's
+// HOME probe form) writes rendered files into cfg.WorkDir directly
+// and skips the gh.New/OpenPR path entirely — no GITHUB_TOKEN
+// required.
+func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []plan.Item, errs []error, local bool) error {
 	for _, e := range errs {
 		rlog.Warn("probe url failed", "err", e)
 	}
@@ -572,6 +580,9 @@ func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []
 	if cfg.DryRun {
 		printRendered(rendered)
 		return nil
+	}
+	if local {
+		return writeRenderedLocal(cfg.WorkDir, rendered)
 	}
 	client, err := gh.New(ctx, cfg)
 	if err != nil {
@@ -806,6 +817,29 @@ func printRendered(rs []gen.Rendered) {
 		fmt.Println("---", r.Path, "---")
 		fmt.Println(string(r.Content))
 	}
+}
+
+// writeRenderedLocal writes each rendered file into workDir directly,
+// creating parent directories as needed. Used by the probe `--local`
+// path (and `reviewqa serve` HOME probe) so neither needs a
+// GitHub token / the gh PR-open path.
+func writeRenderedLocal(workDir string, rs []gen.Rendered) error {
+	if workDir == "" {
+		workDir = "."
+	}
+	written := 0
+	for _, r := range rs {
+		dest := filepath.Join(workDir, r.Path)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			return fmt.Errorf("mkdir %s: %w", filepath.Dir(dest), err)
+		}
+		if err := os.WriteFile(dest, r.Content, 0o644); err != nil {
+			return fmt.Errorf("write %s: %w", dest, err)
+		}
+		written++
+	}
+	rlog.Info("probe: wrote local files", "count", written, "workdir", workDir)
+	return nil
 }
 
 func printEdits(es []heal.Edit) {

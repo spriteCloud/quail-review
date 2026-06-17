@@ -7,6 +7,65 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.77 — Settings page + probe `--local` (no GitHub token required)
+
+Two threads from the same v0.76 HOME session:
+
+### Probe from HOME no longer needs `GITHUB_TOKEN`
+
+The v0.76 HOME probe form shelled out to `reviewqa probe --url <X>`,
+which defaults to "render → open PR via gh". Without a GitHub
+token the CLI errored with `gh: missing GITHUB_TOKEN /
+REVIEWQA_GITHUB_TOKEN` after the probe finished — so the UI
+appeared to "fail" even though the deterministic generation was
+fine.
+
+- New `--local` flag on the `probe` CLI writes rendered files
+  directly into `cfg.WorkDir`, skipping the gh.New / OpenPR
+  pipeline entirely. No token required.
+- `POST /api/probe` (the HOME form's backend) now passes
+  `--local` automatically. The user never sees the PR-open path.
+- The CLI's other entry points (`generate`, `prompt`, the
+  CI-friendly `probe` without `--local`) keep the existing PR
+  behaviour — `--local` is opt-in.
+
+### Settings page
+
+The serve UI now has a `SETTINGS` row in the sidebar (below
+HOME). Edits persist to `~/.config/reviewqa/serve.json` with mode
+`0600` and take effect on the next API call — no restart needed.
+
+Sections:
+- **LLM composer / chat** — an ON/OFF toggle, endpoint, model,
+  API key (password field), timeout. A "Test connection" button
+  posts to `POST /api/llm-test` which sends a one-line ping
+  through `llm.Chat` and reports the round-trip result without
+  saving anything.
+- **Probe defaults** — coverage preset used by HOME when none is
+  picked explicitly.
+- **Run defaults** — soft timeout cap, keep-playwright-report
+  toggle.
+
+The LLM settings overlay the existing `REVIEWQA_LLM` /
+`OPENAI_API_KEY` env-var pipeline: anything set in the file wins;
+unset fields fall back to the env defaults. An explicit OFF
+zeroes the API key so downstream sees the LLM as disabled
+regardless of what the env says.
+
+A new test set (`internal/serve/settings_test.go`) covers load /
+save round-trip, GET/POST endpoints, the LLM-test rejection of an
+empty endpoint, and the env-overlay rules (settings win; OFF
+overrides env).
+
+### Persistence callout
+
+Every edit you make in the UI is already persistent — chat-edited
+scenarios, Edit/Delete on a scenario, HOME probe runs, run
+verdicts. All write to disk (`.feature` files, project tree,
+`tests/e2e/.reviewqa-runs/last-run.json`). Restarting `reviewqa
+serve` doesn't lose any of it. v0.77 just makes the LLM
+configuration persistent too.
+
 ## v0.76 — HOME view (probe-from-UI) + responsive scenario card
 
 Two threads from one screenshot — same release.

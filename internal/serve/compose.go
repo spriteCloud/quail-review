@@ -16,9 +16,12 @@ import (
 // cmd/reviewqa/main.go so the serve subcommand can pick up the same
 // REVIEWQA_LLM env conventions: REVIEWQA_LLM sets the endpoint,
 // REVIEWQA_MODEL overrides the model, an "ollama" sentinel populates
-// the API key when none is provided. Without REVIEWQA_LLM or
-// OPENAI_API_KEY the returned config has an empty API key and the
-// compose endpoint falls back to deterministic mode.
+// the API key when none is provided.
+//
+// Saved settings from ~/.config/reviewqa/serve.json overlay the env-
+// var defaults so a user can edit them from the Settings page without
+// restarting. Settings.LLM.Enabled = false zeroes the API key,
+// disabling the LLM regardless of env.
 func llmConfigFromEnv() config.Config {
 	cfg := config.FromEnv()
 	if llm := strings.TrimSpace(os.Getenv("REVIEWQA_LLM")); llm != "" {
@@ -29,6 +32,23 @@ func llmConfigFromEnv() config.Config {
 		if cfg.OpenAIAPIKey == "" {
 			cfg.OpenAIAPIKey = "ollama"
 		}
+	}
+	s, _ := LoadSettings()
+	if s.LLM.Endpoint != "" {
+		cfg.OpenAIBaseURL = strings.TrimRight(s.LLM.Endpoint, "/") + "/v1"
+	}
+	if s.LLM.Model != "" {
+		cfg.Model = s.LLM.Model
+	}
+	if s.LLM.APIKey != "" {
+		cfg.OpenAIAPIKey = s.LLM.APIKey
+	} else if s.LLM.Endpoint != "" && cfg.OpenAIAPIKey == "" {
+		cfg.OpenAIAPIKey = "ollama"
+	}
+	// Explicit OFF wins — strip the API key so downstream sees the
+	// LLM as disabled and falls back to deterministic mode.
+	if !s.LLM.Enabled && (s.LLM.Endpoint != "" || s.LLM.APIKey != "") {
+		cfg.OpenAIAPIKey = ""
 	}
 	return cfg
 }

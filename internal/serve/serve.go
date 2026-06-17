@@ -283,6 +283,9 @@ func Handler(workdir string) http.Handler {
 
 	mux.HandleFunc("/api/probe", handleProbe(workdir))
 
+	mux.HandleFunc("/api/settings", handleSettings)
+	mux.HandleFunc("/api/llm-test", handleLLMTest)
+
 	mux.HandleFunc("/api/run-scenario", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

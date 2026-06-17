@@ -56,7 +56,10 @@ func ProbeStream(ctx context.Context, w http.ResponseWriter, workdir string, req
 
 	cwd := probeCwd(workdir)
 
-	args := []string{"probe", "--url", u.String()}
+	// --local: write rendered files into the workdir, do NOT try to
+	// open a GitHub PR. The serve UI is a local control room, not a
+	// CI runner; gh.New would fail without GITHUB_TOKEN.
+	args := []string{"probe", "--url", u.String(), "--local"}
 	if req.Coverage != "" {
 		args = append(args, "--coverage", req.Coverage)
 	}

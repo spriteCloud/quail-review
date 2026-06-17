@@ -9,6 +9,7 @@ const $projectName = document.querySelector('[data-project-name]')
 let activeFeature = null
 let activeDoc = null
 let activeHome = false
+let activeSettings = false
 let viewMode = 'pretty'
 let llmStatus = { enabled: false, model: '', endpoint: '' }
 let runStatus = { ready: false, message: '' }
@@ -675,6 +676,7 @@ async function openFeature (path) {
   activeFeature = path
   activeDoc = null
   activeHome = false
+  activeSettings = false
   refreshSidebarSelection()
   try {
     const data = await fetchJSON('/api/feature?path=' + encodeURIComponent(path))
@@ -703,6 +705,7 @@ async function openDoc (path, kind) {
   activeDoc = path
   activeFeature = null
   activeHome = false
+  activeSettings = false
   refreshSidebarSelection()
   let viewRaw = false
 
@@ -758,6 +761,8 @@ function refreshSidebarSelection () {
   }
   const $home = document.querySelector('[data-home]')
   if ($home) $home.classList.toggle('active', activeHome)
+  const $settings = document.querySelector('[data-settings]')
+  if ($settings) $settings.classList.toggle('active', activeSettings)
 }
 
 async function init () {
@@ -812,10 +817,21 @@ async function openHome () {
   activeFeature = null
   activeDoc = null
   activeHome = true
+  activeSettings = false
   refreshSidebarSelection()
   await renderHome()
 }
 window.__openHome = openHome
+
+async function openSettings () {
+  activeFeature = null
+  activeDoc = null
+  activeHome = false
+  activeSettings = true
+  refreshSidebarSelection()
+  await renderSettings()
+}
+window.__openSettings = openSettings
 
 async function renderHome () {
   const project = window.__project || { name: '', version: '', workdir: '', features: [], docs: [] }
@@ -1019,6 +1035,147 @@ async function reloadProject () {
     }
     refreshSidebarSelection()
   } catch (_) { /* non-fatal */ }
+}
+
+// ---------- SETTINGS view ----------
+
+async function renderSettings () {
+  let settings
+  try {
+    settings = await fetchJSON('/api/settings')
+  } catch (err) {
+    $content.replaceChildren(el('div', { class: 'error' }, 'Failed to load settings: ' + err.message))
+    return
+  }
+  settings = settings || {}
+  const llm = settings.llm || {}
+  const probe = settings.probe || {}
+  const run = settings.run || {}
+
+  const $enabled = el('input', { type: 'checkbox', id: 'set-llm-on' })
+  if (llm.enabled) $enabled.setAttribute('checked', '')
+  const $endpoint = el('input', { type: 'url', class: 'home-probe-input', placeholder: 'http://100.82.34.115:11434', value: llm.endpoint || '' })
+  const $model = el('input', { type: 'text', class: 'home-probe-input', placeholder: 'qwen3-coder-next:latest', value: llm.model || '' })
+  const $apiKey = el('input', { type: 'password', class: 'home-probe-input', placeholder: 'sk-... (optional for local Ollama; "ollama" is auto-set)', value: llm.apiKey || '' })
+  const $timeout = el('input', { type: 'number', class: 'home-probe-input', min: '5', max: '600', placeholder: '60', value: llm.timeoutSec || '' })
+
+  const $coverage = el('select', { class: 'home-probe-coverage' },
+    el('option', { value: '' }, 'default (standard)'),
+    el('option', { value: 'breadth' }, 'breadth'),
+    el('option', { value: 'standard' }, 'standard'),
+    el('option', { value: 'depth' }, 'depth'),
+    el('option', { value: 'max' }, 'max'),
+  )
+  $coverage.value = probe.defaultCoverage || ''
+
+  const $runTimeout = el('input', { type: 'number', class: 'home-probe-input', min: '30', max: '3600', placeholder: '600', value: run.timeoutSec || '' })
+  const $keepReport = el('input', { type: 'checkbox', id: 'set-run-keep' })
+  if (run.keepReport) $keepReport.setAttribute('checked', '')
+
+  const $status = el('div', { class: 'home-probe-verdict' })
+
+  const $testBtn = el('button', { class: 'btn-ghost', onclick: () => testConnection() }, 'Test connection')
+  const $saveBtn = el('button', { class: 'btn-primary', onclick: () => save() }, 'Save settings')
+
+  async function testConnection () {
+    $status.textContent = 'Testing…'
+    $status.className = 'home-probe-verdict'
+    try {
+      const res = await fetchJSON('/api/llm-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: $endpoint.value.trim(),
+          model: $model.value.trim(),
+          apiKey: $apiKey.value,
+        }),
+      })
+      if (res.ok) {
+        $status.textContent = `Connection OK — model "${res.model}" replied: ${res.sample || '(empty)'}`
+        $status.className = 'home-probe-verdict pass'
+      } else {
+        $status.textContent = 'Connection failed: ' + (res.error || 'unknown')
+        $status.className = 'home-probe-verdict fail'
+      }
+    } catch (err) {
+      $status.textContent = 'Test error: ' + err.message
+      $status.className = 'home-probe-verdict fail'
+    }
+  }
+
+  async function save () {
+    const payload = {
+      llm: {
+        enabled: !!$enabled.checked,
+        endpoint: $endpoint.value.trim(),
+        model: $model.value.trim(),
+        apiKey: $apiKey.value,
+        timeoutSec: parseInt($timeout.value, 10) || 0,
+      },
+      probe: {
+        defaultCoverage: $coverage.value,
+      },
+      run: {
+        timeoutSec: parseInt($runTimeout.value, 10) || 0,
+        keepReport: !!$keepReport.checked,
+      },
+    }
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      $status.textContent = 'Saved.'
+      $status.className = 'home-probe-verdict pass'
+      // Refresh LLM status so the run/chat affordances re-evaluate.
+      llmStatus = await fetchJSON('/api/llm-status').catch(() => llmStatus)
+    } catch (err) {
+      $status.textContent = 'Save failed: ' + err.message
+      $status.className = 'home-probe-verdict fail'
+    }
+  }
+
+  function settingsRow (label, hint, input) {
+    return el('div', { class: 'settings-row' },
+      el('label', { class: 'settings-label' }, label,
+        hint ? el('span', { class: 'settings-hint' }, hint) : null),
+      input,
+    )
+  }
+
+  $content.replaceChildren(
+    el('div', { class: 'home-cover' },
+      el('span', { class: 'label' }, 'reviewqa /settings'),
+      el('h1', { class: 'home-title' }, 'Settings'),
+      el('p', { class: 'home-sub' }, 'Persisted to ~/.config/reviewqa/serve.json. Takes effect on the next API call — no restart required.'),
+    ),
+    el('section', { class: 'home-card' },
+      el('h2', { class: 'home-card-title' }, 'LLM composer / chat'),
+      el('p', { class: 'home-card-sub' }, 'Wire up an OpenAI-compatible endpoint (a local Ollama, the DGX on Netbird, the real OpenAI API). Off by default — the suite still runs deterministically when disabled.'),
+      el('div', { class: 'settings-toggle-row' },
+        el('label', { for: 'set-llm-on', class: 'settings-toggle-label' }, $enabled, el('span', {}, 'Enable LLM features (Chat, compose-steps)')),
+      ),
+      settingsRow('Endpoint', 'http(s) URL — `/v1` is appended automatically', $endpoint),
+      settingsRow('Model', 'e.g. qwen3-coder-next:latest, gpt-4o-mini', $model),
+      settingsRow('API key', 'Leave blank for a keyless local Ollama (auto-set to "ollama")', $apiKey),
+      settingsRow('Timeout (sec)', 'Bound on each LLM call; default 60', $timeout),
+      el('div', { class: 'settings-button-row' }, $testBtn, $saveBtn),
+    ),
+    el('section', { class: 'home-card' },
+      el('h2', { class: 'home-card-title' }, 'Probe defaults'),
+      settingsRow('Default coverage', 'Used by the HOME Probe form when no coverage is picked', $coverage),
+    ),
+    el('section', { class: 'home-card' },
+      el('h2', { class: 'home-card-title' }, 'Run defaults'),
+      settingsRow('Run timeout (sec)', 'Soft cap on a single scenario run; 0 = no cap', $runTimeout),
+      el('div', { class: 'settings-toggle-row' },
+        el('label', { for: 'set-run-keep', class: 'settings-toggle-label' }, $keepReport, el('span', {}, 'Keep playwright-report/ after each run (useful for trace viewer)')),
+      ),
+    ),
+    $status,
+  )
 }
 
 init()
