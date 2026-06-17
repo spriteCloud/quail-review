@@ -658,6 +658,32 @@ func qualityCompanions(sourceURL string, m *mindmap.Map, coverage CoverageMode) 
 			Template: plan.TmplPlaywrightHistoryDepth,
 			OutPath:  "tests/e2e/history-depth/" + stem + ".history-depth.spec.ts",
 		})
+		// v0.45: touch (always-on under mobile project), dragdrop
+		// (gated on [draggable] / [ondrop]), auth-expiry (always-on —
+		// the test skips when no internal link exists).
+		out = append(out, plan.Item{
+			Symbol:   pageStub,
+			Symbols:  []ast.Symbol{pageStub},
+			PageURL:  page.URL,
+			Template: plan.TmplPlaywrightTouch,
+			OutPath:  "tests/e2e/touch/" + stem + ".touch.spec.ts",
+		})
+		if page.HasDraggable {
+			out = append(out, plan.Item{
+				Symbol:   pageStub,
+				Symbols:  []ast.Symbol{pageStub},
+				PageURL:  page.URL,
+				Template: plan.TmplPlaywrightDragDrop,
+				OutPath:  "tests/e2e/dragdrop/" + stem + ".dragdrop.spec.ts",
+			})
+		}
+		out = append(out, plan.Item{
+			Symbol:   pageStub,
+			Symbols:  []ast.Symbol{pageStub},
+			PageURL:  page.URL,
+			Template: plan.TmplPlaywrightAuthExpiry,
+			OutPath:  "tests/e2e/auth-expiry/" + stem + ".auth-expiry.spec.ts",
+		})
 		emitted++
 	}
 
@@ -697,6 +723,18 @@ func qualityCompanions(sourceURL string, m *mindmap.Map, coverage CoverageMode) 
 			Template: plan.TmplPlaywrightI18n,
 			OutPath:  "tests/e2e/i18n/" + originSlug + ".i18n.spec.ts",
 		})
+		// v0.45 — when the origin actually exposes ≥2 hreflang
+		// siblings, emit the mid-session locale-switch spec alongside
+		// the basic i18n companion.
+		if len(i18nPage.Meta.Hreflang) >= 2 {
+			out = append(out, plan.Item{
+				Symbol:   i18nStub,
+				Symbols:  []ast.Symbol{i18nStub},
+				PageURL:  i18nPage.URL,
+				Template: plan.TmplPlaywrightLocaleSwitch,
+				OutPath:  "tests/e2e/i18n/" + originSlug + ".locale-switch.spec.ts",
+			})
+		}
 	}
 
 	return out

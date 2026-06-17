@@ -106,6 +106,13 @@ const (
 	TmplPlaywrightDateEdges      Template = "pw_date_edges"
 	TmplPlaywrightPWA            Template = "pw_pwa"
 	TmplPlaywrightHistoryDepth   Template = "pw_history_depth"
+	// v0.45 — the last 4 gated edge templates from the original v0.42
+	// scope. Each gates on a probe signal so the test runs against
+	// real surface.
+	TmplPlaywrightTouch          Template = "pw_touch"
+	TmplPlaywrightDragDrop       Template = "pw_dragdrop"
+	TmplPlaywrightAuthExpiry     Template = "pw_auth_expiry"
+	TmplPlaywrightLocaleSwitch   Template = "pw_locale_switch"
 	TmplRaw                 Template = "raw" // sentinel: emit Item.RawContent verbatim
 	TmplPytestUnit          Template = "pytest_unit"
 	TmplPytestAPI           Template = "pytest_api"

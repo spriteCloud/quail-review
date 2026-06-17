@@ -73,7 +73,11 @@ func TestRunAll_EmitsFeatureFilesAndBDDSteps(t *testing.T) {
 			!strings.Contains(it.OutPath, "/iframe/") &&
 			!strings.Contains(it.OutPath, "/date-edges/") &&
 			!strings.Contains(it.OutPath, "/pwa/") &&
-			!strings.Contains(it.OutPath, "/history-depth/"):
+			!strings.Contains(it.OutPath, "/history-depth/") &&
+			// v0.45: touch / dragdrop / auth-expiry quality-companion subdirs.
+			!strings.Contains(it.OutPath, "/touch/") &&
+			!strings.Contains(it.OutPath, "/dragdrop/") &&
+			!strings.Contains(it.OutPath, "/auth-expiry/"):
 			gotSpecTs++
 		case it.OutPath == "tests/e2e/steps/reviewqa.steps.ts":
 			gotStepsFile = true

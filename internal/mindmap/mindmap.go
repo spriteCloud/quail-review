@@ -53,6 +53,9 @@ type Page struct {
 	// HasManifestLink is true when the page declares <link rel="manifest">.
 	// v0.44 — drives pw_pwa.tmpl emission.
 	HasManifestLink bool
+	// HasDraggable is true when the page exposes a [draggable] or
+	// [ondrop] attribute — drives pw_dragdrop.tmpl emission (v0.45).
+	HasDraggable bool
 }
 
 // Fetcher abstracts plan/probe's Fetch — injected so the mindmap package
@@ -169,6 +172,9 @@ func buildPage(u string, html []byte) *Page {
 	p.HasManifestLink = strings.Contains(lower, `rel="manifest"`) ||
 		strings.Contains(lower, `rel='manifest'`) ||
 		strings.Contains(lower, "rel=manifest")
+	p.HasDraggable = strings.Contains(lower, "draggable=") ||
+		strings.Contains(lower, "ondrop=") ||
+		strings.Contains(lower, `data-dropzone`)
 	p.Forms = plan.ExtractHTMLForms(u, html)
 	p.Tags = tagPage(p, html)
 	return p
