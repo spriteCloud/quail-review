@@ -13,8 +13,8 @@ import { test, expect } from '@playwright/test'
 const HEALTH_PATHS = ['/health', '/healthz', '/ready', '/readyz', '/status', '/livez']
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev health probes — verify health endpoints at https://playwright.dev', () => {
-  test('@kind:health @smoke verify at least one well-known health endpoint responds', async ({ request }) => {
+test.describe('PlaywrightDev — health probes @ https://playwright.dev', () => {
+  test('@kind:health @smoke at least one well-known health endpoint responds', async ({ request }) => {
     const results: Array<{ path: string; status: number }> = []
     for (const path of HEALTH_PATHS) {
       try {

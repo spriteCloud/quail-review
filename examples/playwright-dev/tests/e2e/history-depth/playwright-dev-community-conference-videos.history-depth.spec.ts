@@ -12,8 +12,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev — history depth on conference-videos page', () => {
-  test('Navigate back twice, then forward — page stays interactive', async ({ page }) => {
+test.describe('PlaywrightDev — history depth @ https://playwright.dev/community/conference-videos', () => {
+  test('@kind:history-depth @smoke back twice then forward keeps the page interactive', async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()) })

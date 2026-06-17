@@ -21,8 +21,8 @@ import { test, expect } from '@playwright/test'
 import { AxeBuilder } from '@axe-core/playwright'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev accessibility: https://playwright.dev/agent-cli/vision-mode', () => {
-  test('@kind:a11y smoke test: no serious or critical axe violations', async ({ page }) => {
+test.describe('PlaywrightDev — accessibility @ https://playwright.dev/agent-cli/vision-mode', () => {
+  test('@kind:a11y @smoke no serious or critical axe violations', async ({ page }) => {
     await page.goto('/agent-cli/vision-mode')
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -35,7 +35,7 @@ test.describe('PlaywrightDev accessibility: https://playwright.dev/agent-cli/vis
     expect(serious).toHaveLength(0)
   })
 
-  test('@kind:a11y WCAG 2.1 AA compliance: only AA rules checked', async ({ page }) => {
+  test('@kind:a11y @wcag-aa WCAG 2.1 AA-only profile', async ({ page }) => {
     // Targeted gate: many teams require AA compliance specifically.
     // Running with just the wcag21aa tag lets the report distinguish
     // AA-required failures from A-required ones in a single grep.
@@ -50,7 +50,7 @@ test.describe('PlaywrightDev accessibility: https://playwright.dev/agent-cli/vis
     expect.soft(serious, `${serious.length} serious/critical WCAG 2.1 AA violations`).toHaveLength(0)
   })
 
-  test('@kind:a11y color contrast: meets WCAG 2.1 AA minimum', async ({ page }) => {
+  test('@kind:a11y @color-contrast color contrast meets the AA threshold', async ({ page }) => {
     // The single most-violated WCAG rule in production. Worth its own
     // assertion so the report surfaces contrast separately from the
     // rest of the axe bag.
@@ -67,7 +67,7 @@ test.describe('PlaywrightDev accessibility: https://playwright.dev/agent-cli/vis
     expect.soft(results.violations, `${results.violations.length} color-contrast violation(s)`).toHaveLength(0)
   })
 
-  test('@kind:a11y ARIA attributes: no misused or missing attributes', async ({ page }) => {
+  test('@kind:a11y @aria-attrs ARIA attribute discipline', async ({ page }) => {
     // Catch the common ARIA mis-uses (invalid attr names, required
     // children missing, valid roles for elements). Separate gate so
     // teams can distinguish a wiring bug from a visual issue.
@@ -85,7 +85,7 @@ test.describe('PlaywrightDev accessibility: https://playwright.dev/agent-cli/vis
     expect.soft(results.violations, `${results.violations.length} ARIA violation(s)`).toHaveLength(0)
   })
 
-  test('@kind:a11y form labels: all inputs have accessible labels', async ({ page }) => {
+  test('@kind:a11y @form-labels every form input has a programmatic label', async ({ page }) => {
     // Cheaper signal than axe for form-heavy pages: walk every input
     // and confirm it has <label for>, aria-label, aria-labelledby, OR
     // a placeholder (placeholder is the weakest acceptable fallback).

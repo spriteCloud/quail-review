@@ -11,8 +11,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev print stylesheet baseline for feature-videos page', () => {
-  test('renders under print media with visible h1 and minimal fixed elements', async ({ page }) => {
+test.describe('PlaywrightDev — print @ https://playwright.dev/community/feature-videos', () => {
+  test('@kind:print @smoke renders under media: print', async ({ page }) => {
     await page.goto('/community/feature-videos')
     await page.emulateMedia({ media: 'print' })
     // h1 must still be in the document. Some sites hide the entire

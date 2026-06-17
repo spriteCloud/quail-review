@@ -12,8 +12,8 @@ import { test, expect } from '@playwright/test'
 const SLO_MS = Number(process.env.PERF_SLO_MS ?? 3000)
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev — performance test for conference-videos page', () => {
-  test(`@kind:perf @smoke: page loads under ${SLO_MS}ms`, async ({ page }) => {
+test.describe('PlaywrightDev — performance @ https://playwright.dev/community/conference-videos', () => {
+  test(`@kind:perf @smoke loads under ${SLO_MS}ms`, async ({ page }) => {
     const start = Date.now()
     await page.goto('/community/conference-videos', { waitUntil: 'load' })
     const elapsed = Date.now() - start

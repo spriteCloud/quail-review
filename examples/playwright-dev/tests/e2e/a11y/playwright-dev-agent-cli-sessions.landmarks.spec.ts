@@ -17,7 +17,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
 test.describe('PlaywrightDev — a11y landmarks @ https://playwright.dev/agent-cli/sessions', () => {
-  test('@kind:a11y-landmarks @smoke single main, h1, and nav elements', async ({ page }) => {
+  test('@kind:a11y-landmarks @smoke single main + h1 + nav', async ({ page }) => {
     await page.goto('/agent-cli/sessions')
 
     const mains = await page.locator('main, [role="main"]').count()
@@ -30,13 +30,13 @@ test.describe('PlaywrightDev — a11y landmarks @ https://playwright.dev/agent-c
     expect.soft(navs, `expected at least one <nav> region`).toBeGreaterThanOrEqual(1)
   })
 
-  test('@kind:a11y-landmarks @negative no focusable elements inside aria-hidden regions', async ({ page }) => {
+  test('@kind:a11y-landmarks @negative no focusables inside aria-hidden', async ({ page }) => {
     await page.goto('/agent-cli/sessions')
     const hiddenFocusables = await page.locator('[aria-hidden="true"]').locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').count()
     expect.soft(hiddenFocusables, `${hiddenFocusables} focusable elements inside aria-hidden — confusing for screen readers`).toBe(0)
   })
 
-  test('@kind:a11y-landmarks @heading-hierarchy headings follow sequential order', async ({ page }) => {
+  test('@kind:a11y-landmarks @heading-hierarchy heading order is sequential', async ({ page }) => {
     // Walk every heading in source order. A jump from h1 to h3 (skipping
     // h2) breaks screen-reader navigation. h2 to h4 is the same bug at
     // the next level.
@@ -89,7 +89,7 @@ test.describe('PlaywrightDev — a11y landmarks @ https://playwright.dev/agent-c
     expect.soft(unnamed, `${unnamed.length} duplicate landmark(s) without an accessible name`).toEqual([])
   })
 
-  test('@kind:a11y-landmarks @skip-link "skip to content" link is present (WCAG 2.4.1)', async ({ page }) => {
+  test('@kind:a11y-landmarks @skip-link "skip to content" affordance present (WCAG 2.4.1)', async ({ page }) => {
     // The first focusable should either be a skip link OR there must
     // be an in-page anchor to #main / #content / [role=main]. WCAG
     // 2.4.1 ("Bypass Blocks") requires it for keyboard / SR users.

@@ -17,7 +17,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
 test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/community/conference-videos', () => {
-  test('@kind:keyboard @smoke Tab through the first 10 focusable elements', async ({ page }) => {
+  test('@kind:keyboard @smoke tab through the first 10 focusables', async ({ page }) => {
     await page.goto('/community/conference-videos')
 
     const focusables = await page.locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').all()
@@ -32,10 +32,10 @@ test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/co
       }
     }
 
-    expect.soft(reached, `Tab reached only ${reached} of ${max} focusable elements`).toBeGreaterThanOrEqual(Math.floor(max * 0.7))
+    expect.soft(reached, `tab reached only ${reached} of ${max} focusables`).toBeGreaterThanOrEqual(Math.floor(max * 0.7))
   })
 
-  test('@kind:keyboard @focus-indicator the first element focused with Tab has a visible focus indicator', async ({ page }) => {
+  test('@kind:keyboard @focus-indicator first focused element has a visible focus indicator', async ({ page }) => {
     await page.goto('/community/conference-videos')
     await page.keyboard.press('Tab')
 
@@ -45,10 +45,10 @@ test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/co
       const cs = getComputedStyle(el)
       return cs.outlineStyle !== 'none' || cs.boxShadow !== 'none'
     })
-    expect.soft(hasIndicator, 'the first element focused with Tab lacks a visible focus indicator').toBe(true)
+    expect.soft(hasIndicator, 'first tab-focused element has no visible focus indicator').toBe(true)
   })
 
-  test('@kind:keyboard @escape-dismiss Escape closes an open dialog and returns focus to the trigger', async ({ page }) => {
+  test('@kind:keyboard @escape-dismiss Escape closes a visible dialog and returns focus', async ({ page }) => {
     await page.goto('/community/conference-videos')
     // Find a candidate dialog or modal trigger; skip if absent.
     const trigger = page.locator('[aria-haspopup="dialog"], [data-modal-trigger], [aria-controls][aria-expanded]').first()
@@ -62,10 +62,10 @@ test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/co
     // (somewhere visible) to the trigger.
     await page.keyboard.press('Escape')
     const stillOpen = await dialog.isVisible().catch(() => false)
-    expect.soft(stillOpen, 'dialog should close when Escape is pressed').toBe(false)
+    expect.soft(stillOpen, 'dialog should close on Escape').toBe(false)
   })
 
-  test('@kind:keyboard @enter-space Enter activates the focused link or button', async ({ page }) => {
+  test('@kind:keyboard @enter-space Enter activates focused links/buttons', async ({ page }) => {
     await page.goto('/community/conference-videos')
     // Find the first interactive control of each type.
     const link = page.locator('a[href]:not([href^="#"]):not([href^="mailto:"]):not([href^="tel:"])').first()
@@ -80,11 +80,11 @@ test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/co
     if (!activated) {
       // soft so SPAs that consume the click via JS don't fail —
       // a real navigation would have flipped the flag.
-      expect.soft(activated, 'Pressing Enter on a focused link had no observable effect').toBe(true)
+      expect.soft(activated, 'Enter on a focused link produced no observable effect').toBe(true)
     }
   })
 
-  test('@kind:keyboard @no-trap Tabbing past the last focusable wraps or exits the page', async ({ page }) => {
+  test('@kind:keyboard @no-trap Tab from the last focusable wraps or exits the page', async ({ page }) => {
     // Find the last focusable; Tab once more; confirm focus moved
     // OR landed back on the first focusable (wrap). What we forbid
     // is staying on the same element (a focus trap outside a modal).
@@ -106,7 +106,7 @@ test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/co
       const modalAncestor = el.closest('[aria-modal="true"], dialog[open]')
       return !!modalAncestor
     })
-    expect.soft(trapped, `Tabbing past the last focusable should wrap or exit; observed focus moving from ${firstActiveTag} to ${secondActiveTag}`).toBe(false)
+    expect.soft(trapped, `Tab past the last focusable should wrap or exit; observed ${firstActiveTag}→${secondActiveTag}`).toBe(false)
   })
 })
 

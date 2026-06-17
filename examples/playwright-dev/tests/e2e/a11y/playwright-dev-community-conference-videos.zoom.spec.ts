@@ -12,9 +12,9 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev — magnification test at https://playwright.dev/community/conference-videos', () => {
+test.describe('PlaywrightDev — zoom @ https://playwright.dev/community/conference-videos', () => {
   for (const zoom of [2.0, 4.0] as const) {
-    test(`@kind:zoom @smoke @zoom:${zoom * 100}% heading remains visible`, async ({ page }) => {
+    test(`@kind:zoom @smoke @zoom:${zoom * 100}% h1 stays visible`, async ({ page }) => {
       await page.goto('/community/conference-videos')
       // Playwright doesn't expose a true browser-zoom API; emulate via
       // CSS transform on the body. Real ratio differs slightly but the

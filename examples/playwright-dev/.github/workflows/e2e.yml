@@ -3,18 +3,18 @@
 # subsequent probes.
 #
 # What it does:
-#   1. Installs Node.js dependencies (npm ci if a lockfile exists, otherwise npm install).
-#   2. Installs the Chromium browser using npx playwright install.
-#   3. Runs the full test suite against the baseURL configured in
+#   1. Installs Node deps (`npm ci` if a lockfile exists, else `npm install`).
+#   2. Installs the chromium browser via `npx playwright install`.
+#   3. Runs the full suite against the baseURL baked into
 #      `playwright.config.ts` (the origin reviewqa probed).
-#   4. Uploads the HTML report and traces as workflow artifacts for failure debugging
-#      are using the Playwright trace viewer.
+#   4. Uploads the HTML report + traces as workflow artifacts so failures
+#      are debuggable via the Playwright trace viewer.
 #
-# To run against staging, a PR preview, or localhost, add a BASE_URL
-# repository secret and uncomment the env: BASE_URL: block below.
+# To run against staging / a PR preview / localhost, add a `BASE_URL`
+# repository secret and uncomment the `env: BASE_URL: ...` block below.
 #
-# To test across browsers, uncomment firefox or webkit in
-# the playwright.config.ts projects section.
+# For cross-browser, uncomment `firefox` / `webkit` in
+# `playwright.config.ts` `projects: [...]`.
 
 name: e2e
 
@@ -47,7 +47,7 @@ jobs:
           fi
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-      - name: Run Playwright E2E tests
+      - name: Run Playwright tests
         run: npx playwright test --reporter=html,list
       - name: Upload HTML report
         if: always()
@@ -56,7 +56,7 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
-      - name: Upload traces if tests fail
+      - name: Upload traces on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:

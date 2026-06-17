@@ -57,8 +57,30 @@ function scenarioToGherkin (sc) {
   return lines.join('\n')
 }
 
+function renderRunPreflightBanner () {
+  if (runStatus.ready) return null
+  const workdir = (window.__project && window.__project.workdir) || ''
+  const cmd = workdir ? `cd ${workdir} && npm install && npx playwright install` : 'npm install && npx playwright install'
+  const copyBtn = el('button', { class: 'btn-ghost', onclick: async () => {
+    try { await navigator.clipboard.writeText(cmd); copyBtn.textContent = '✓ copied' }
+    catch (_) { copyBtn.textContent = 'select + copy manually' }
+  } }, 'Copy command')
+  return el('div', { class: 'run-banner' },
+    el('div', { class: 'run-banner-icon' }, '⚠'),
+    el('div', { class: 'run-banner-body' },
+      el('div', { class: 'run-banner-title' }, '▶ Run is disabled — Playwright isn\'t installed in this project.'),
+      el('code', { class: 'run-banner-cmd' }, cmd),
+      el('div', { class: 'run-banner-hint meta' }, 'After installing, reload this page to enable the Run button.'),
+    ),
+    copyBtn,
+  )
+}
+
 function renderFeature (feature, gherkin) {
   $content.replaceChildren()
+
+  const banner = renderRunPreflightBanner()
+  if (banner) $content.appendChild(banner)
 
   const header = el('div', { class: 'feature-header' },
     el('h1', {}, feature.name || '(unnamed feature)'),
@@ -630,22 +652,49 @@ async function openDoc (path, kind) {
   activeDoc = path
   activeFeature = null
   refreshSidebarSelection()
-  try {
-    const data = await fetchJSON('/api/doc?path=' + encodeURIComponent(path))
-    const isHTML = path.endsWith('.html')
-    const inner = isHTML
-      ? el('div', { class: 'doc-content', html: data.body })
-      : el('pre', { class: 'raw-block' }, data.body)
-    $content.replaceChildren(
-      el('div', { class: 'feature-header' },
-        el('h1', {}, kind === 'catalogue' ? 'Test catalogue' : kind === 'summary' ? 'Stakeholder summary' : kind === 'findings' ? 'Bug-discovery ledger' : 'Doc'),
-        el('div', { class: 'path' }, path),
-      ),
-      inner,
-    )
-  } catch (err) {
-    $content.replaceChildren(el('div', { class: 'error' }, 'Failed to load doc: ' + err.message))
+  let viewRaw = false
+
+  async function render () {
+    try {
+      const data = await fetchJSON('/api/doc?path=' + encodeURIComponent(path))
+      const isHTML = path.endsWith('.html')
+      const isMD = path.endsWith('.md')
+
+      let inner
+      if (viewRaw) {
+        inner = el('pre', { class: 'raw-block' }, data.body)
+      } else if (isMD && data.html) {
+        inner = el('div', { class: 'doc-content markdown', html: data.html })
+      } else if (isHTML) {
+        inner = el('div', { class: 'doc-content', html: data.body })
+      } else {
+        inner = el('pre', { class: 'raw-block' }, data.body)
+      }
+
+      const title = kind === 'catalogue' ? 'Test catalogue'
+        : kind === 'summary' ? 'Stakeholder summary'
+        : kind === 'findings' ? 'Bug-discovery ledger'
+        : 'Doc'
+
+      const tabs = (isMD || isHTML) ? el('div', { class: 'tab-row' },
+        el('button', { class: 'tab ' + (viewRaw ? '' : 'active'), onclick: () => { viewRaw = false; render() } }, 'Rendered'),
+        el('button', { class: 'tab ' + (viewRaw ? 'active' : ''), onclick: () => { viewRaw = true; render() } }, 'Raw'),
+      ) : null
+
+      $content.replaceChildren(
+        el('div', { class: 'feature-header' },
+          el('span', { class: 'label' }, 'Stakeholder doc'),
+          el('h1', { style: 'margin-top:8px;' }, title),
+          el('div', { class: 'path' }, path),
+        ),
+        tabs,
+        inner,
+      )
+    } catch (err) {
+      $content.replaceChildren(el('div', { class: 'error' }, 'Failed to load doc: ' + err.message))
+    }
   }
+  await render()
 }
 
 function refreshSidebarSelection () {
@@ -664,6 +713,7 @@ async function init () {
   } catch (_) { /* non-fatal */ }
   try {
     const project = await fetchJSON('/api/project')
+    window.__project = project
     $projectName.textContent = project.name
     document.title = `reviewqa · ${project.name}`
     const $badge = document.querySelector('[data-brand-badge]')

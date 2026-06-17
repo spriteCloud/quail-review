@@ -472,6 +472,43 @@ code, pre { font-family: 'Fira Code', ui-monospace, monospace; }
   white-space: pre;
 }
 
+/* RUN PREFLIGHT BANNER */
+.run-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 18px;
+  margin-bottom: 22px;
+  background: var(--copper-soft);
+  border: 1px solid rgba(192, 128, 90, 0.32);
+  border-left: 4px solid var(--copper);
+  border-radius: 8px;
+}
+.run-banner-icon { font-size: 18px; color: var(--copper); flex: 0 0 auto; padding-top: 1px; }
+.run-banner-body { flex: 1; min-width: 0; }
+.run-banner-title {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--deep-water);
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+.run-banner-cmd {
+  display: block;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--white);
+  border: 1px solid var(--border-warm);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 4px 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.run-banner-hint { margin-top: 4px; font-size: 11px; }
+
 /* DOC CONTENT (catalogue / summary / findings) */
 .doc-content { max-width: 820px; }
 .doc-content h1, .doc-content h2, .doc-content h3 {
@@ -488,6 +525,83 @@ code, pre { font-family: 'Fira Code', ui-monospace, monospace; }
 .doc-content th, .doc-content td { border: 1px solid var(--border-warm); padding: 8px 12px; text-align: left; vertical-align: top; }
 .doc-content th { background: var(--copper-soft); color: var(--copper); font-family: 'Fira Code', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.10em; }
 .doc-content code { background: var(--copper-soft); padding: 1px 6px; border-radius: 4px; color: var(--deep-water); font-size: 12px; }
+
+/* MARKDOWN — for catalogue / findings .md files rendered server-side
+ * by goldmark. Inherits .doc-content base + brand polish. */
+.doc-content.markdown { max-width: 880px; }
+.doc-content.markdown h1,
+.doc-content.markdown h2,
+.doc-content.markdown h3,
+.doc-content.markdown h4 {
+  font-family: 'Sora', sans-serif;
+  color: var(--deep-water);
+  letter-spacing: -0.02em;
+  margin-top: 28px;
+  margin-bottom: 12px;
+}
+.doc-content.markdown h1 { font-size: 26px; font-weight: 700; padding-bottom: 8px; border-bottom: 2px solid var(--copper); }
+.doc-content.markdown h2 { font-size: 20px; font-weight: 600; }
+.doc-content.markdown h3 {
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+.doc-content.markdown h4 { font-size: 14px; font-weight: 600; }
+.doc-content.markdown p { margin: 10px 0; line-height: 1.7; }
+.doc-content.markdown ul, .doc-content.markdown ol { margin: 8px 0 12px 24px; padding: 0; }
+.doc-content.markdown li { margin: 4px 0; line-height: 1.6; }
+.doc-content.markdown li::marker { color: var(--copper); }
+.doc-content.markdown blockquote {
+  margin: 12px 0;
+  padding: 8px 14px;
+  border-left: 3px solid var(--copper);
+  background: var(--copper-soft);
+  color: var(--graphite);
+  border-radius: 0 6px 6px 0;
+}
+.doc-content.markdown a { color: var(--clear-blue); }
+.doc-content.markdown a:hover { color: var(--copper); }
+.doc-content.markdown hr { border: 0; border-top: 1px solid var(--border-warm); margin: 22px 0; }
+.doc-content.markdown pre {
+  background: var(--charcoal);
+  color: rgba(255,255,255,0.92);
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: 'Fira Code', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  margin: 12px 0;
+}
+.doc-content.markdown pre code { background: transparent; padding: 0; color: inherit; }
+.doc-content.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+  font-size: 13px;
+  background: var(--white);
+  border: 1px solid var(--border-warm);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.doc-content.markdown thead th {
+  text-align: left;
+  padding: 9px 12px;
+  background: var(--copper-soft);
+  color: var(--copper);
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-warm);
+}
+.doc-content.markdown tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border-warm); color: var(--graphite); }
+.doc-content.markdown tbody tr:last-child td { border-bottom: 0; }
+.doc-content.markdown tbody tr:hover { background: var(--copper-soft); }
 
 /* MODAL */
 .modal-overlay {

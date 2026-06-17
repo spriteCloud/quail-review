@@ -18,8 +18,8 @@
  */
 import { test, expect } from '@playwright/test'
 
-test.describe('PlaywrightDev — integration DB scaffold (skipped)', () => {
-  test.skip('integration DB: round-trip (create, insert, select, delete)', async ({ request }) => {
+test.describe('PlaywrightDev — integration: DB scaffold (skipped)', () => {
+  test.skip('@kind:integration-db @wireable @round-trip CREATE / INSERT / SELECT / DELETE round-trip', async ({ request }) => {
     // When wired this test would:
     //   1. Start a Testcontainers DB instance (postgres / mysql / mariadb)
     //   2. Apply the schema declared in reviewqa.yml
@@ -30,7 +30,7 @@ test.describe('PlaywrightDev — integration DB scaffold (skipped)', () => {
     expect(r.ok()).toBeTruthy()
   })
 
-  test.skip('integration DB: transaction rolls back on error', async ({ request }) => {
+  test.skip('@kind:integration-db @wireable @transaction-rollback transaction rolls back on error', async ({ request }) => {
     // When wired:
     //   1. Begin transaction
     //   2. POST with one valid + one invalid record
@@ -40,7 +40,7 @@ test.describe('PlaywrightDev — integration DB scaffold (skipped)', () => {
     expect(r.ok()).toBeTruthy()
   })
 
-  test.skip('integration DB: concurrent requests do not exhaust the connection pool', async ({ request }) => {
+  test.skip('@kind:integration-db @wireable @connection-pool concurrent requests do not exhaust the pool', async ({ request }) => {
     // When wired:
     //   1. Issue N concurrent reads where N > pool.max
     //   2. Confirm all N return < 500

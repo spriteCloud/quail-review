@@ -18,8 +18,8 @@ import { test, expect } from '@playwright/test'
 const STATES = ['default', 'hover', 'focus'] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev: interaction-state visual regression checks for feature videos page', () => {
-  test('visual-state smoke test: primary CTA in default, hover, and focus states', async ({ page }) => {
+test.describe('PlaywrightDev — interaction-state visual @ https://playwright.dev/community/feature-videos', () => {
+  test('@kind:visual-state @smoke primary CTA across states', async ({ page }) => {
     await page.goto('/community/feature-videos')
     await page.waitForLoadState('networkidle').catch(() => {})
     const target = page.getByRole('link').first()
@@ -37,7 +37,7 @@ test.describe('PlaywrightDev: interaction-state visual regression checks for fea
           await target.focus().catch(() => {})
           break
         default:
-          // base (default) state: no user interaction
+          // default state — no interaction
           break
       }
       await expect(target).toHaveScreenshot(`playwrightdev-cta-${state}.png`, {

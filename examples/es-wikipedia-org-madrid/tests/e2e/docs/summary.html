@@ -2,170 +2,437 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>reviewqa work summary — https://es.wikipedia.org</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>reviewqa stakeholder summary — https://es.wikipedia.org</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0b0d12;
-    --panel: #161924;
-    --panel-2: #1d2130;
-    --text: #e7ebf3;
-    --muted: #8a93a8;
-    --accent: #7aa2ff;
-    --crit: #ff6f6f;
-    --std: #ffb86b;
-    --nice: #7ee0a2;
+    --deep-water:  #1B365D;
+    --clear-blue:  #4B8BBE;
+    --copper:      #C0805A;
+    --copper-soft: rgba(192, 128, 90, 0.10);
+    --ink:         #0F1117;
+    --charcoal:    #1A1D26;
+    --graphite:    #2D3748;
+    --warm-white:  #FAFAF7;
+    --mist:        #8899AA;
+    --border-warm: #E8E6E1;
+    --white:       #FFFFFF;
+    --wm-blue:     #0090D0;
+    --wm-gray:     #9DA5AE;
+    --bad-fg:      #B91C1C;
+    --bad-bg:      #FEE2E2;
+    --info-fg:     #4B8BBE;
+    --info-bg:     rgba(75,139,190,0.12);
+    --ok-fg:       #15803D;
+    --ok-bg:       #DCFCE7;
   }
-  * { box-sizing: border-box }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
-    line-height: 1.5;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--graphite);
+    background: var(--warm-white);
+    -webkit-font-smoothing: antialiased;
   }
-  header {
-    padding: 32px 48px 16px;
-    border-bottom: 1px solid #232839;
+  a { color: var(--clear-blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: 'Fira Code', ui-monospace, monospace; }
+
+  /* Wordmark — same treatment as web/index.html and serve UI. */
+  .wm { font-family: 'Inter', sans-serif; font-weight: 900; letter-spacing: -0.05em; font-size: 18px; }
+  .wm .s { color: var(--wm-blue); }
+  .wm .c { color: var(--wm-gray); }
+
+  /* COVER BAND */
+  .cover {
+    background: var(--deep-water);
+    color: var(--white);
+    padding: 48px 56px 36px;
+    position: relative;
   }
-  h1 { font-size: 22px; margin: 0 0 4px; font-weight: 600 }
-  .sub { color: var(--muted); font-size: 13px }
-  main { padding: 24px 48px 64px }
-  .grid {
+  .cover-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 28px;
+  }
+  .cover .label {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--copper);
+  }
+  .cover h1 {
+    font-family: 'Sora', sans-serif;
+    font-weight: 800;
+    font-size: clamp(36px, 4.6vw, 52px);
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    color: var(--white);
+    margin: 12px 0 18px;
+    word-break: break-word;
+  }
+  .cover-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: rgba(255,255,255,0.72);
+  }
+  .cover-meta .pill {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--copper);
+    background: rgba(192, 128, 90, 0.18);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .cover-meta .dot { color: rgba(255,255,255,0.4); }
+
+  /* PIXEL-RAIL — separator between cover and KPI strip. */
+  .pixel-rail {
+    background: var(--deep-water);
+    padding: 0 0 6px;
+    display: flex;
+    justify-content: center;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .pixel-rail-inner { display: flex; align-items: flex-end; gap: 4px; height: 80px; }
+  .pixel-rail span { display: block; width: 24px; }
+  .pr-1  { height: 18px; background: #EDF1F7; }
+  .pr-2  { height: 24px; background: #EDF1F7; }
+  .pr-3  { height: 30px; background: #D8E2EE; }
+  .pr-4  { height: 22px; background: #CADAE8; }
+  .pr-5  { height: 36px; background: #CADAE8; }
+  .pr-6  { height: 48px; background: #D8E2EE; }
+  .pr-7  { height: 40px; background: #CADAE8; }
+  .pr-8  { height: 54px; background: #CADAE8; }
+  .pr-9  { height: 80px; background: var(--copper); }
+  .pr-10 { height: 40px; background: #CADAE8; }
+  .pr-11 { height: 56px; background: #CADAE8; }
+  .pr-12 { height: 34px; background: #D8E2EE; }
+  .pr-13 { height: 42px; background: #D8E2EE; }
+  .pr-14 { height: 26px; background: #EDF1F7; }
+  .pr-15 { height: 16px; background: #EDF1F7; }
+
+  /* MAIN CONTENT */
+  main { padding: 48px 56px 64px; max-width: 1120px; margin: 0 auto; }
+
+  .section { margin-top: 44px; }
+  .section:first-child { margin-top: 0; }
+  .section-head { margin-bottom: 20px; }
+  .section-head .label {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--copper);
+  }
+  .section-head h2 {
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    color: var(--deep-water);
+    margin-top: 6px;
+  }
+
+  /* KPI GRID */
+  .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    margin: 24px 0 32px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
   }
-  .card {
-    background: var(--panel);
-    border: 1px solid #232839;
-    border-radius: 8px;
-    padding: 16px;
+  .kpi-card {
+    background: var(--white);
+    border: 1px solid var(--border-warm);
+    border-radius: 12px;
+    padding: 24px 22px;
   }
-  .card .n { font-size: 28px; font-weight: 700 }
-  .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em }
-  section { margin-top: 32px }
-  h2 { font-size: 16px; font-weight: 600; margin: 0 0 12px; letter-spacing: 0.01em }
-  table { width: 100%; border-collapse: collapse; font-size: 13px }
-  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #232839 }
-  th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--accent) }
-  .pri { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600 }
-  .pri-critical { background: rgba(255, 111, 111, 0.16); color: var(--crit) }
-  .pri-standard { background: rgba(255, 184, 107, 0.16); color: var(--std) }
-  .pri-nice-to-have { background: rgba(126, 224, 162, 0.16); color: var(--nice) }
-  .bar { height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; display: flex }
-  .bar > span { display: block; height: 100% }
-  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 8px }
-  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle }
+  .kpi-value {
+    font-family: 'Sora', sans-serif;
+    font-weight: 800;
+    font-size: 52px;
+    letter-spacing: -0.04em;
+    color: var(--deep-water);
+    line-height: 1;
+    margin-bottom: 10px;
+  }
+  .kpi-label {
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--copper);
+  }
+
+  /* PRIORITY BAR */
+  .pri-bar {
+    width: 100%;
+    height: 22px;
+    background: var(--border-warm);
+    border-radius: 999px;
+    overflow: hidden;
+    display: flex;
+    border: 1px solid var(--border-warm);
+  }
+  .pri-bar span { display: block; height: 100%; }
+  .pri-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-top: 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--graphite);
+  }
+  .pri-legend i {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  /* TABLES */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: var(--white);
+    border: 1px solid var(--border-warm);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  thead th {
+    text-align: left;
+    padding: 11px 14px;
+    background: var(--copper-soft);
+    color: var(--copper);
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border-warm);
+  }
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-warm);
+    color: var(--graphite);
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--copper-soft); }
+  tbody td code {
+    background: var(--copper-soft);
+    color: var(--deep-water);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  /* STATUS PILLS — priority and similar. */
+  .pri {
+    display: inline-block;
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  .pri-critical    { color: var(--bad-fg);  background: var(--bad-bg); }
+  .pri-standard    { color: var(--info-fg); background: var(--info-bg); }
+  .pri-nice-to-have { color: var(--mist); background: rgba(136, 153, 170, 0.16); }
+
+  .placeholder { color: var(--mist); font-style: italic; padding: 14px 16px; background: var(--white); border: 1px dashed var(--border-warm); border-radius: 10px; }
+
+  /* FOOTER */
+  footer {
+    background: var(--ink);
+    color: rgba(255,255,255,0.6);
+    padding: 22px 56px;
+    margin-top: 56px;
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+  }
+  footer a { color: var(--copper); }
+  footer code { color: rgba(255,255,255,0.85); }
+
+  @media (max-width: 760px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .cover { padding: 32px 24px 24px; }
+    main { padding: 32px 24px 48px; }
+    footer { padding: 18px 24px; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>reviewqa work summary</h1>
-  <div class="sub">https://es.wikipedia.org · coverage: <code>standard</code></div>
-</header>
-<main>
+  <header class="cover">
+    <div class="cover-head">
+      <span class="label">reviewqa · stakeholder summary</span>
+      <span class="wm"><span class="s">sprite</span><span class="c">Cloud</span></span>
+    </div>
+    <h1>https://es.wikipedia.org</h1>
+    <div class="cover-meta">
+      <span>Generated </span>
+      <span class="dot">·</span>
+      <span class="pill">standard coverage</span>
+      <span class="dot">·</span>
+      <span>30 pages · 4 journeys · 5 fuzz specs</span>
+    </div>
+  </header>
 
-  <div class="grid">
-    <div class="card"><div class="n">30</div><div class="label">pages crawled</div></div>
-    <div class="card"><div class="n">4</div><div class="label">journeys identified</div></div>
-    <div class="card"><div class="n">0</div><div class="label">critical specs</div></div>
-    <div class="card"><div class="n">5</div><div class="label">fuzz specs</div></div>
+  <div class="pixel-rail" aria-hidden="true">
+    <div class="pixel-rail-inner">
+      <span class="pr-1"></span><span class="pr-2"></span><span class="pr-3"></span>
+      <span class="pr-4"></span><span class="pr-5"></span><span class="pr-6"></span>
+      <span class="pr-7"></span><span class="pr-8"></span><span class="pr-9"></span>
+      <span class="pr-10"></span><span class="pr-11"></span><span class="pr-12"></span>
+      <span class="pr-13"></span><span class="pr-14"></span><span class="pr-15"></span>
+    </div>
   </div>
 
-  <section>
-    <h2>Priority mix</h2>
-    <div class="bar">
-      <span class="pri-critical" style="width: 0%; background: var(--crit)"></span>
-      <span class="pri-standard" style="width: 100%; background: var(--std)"></span>
-      <span class="pri-nice-to-have" style="width: 0%; background: var(--nice)"></span>
-    </div>
-    <div class="legend">
-      <span><i style="background: var(--crit)"></i>critical (0)</span>
-      <span><i style="background: var(--std)"></i>standard (4)</span>
-      <span><i style="background: var(--nice)"></i>nice-to-have (0)</span>
-    </div>
-  </section>
+  <main>
+    <section class="section">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-value">30</div>
+          <div class="kpi-label">Pages crawled</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value">4</div>
+          <div class="kpi-label">Journeys identified</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value">0</div>
+          <div class="kpi-label">Critical specs</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value">5</div>
+          <div class="kpi-label">Fuzz specs</div>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-head">
+        <span class="label">Priority mix</span>
+        <h2>How the work splits across 4 journeys.</h2>
+      </div>
+      <div class="pri-bar" aria-label="Priority distribution bar">
+        <span style="width: 0%; background: var(--bad-fg)"></span>
+        <span style="width: 100%; background: var(--deep-water)"></span>
+        <span style="width: 0%; background: var(--mist)"></span>
+      </div>
+      <div class="pri-legend">
+        <span><i style="background: var(--bad-fg)"></i>critical (0)</span>
+        <span><i style="background: var(--deep-water)"></i>standard (4)</span>
+        <span><i style="background: var(--mist)"></i>nice-to-have (0)</span>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-head">
+        <span class="label">Journeys</span>
+        <h2>Feature files, kinds, priorities.</h2>
+      </div>
+      <table>
+        <thead><tr><th>Feature file</th><th>Kind</th><th>Priority</th><th>Steps</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>tests/e2e/features/es-wikipedia-org-exercise-wiki-Madrid.feature</code></td>
+            <td><code>exercise</code></td>
+            <td><span class="pri pri-standard">standard</span></td>
+            <td>1</td>
+          </tr>
+          <tr>
+            <td><code>tests/e2e/features/es-wikipedia-org-exercise-wiki-Wikipedia-Portada.feature</code></td>
+            <td><code>exercise</code></td>
+            <td><span class="pri pri-standard">standard</span></td>
+            <td>1</td>
+          </tr>
+          <tr>
+            <td><code>tests/e2e/features/es-wikipedia-org-exercise-wiki-Portal-Comunidad.feature</code></td>
+            <td><code>exercise</code></td>
+            <td><span class="pri pri-standard">standard</span></td>
+            <td>1</td>
+          </tr>
+          <tr>
+            <td><code>tests/e2e/features/es-wikipedia-org-browse-wiki-Especial-P-ginasEspeciales.feature</code></td>
+            <td><code>browse</code></td>
+            <td><span class="pri pri-standard">standard</span></td>
+            <td>3</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <section class="section">
+      <div class="section-head">
+        <span class="label">Pages</span>
+        <h2>What reviewqa crawled.</h2>
+      </div>
+      <table>
+        <thead><tr><th>URL</th><th>Title</th></tr></thead>
+        <tbody>
+          <tr><td><code>https://es.wikipedia.org/wiki/Madrid</code></td><td>Madrid - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Wikipedia:Portada</code></td><td>Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Portal:Comunidad</code></td><td>Portal:Comunidad - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Portal:Actualidad</code></td><td>Portal:Actualidad - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Especial:CambiosRecientes</code></td><td>Cambios recientes - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Especial:P%C3%A1ginasNuevas</code></td><td>Páginas nuevas - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Eurypegasus</code></td><td>Eurypegasus - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Ayuda:Contenidos</code></td><td>Ayuda:Contenidos - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Wikipedia:Informes_de_error</code></td><td>Wikipedia:Informes de error - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Especial:P%C3%A1ginasEspeciales</code></td><td>Páginas especiales - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Especial:Buscar</code></td><td>Buscar - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Discusi%C3%B3n:Madrid</code></td><td>Discusión:Madrid - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Especial:LoQueEnlazaAqu%C3%AD/Madrid</code></td><td>Páginas que enlazan con «Madrid» - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Especial:CambiosEnEnlazadas/Madrid</code></td><td>Cambios en enlazadas - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Wikipedia:Art%C3%ADculos_destacados</code></td><td>Wikipedia:Artículos destacados - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Coordenadas_geogr%C3%A1ficas</code></td><td>Coordenadas geográficas - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Madrid_%28desambiguaci%C3%B3n%29</code></td><td>Madrid (desambiguación) - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Municipio_de_Espa%C3%B1a</code></td><td>Municipio (España) - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Capital_%28pol%C3%ADtica%29</code></td><td>Capital (política) - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Espa%C3%B1a</code></td><td>España - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Bandera_de_la_ciudad_de_Madrid.svg</code></td><td>Archivo:Bandera de la ciudad de Madrid.svg - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Bandera_de_Madrid</code></td><td>Bandera de Madrid - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Coat_of_Arms_of_Madrid_City.svg</code></td><td>Archivo:Coat of Arms of Madrid City.svg - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Escudo_de_Madrid</code></td><td>Escudo de Madrid - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Palaciorealycatedraldelaalmudena_retouched.jpg</code></td><td>Archivo:Palaciorealycatedraldelaalmudena retouched.jpg - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Plaza_Mayor_De_Madrid_(215862629)_edited.jpeg</code></td><td>Archivo:Plaza Mayor De Madrid (215862629) edited.jpeg - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Barajas_Airport_(Madrid)_(4684560779).jpg</code></td><td>Archivo:Barajas Airport (Madrid) (4684560779).jpg - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Madrid_May_2014-45a_edited.jpg</code></td><td>Archivo:Madrid May 2014-45a edited.jpg - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Escultura_del_Oso_y_el_Madro%C3%B1o,_Puerta_del_Sol,_Madrid,_Espa%C3%B1a,_Spain.jpg</code></td><td>Archivo:Escultura del Oso y el Madroño, Puerta del Sol, Madrid, España, Spain.jpg - Wikipedia, la enciclopedia libre</td></tr>
+          <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Museo_del_Prado_2016_(25185969599).jpg</code></td><td>Archivo:Museo del Prado 2016 (25185969599).jpg - Wikipedia, la enciclopedia libre</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
 
-  <section>
-    <h2>Journeys</h2>
-    <table>
-      <thead><tr><th>Feature file</th><th>Kind</th><th>Priority</th><th>Steps</th></tr></thead>
-      <tbody>
-      <tr>
-        <td><code>tests/e2e/features/es-wikipedia-org-exercise-wiki-Madrid.feature</code></td>
-        <td><code>exercise</code></td>
-        <td><span class="pri pri-standard">standard</span></td>
-        <td>1</td>
-      </tr>
-      <tr>
-        <td><code>tests/e2e/features/es-wikipedia-org-exercise-wiki-Wikipedia-Portada.feature</code></td>
-        <td><code>exercise</code></td>
-        <td><span class="pri pri-standard">standard</span></td>
-        <td>1</td>
-      </tr>
-      <tr>
-        <td><code>tests/e2e/features/es-wikipedia-org-exercise-wiki-Portal-Comunidad.feature</code></td>
-        <td><code>exercise</code></td>
-        <td><span class="pri pri-standard">standard</span></td>
-        <td>1</td>
-      </tr>
-      <tr>
-        <td><code>tests/e2e/features/es-wikipedia-org-browse-wiki-Especial-P-ginasEspeciales.feature</code></td>
-        <td><code>browse</code></td>
-        <td><span class="pri pri-standard">standard</span></td>
-        <td>3</td>
-      </tr>
-      </tbody>
-    </table>
-  </section>
-  <section>
-    <h2>Pages</h2>
-    <table>
-      <thead><tr><th>URL</th><th>Title</th></tr></thead>
-      <tbody>
-      <tr><td><code>https://es.wikipedia.org/wiki/Madrid</code></td><td>Madrid - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Wikipedia:Portada</code></td><td>Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Portal:Comunidad</code></td><td>Portal:Comunidad - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Portal:Actualidad</code></td><td>Portal:Actualidad - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Especial:CambiosRecientes</code></td><td>Cambios recientes - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Especial:P%C3%A1ginasNuevas</code></td><td>Páginas nuevas - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Pa%C3%B1ol</code></td><td>Pañol - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Ayuda:Contenidos</code></td><td>Ayuda:Contenidos - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Wikipedia:Informes_de_error</code></td><td>Wikipedia:Informes de error - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Especial:P%C3%A1ginasEspeciales</code></td><td>Páginas especiales - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Especial:Buscar</code></td><td>Buscar - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Discusi%C3%B3n:Madrid</code></td><td>Discusión:Madrid - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Especial:LoQueEnlazaAqu%C3%AD/Madrid</code></td><td>Páginas que enlazan con «Madrid» - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Especial:CambiosEnEnlazadas/Madrid</code></td><td>Cambios en enlazadas - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Wikipedia:Art%C3%ADculos_destacados</code></td><td>Wikipedia:Artículos destacados - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Coordenadas_geogr%C3%A1ficas</code></td><td>Coordenadas geográficas - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Madrid_%28desambiguaci%C3%B3n%29</code></td><td>Madrid (desambiguación) - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Municipio_de_Espa%C3%B1a</code></td><td>Municipio (España) - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Capital_%28pol%C3%ADtica%29</code></td><td>Capital (política) - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Espa%C3%B1a</code></td><td>España - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Bandera_de_la_ciudad_de_Madrid.svg</code></td><td>Archivo:Bandera de la ciudad de Madrid.svg - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Bandera_de_Madrid</code></td><td>Bandera de Madrid - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Coat_of_Arms_of_Madrid_City.svg</code></td><td>Archivo:Coat of Arms of Madrid City.svg - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Escudo_de_Madrid</code></td><td>Escudo de Madrid - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Palaciorealycatedraldelaalmudena_retouched.jpg</code></td><td>Archivo:Palaciorealycatedraldelaalmudena retouched.jpg - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Plaza_Mayor_De_Madrid_(215862629)_edited.jpeg</code></td><td>Archivo:Plaza Mayor De Madrid (215862629) edited.jpeg - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Barajas_Airport_(Madrid)_(4684560779).jpg</code></td><td>Archivo:Barajas Airport (Madrid) (4684560779).jpg - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Madrid_May_2014-45a_edited.jpg</code></td><td>Archivo:Madrid May 2014-45a edited.jpg - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Escultura_del_Oso_y_el_Madro%C3%B1o,_Puerta_del_Sol,_Madrid,_Espa%C3%B1a,_Spain.jpg</code></td><td>Archivo:Escultura del Oso y el Madroño, Puerta del Sol, Madrid, España, Spain.jpg - Wikipedia, la enciclopedia libre</td></tr>
-      <tr><td><code>https://es.wikipedia.org/wiki/Archivo:Museo_del_Prado_2016_(25185969599).jpg</code></td><td>Archivo:Museo del Prado 2016 (25185969599).jpg - Wikipedia, la enciclopedia libre</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section class="sub">
-    Re-generate this deck by re-running <code>reviewqa probe</code> or <code>reviewqa prompt</code>.
-    A fresh run picks up new pages, new forms, and any priority re-classifications.
-  </section>
-
-</main>
+  <footer>
+    <span>Re-generate with <code>reviewqa probe</code> · published by reviewqa &mdash; by spriteCloud.</span>
+    <a href="https://github.com/spriteCloud/reviewqa">github.com/spriteCloud/reviewqa</a>
+  </footer>
 </body>
 </html>
 

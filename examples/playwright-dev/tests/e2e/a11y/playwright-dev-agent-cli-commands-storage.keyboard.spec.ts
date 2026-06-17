@@ -16,8 +16,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev — keyboard navigation for storage CLI command help page', () => {
-  test('@kind:keyboard @smoke traverse the first 10 focusable elements with Tab', async ({ page }) => {
+test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/agent-cli/commands/storage', () => {
+  test('@kind:keyboard @smoke tab through the first 10 focusables', async ({ page }) => {
     await page.goto('/agent-cli/commands/storage')
 
     const focusables = await page.locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').all()
@@ -35,7 +35,7 @@ test.describe('PlaywrightDev — keyboard navigation for storage CLI command hel
     expect.soft(reached, `tab reached only ${reached} of ${max} focusables`).toBeGreaterThanOrEqual(Math.floor(max * 0.7))
   })
 
-  test('@kind:keyboard @focus-indicator the first Tab-focused element shows a visible focus indicator', async ({ page }) => {
+  test('@kind:keyboard @focus-indicator first focused element has a visible focus indicator', async ({ page }) => {
     await page.goto('/agent-cli/commands/storage')
     await page.keyboard.press('Tab')
 
@@ -48,7 +48,7 @@ test.describe('PlaywrightDev — keyboard navigation for storage CLI command hel
     expect.soft(hasIndicator, 'first tab-focused element has no visible focus indicator').toBe(true)
   })
 
-  test('@kind:keyboard @escape-dismiss pressing Escape closes an open dialog and restores focus', async ({ page }) => {
+  test('@kind:keyboard @escape-dismiss Escape closes a visible dialog and returns focus', async ({ page }) => {
     await page.goto('/agent-cli/commands/storage')
     // Find a candidate dialog or modal trigger; skip if absent.
     const trigger = page.locator('[aria-haspopup="dialog"], [data-modal-trigger], [aria-controls][aria-expanded]').first()
@@ -65,7 +65,7 @@ test.describe('PlaywrightDev — keyboard navigation for storage CLI command hel
     expect.soft(stillOpen, 'dialog should close on Escape').toBe(false)
   })
 
-  test('@kind:keyboard @enter-space Enter activates focused links and buttons', async ({ page }) => {
+  test('@kind:keyboard @enter-space Enter activates focused links/buttons', async ({ page }) => {
     await page.goto('/agent-cli/commands/storage')
     // Find the first interactive control of each type.
     const link = page.locator('a[href]:not([href^="#"]):not([href^="mailto:"]):not([href^="tel:"])').first()
@@ -84,7 +84,7 @@ test.describe('PlaywrightDev — keyboard navigation for storage CLI command hel
     }
   })
 
-  test('@kind:keyboard @no-trap Tab from the last focusable wraps focus or exits the page', async ({ page }) => {
+  test('@kind:keyboard @no-trap Tab from the last focusable wraps or exits the page', async ({ page }) => {
     // Find the last focusable; Tab once more; confirm focus moved
     // OR landed back on the first focusable (wrap). What we forbid
     // is staying on the same element (a focus trap outside a modal).

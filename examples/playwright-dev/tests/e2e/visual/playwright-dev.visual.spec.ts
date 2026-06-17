@@ -21,14 +21,14 @@ const VIEWPORTS = [
 ] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev — visual regression on https://playwright.dev', () => {
+test.describe('PlaywrightDev — visual regression @ https://playwright.dev', () => {
   for (const vp of VIEWPORTS) {
     test(`@kind:visual @smoke page matches baseline (${vp.name})`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height })
       await page.goto('/')
       await page.waitForLoadState('networkidle').catch(() => {})
-      // maxDiffPixelRatio: 0.01 — allows up to 1% pixel difference to
-      accommodate minor anti-aliasing variations between CI and local renders.
+      // maxDiffPixelRatio: 0.01 — tolerate up to 1% pixel drift to
+      // absorb anti-aliasing differences across CI / local renders.
       await expect(page).toHaveScreenshot(`playwrightdev-${vp.name}.png`, {
         fullPage: true,
         maxDiffPixelRatio: 0.01,

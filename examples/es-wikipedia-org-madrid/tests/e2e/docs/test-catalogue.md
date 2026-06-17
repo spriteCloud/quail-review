@@ -19,7 +19,7 @@ suite covers — anything missing here is a coverage gap.
 | `https://es.wikipedia.org/wiki/Portal:Actualidad` | Portal:Actualidad - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Especial:CambiosRecientes` | Cambios recientes - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Especial:P%C3%A1ginasNuevas` | Páginas nuevas - Wikipedia, la enciclopedia libre | `list`, `interactive` |
-| `https://es.wikipedia.org/wiki/Pa%C3%B1ol` | Pañol - Wikipedia, la enciclopedia libre | `list`, `interactive` |
+| `https://es.wikipedia.org/wiki/Eurypegasus` | Eurypegasus - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Ayuda:Contenidos` | Ayuda:Contenidos - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Wikipedia:Informes_de_error` | Wikipedia:Informes de error - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Especial:P%C3%A1ginasEspeciales` | Páginas especiales - Wikipedia, la enciclopedia libre | `list`, `detail`, `interactive` |

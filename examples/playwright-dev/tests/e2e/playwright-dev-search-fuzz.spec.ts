@@ -16,12 +16,12 @@
 import { test, expect } from './_fixtures'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev — fuzz testing with invalid inputs', () => {
+test.describe('PlaywrightDev — fuzz / negative input', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/search')
   })
 
-  test('@fuzz @negative Input field handles edge-case values', async ({ page }) => {
+  test('@fuzz @negative input "Type your search here" handles edge payloads', async ({ page }) => {
     const field = page.getByPlaceholder('Type your search here').first()
     // Empty value: should be accepted by the field itself (validation
     // surfaces only on submit).

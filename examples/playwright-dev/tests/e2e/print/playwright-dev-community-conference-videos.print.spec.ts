@@ -11,13 +11,17 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev print layout — https://playwright.dev/community/conference-videos', () => {
-  test('prints page correctly and hides non-print elements', async ({ page }) => {
+test.describe('PlaywrightDev — print @ https://playwright.dev/community/conference-videos', () => {
+  test('@kind:print @smoke renders under media: print', async ({ page }) => {
     await page.goto('/community/conference-videos')
     await page.emulateMedia({ media: 'print' })
-    // h1 remains visible (content preserved in print)
+    // h1 must still be in the document. Some sites hide the entire
+    // chrome under @media print — that's fine — but the content has
+    // to remain.
     await expect(page.locator('h1, [role="heading"][aria-level="1"]').first()).toBeAttached()
-    // Fixed banners (e.g., cookie banners) are hidden in print
+    // Fixed-position elements shouldn't overlap content in print.
+    // Soft check that any fixed banners (eg. cookie banners) are not
+    // visible under print media — a frequent regression.
     const fixedBanners = page.locator('[class*="cookie"], [class*="banner"]').filter({ visible: true })
     const cnt = await fixedBanners.count()
     expect.soft(cnt, `${cnt} fixed banners still visible under print media — likely missing @media print { display: none } rule`).toBeLessThanOrEqual(1)

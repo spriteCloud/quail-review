@@ -12,8 +12,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev — network resilience (throttled, offline, rate-limited)', () => {
-  test('@kind:network @slow-3g: page renders under throttled bandwidth', async ({ page, context }) => {
+test.describe('PlaywrightDev — network resilience @ https://playwright.dev', () => {
+  test('@kind:network @slow-3g page renders under throttled bandwidth', async ({ page, context }) => {
     // Throttle every request by 1.5s before responding. Page must
     // still render the primary content (h1) within a generous budget.
     await context.route('**/*', async route => {
@@ -24,7 +24,7 @@ test.describe('PlaywrightDev — network resilience (throttled, offline, rate-li
     await expect(page.locator('h1, [role="heading"][aria-level="1"]').first()).toBeVisible({ timeout: 30_000 })
   })
 
-  test('@kind:network @offline-reload: offline reload shows a sensible failure surface', async ({ page, context }) => {
+  test('@kind:network @offline-reload offline reload shows a sensible failure surface', async ({ page, context }) => {
     await page.goto('/')
     await context.setOffline(true)
     // The browser raises a navigation error; we capture it and assert
@@ -39,7 +39,7 @@ test.describe('PlaywrightDev — network resilience (throttled, offline, rate-li
     await context.setOffline(false)
   })
 
-  test('@kind:network @rate-limit: 429 response is handled gracefully', async ({ page, context }) => {
+  test('@kind:network @rate-limit 429 response is handled gracefully', async ({ page, context }) => {
     let calls = 0
     await context.route('**/*', async route => {
       calls++

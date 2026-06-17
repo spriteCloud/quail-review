@@ -7,6 +7,57 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.73 — Stakeholder Summary restyle + Markdown render + Run preflight banner
+
+Three problems the user hit in real usage of the v0.72 UI:
+
+1. **`tests/e2e/docs/summary.html` shipped a dark utilitarian
+   theme** that didn't match the rest of the branded UI. The user
+   flagged it twice — restyled now.
+2. **`tests/e2e/docs/test-catalogue.md` and `findings.md` rendered
+   as raw monospaced text** in the serve UI's docs view. The
+   stakeholder docs are meant to be readable to non-technical
+   reviewers; that wasn't useful.
+3. **▶ Run was disabled without a clear next step** when the
+   workdir lacked `node_modules/`. Tooltip-only signal was buried.
+
+This release:
+
+- **Rewrote `internal/gen/templates/ts/pw_work_summary.tmpl`** to
+  honour the deck brand system from `sc-claude-plugin/shared/`:
+  - Deep-water cover band with copper Fira Code label, Sora 800
+    title, `spriteCloud` wordmark (Inter 900, sprite #0090D0,
+    Cloud #9DA5AE).
+  - Pixel-rail separator (15 blocks, copper peak at #9, solid hex
+    per the projector rule).
+  - Light KPI strip with Sora 800 52px deep-water values, Fira
+    Code copper labels.
+  - Priority mix bar in solid hex tokens (bad red / deep-water /
+    mist), 22px pill bar with legend.
+  - Tables with Fira Code copper headers, Inter 13px bodies,
+    border-warm separators, copper-soft hover rows.
+  - Status pills for priorities using the brand spec tokens.
+  - Footer ink band with regenerate hint + GitHub link.
+- **Added `github.com/yuin/goldmark`** as a direct dependency.
+  Configured with GFM (tables, autolinks, strikethrough) +
+  `AutoHeadingID`. `/api/doc` now returns an `html` field for
+  `.md` paths.
+- **Markdown styling** under `.doc-content.markdown` mirrors the
+  brand: Sora display headings, copper h3 in Fira Code uppercase,
+  charcoal pre blocks, copper marker on lists, copper-soft hover
+  rows in tables, copper underline on h1.
+- **Rendered / Raw toggle** on doc views — Pretty by default,
+  monospaced fallback for the raw markdown source.
+- **`.run-banner`** appears above feature views when preflight
+  fails. Shows the exact `cd <abs path> && npm install && npx
+  playwright install` command with a Copy button. The Run button
+  itself stays disabled with the same tooltip — the banner just
+  makes it discoverable.
+- All six examples re-emitted via `scripts/refresh-examples.sh`
+  so the committed `summary.html` ships the new look.
+
+Suite 553 / 553 green (test tokens updated for the new template).
+
 ## v0.72 — ▶ Run scenario from the UI
 
 Each Scenario card gets a **▶ Run** button that shells out to

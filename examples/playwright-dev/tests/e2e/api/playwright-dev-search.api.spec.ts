@@ -16,9 +16,9 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev API contract — POST /search endpoint', () => {
+test.describe('PlaywrightDev — API contract @ https://playwright.dev/search', () => {
 
-  test('API smoke test — valid form payload returns success status', async ({ request }) => {
+  test('@kind:api @smoke happy: realistic body returns 2xx', async ({ request }) => {
     const response = await request.post('https://playwright.dev/search', {
       form: {
         '': 'test',
@@ -30,7 +30,7 @@ test.describe('PlaywrightDev API contract — POST /search endpoint', () => {
     expect(response.status()).toBeLessThan(400)
   })
 
-  test('API negative test — large payload is rejected gracefully (no 5xx)', async ({ request }) => {
+  test('@kind:api @negative oversized payload does not 5xx', async ({ request }) => {
     const huge = 'a'.repeat(50_000)
     const response = await request.post('https://playwright.dev/search', {
       form: {
@@ -42,7 +42,7 @@ test.describe('PlaywrightDev API contract — POST /search endpoint', () => {
     expect(response.status()).toBeLessThan(500)
   })
 
-  test('API negative test — wrong HTTP method returns client error', async ({ request }) => {
+  test('@kind:api @negative wrong method returns 4xx', async ({ request }) => {
     // GET on a POST endpoint is the cheapest method-mismatch we can hit.
     const response = await request.get('https://playwright.dev/search')
     // 405 Method Not Allowed is the textbook answer; 404 is also common
@@ -58,7 +58,7 @@ test.describe('PlaywrightDev API contract — POST /search endpoint', () => {
   // the server doesn't 5xx and doesn't leak a stack trace.
   // ─────────────────────────────────────────────────────────────
 
-  test('API negative test — unicode characters handled safely (no 5xx)', async ({ request }) => {
+  test('@kind:api @negative unicode payload does not 5xx', async ({ request }) => {
     const response = await request.post('https://playwright.dev/search', {
       form: {
         '': 'café-niño-用户-🎉-test',
@@ -68,7 +68,7 @@ test.describe('PlaywrightDev API contract — POST /search endpoint', () => {
     expect(response.status()).toBeLessThan(500)
   })
 
-  test('API negative test — SQL-like input is sanitized (no 5xx or leaked errors)', async ({ request }) => {
+  test('@kind:api @negative sql-injection-shaped input does not 5xx', async ({ request }) => {
     // Tests the server's input sanitization. The contract: MUST NOT
     // 5xx and MUST NOT echo back unescaped fragments.
     const payload = "'; DROP TABLE users; --"
@@ -84,7 +84,7 @@ test.describe('PlaywrightDev API contract — POST /search endpoint', () => {
     expect.soft(body.toLowerCase()).not.toContain('syntax error')
   })
 
-  test('API negative test — XSS-like input is escaped or blocked', async ({ request }) => {
+  test('@kind:api @negative xss-shaped input is escaped or rejected', async ({ request }) => {
     const payload = '<script>window.__rqXSS=1</script>'
     const response = await request.post('https://playwright.dev/search', {
       form: {
@@ -97,7 +97,7 @@ test.describe('PlaywrightDev API contract — POST /search endpoint', () => {
     expect.soft(body).not.toContain('<script>window.__rqXSS=1</script>')
   })
 
-  test('API negative test — null-byte payloads handled safely (no 5xx)', async ({ request }) => {
+  test('@kind:api @negative null-byte injection does not 5xx', async ({ request }) => {
     const response = await request.post('https://playwright.dev/search', {
       form: {
         '': 'value\x00malicious',
@@ -107,7 +107,7 @@ test.describe('PlaywrightDev API contract — POST /search endpoint', () => {
     expect(response.status()).toBeLessThan(500)
   })
 
-  test('API negative test — burst requests are either rate-limited or handled without crashes', async ({ request }) => {
+  test('@kind:api @negative rapid burst stays healthy or is rate-limited', async ({ request }) => {
     // 10 concurrent identical requests. Either the server rate-limits
     // (429) — fine — or it serves all 10 without 5xx-ing.
     const body = {

@@ -21,9 +21,9 @@ const VIEWPORTS = [
 ] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev visual regression (conference videos)', () => {
+test.describe('PlaywrightDev — visual regression @ https://playwright.dev/community/conference-videos', () => {
   for (const vp of VIEWPORTS) {
-    test(`page matches visual baseline (${vp.name})`, async ({ page }) => {
+    test(`@kind:visual @smoke page matches baseline (${vp.name})`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height })
       await page.goto('/community/conference-videos')
       await page.waitForLoadState('networkidle').catch(() => {})

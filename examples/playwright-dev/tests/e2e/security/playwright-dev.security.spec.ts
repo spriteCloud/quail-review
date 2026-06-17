@@ -15,8 +15,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev — security headers (https://playwright.dev)', () => {
-  test('baseline security headers are present (@kind:security, @smoke)', async ({ request }) => {
+test.describe('PlaywrightDev — security headers @ https://playwright.dev', () => {
+  test('@kind:security @smoke baseline security headers present', async ({ request }) => {
     const response = await request.get('https://playwright.dev')
     expect(response.status(), 'origin should respond').toBeLessThan(500)
     const headers = response.headers()

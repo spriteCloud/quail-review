@@ -11,8 +11,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev: HTTP redirect chains on https://playwright.dev', () => {
-  test('@kind:http-chain @redirect-chain: follows multi-hop redirects', async ({ request }) => {
+test.describe('PlaywrightDev — http chains @ https://playwright.dev', () => {
+  test('@kind:http-chain @redirect-chain follows multi-hop redirects', async ({ request }) => {
     // 301 + 302 + 200 — the common cdn → canonical → asset chain.
     const resp = await request.get('/', { maxRedirects: 10 })
     expect(resp.ok()).toBeTruthy()
@@ -21,7 +21,7 @@ test.describe('PlaywrightDev: HTTP redirect chains on https://playwright.dev', (
     expect.soft(hops, `unexpectedly many redirect hops`).toBeLessThanOrEqual(5)
   })
 
-  test('@kind:http-chain @410: nonexistent paths return a friendly error', async ({ request }) => {
+  test('@kind:http-chain @410 nonexistent paths return a friendly error', async ({ request }) => {
     const resp = await request.get('/__reviewqa_does_not_exist__', { failOnStatusCode: false })
     expect(resp.status()).toBeGreaterThanOrEqual(400)
     expect(resp.status()).toBeLessThan(600)
@@ -31,7 +31,7 @@ test.describe('PlaywrightDev: HTTP redirect chains on https://playwright.dev', (
     expect.soft(body.toLowerCase()).not.toContain('stack trace')
   })
 
-  test('@kind:http-chain @429: server-side rate-limit response shape', async ({ context, page }) => {
+  test('@kind:http-chain @429 server-side rate-limit response shape', async ({ context, page }) => {
     let firstCall = true
     await context.route('**/*', async route => {
       if (firstCall && route.request().url().endsWith('/'.replace(/^\//, ''))) {

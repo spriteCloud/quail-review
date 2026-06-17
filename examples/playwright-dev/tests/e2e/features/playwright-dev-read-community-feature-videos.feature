@@ -17,7 +17,7 @@ Feature: PlaywrightDev — read journey
   So that the page delivers on its user goal
 
   @journey:read @priority:nice-to-have @smoke
-  Scenario: Read journey ends at the correct page
+  Scenario: read journey reaches its terminal page
     Given I open the landing page
     And the page title contains "Fast and reliable end-to-end testing for modern web apps | Playwright"
     When I navigate directly to "/community/feature-videos"
@@ -25,52 +25,13 @@ Feature: PlaywrightDev — read journey
     And the page title contains "Feature Videos | Playwright"
 
   @journey:read @priority:nice-to-have @kind:resume
-  Scenario: Deep-link to terminal page loads correctly
+  Scenario: read — deep-link to the terminal page renders correctly
     Given I open the page "/community/feature-videos"
     Then I see the heading "Feature Videos"
 
   @journey:read @priority:nice-to-have @kind:back-button
-  Scenario: Back button navigates to landing page
+  Scenario: read — back button after navigation returns to landing
     Given I open the landing page
     When I click the link to "/community/feature-videos"
     When I go back in the browser history
-
-  # ───────────────────────────────────────────────────────────────
-  # LLM-composed scenarios (model: qwen3-coder-next:latest)
-  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
-  # ───────────────────────────────────────────────────────────────
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:happy-path @model:qwen3-coder-next-latest
-  Scenario: Navigate to Feature Videos and verify heading
-    Given I open the landing page
-    When I click the link to "community/feature-videos"
-    Then the page title contains "Feature Videos | Playwright"
-    Then the main heading reads "Feature Videos"
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Directly open Feature Videos page
-    Given I open the page "community/feature-videos"
-    Then the page title contains "Feature Videos | Playwright"
-    Then the main heading reads "Feature Videos"
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Reload Feature Videos page
-    Given I open the page "community/feature-videos"
-    When I reload the page
-    Then the page title contains "Feature Videos | Playwright"
-    Then the main heading reads "Feature Videos"
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Back from Feature Videos returns to landing
-    Given I open the landing page
-    When I click the link to "community/feature-videos"
-    When I go back in the browser history
-    Then the page title contains "Fast and reliable end-to-end testing for modern web apps | Playwright"
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Check URL and heading after navigating to Feature Videos
-    Given I open the landing page
-    When I click the link to "community/feature-videos"
-    Then the URL contains "feature-videos"
-    Then the main heading reads "Feature Videos"
 

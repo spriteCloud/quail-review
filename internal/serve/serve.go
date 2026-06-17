@@ -127,7 +127,11 @@ func Handler(workdir string) http.Handler {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		writeJSON(w, map[string]string{"path": rel, "body": string(b)})
+		payload := map[string]string{"path": rel, "body": string(b)}
+		if strings.HasSuffix(strings.ToLower(rel), ".md") {
+			payload["html"] = renderMarkdown(b)
+		}
+		writeJSON(w, payload)
 	})
 
 	mux.HandleFunc("/api/scenario", func(w http.ResponseWriter, r *http.Request) {

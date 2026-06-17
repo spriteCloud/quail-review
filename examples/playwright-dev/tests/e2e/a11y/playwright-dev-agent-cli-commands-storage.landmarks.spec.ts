@@ -5,11 +5,11 @@
  * parity. Five tests covering the structural a11y concerns the
  * baseline axe scan does NOT enforce:
  *
- *   smoke               — One <main>, one <h1>, at least one <nav>
- *   no-aria-hidden      — No focusable elements inside aria-hidden subtrees subtrees
- *   heading-hierarchy   — Headings follow sequential hierarchy (no h1→h3 jumps)
- *   landmark-names      — Duplicate landmarks have accessible names
- *   skip-link           — "Skip to content" link present (WCAG 2.4.1)
+ *   smoke               — single <main>, single <h1>, ≥1 <nav>
+ *   no-aria-hidden      — no focusables inside aria-hidden subtrees
+ *   heading-hierarchy   — heading order is sequential (no h1→h3 jumps)
+ *   landmark-names      — duplicate landmarks carry accessible names
+ *   skip-link           — "skip to content" link present (WCAG 2.4.1)
  *
  * Filter: `npx playwright test --grep @kind:a11y-landmarks`
  */
@@ -30,13 +30,13 @@ test.describe('PlaywrightDev — a11y landmarks @ https://playwright.dev/agent-c
     expect.soft(navs, `expected at least one <nav> region`).toBeGreaterThanOrEqual(1)
   })
 
-  test('@kind:a11y-landmarks @negative No focusable elements inside aria-hidden subtrees', async ({ page }) => {
+  test('@kind:a11y-landmarks @negative no focusables inside aria-hidden', async ({ page }) => {
     await page.goto('/agent-cli/commands/storage')
     const hiddenFocusables = await page.locator('[aria-hidden="true"]').locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').count()
     expect.soft(hiddenFocusables, `${hiddenFocusables} focusable elements inside aria-hidden — confusing for screen readers`).toBe(0)
   })
 
-  test('@kind:a11y-landmarks @heading-hierarchy Headings follow sequential hierarchy', async ({ page }) => {
+  test('@kind:a11y-landmarks @heading-hierarchy heading order is sequential', async ({ page }) => {
     // Walk every heading in source order. A jump from h1 to h3 (skipping
     // h2) breaks screen-reader navigation. h2 to h4 is the same bug at
     // the next level.

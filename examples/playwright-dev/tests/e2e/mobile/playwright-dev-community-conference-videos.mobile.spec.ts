@@ -27,7 +27,7 @@ const DEVICES = ['iPhone 13', 'Pixel 5', 'iPad Pro 11', 'Galaxy S9+'] as const
 test.describe.configure({ mode: 'parallel' })
 
 for (const deviceName of DEVICES) {
-  test(`mobile smoke test: ${deviceName} renders page without breakage`, async ({ browser }) => {
+  test(`@kind:mobile @smoke @device:${deviceName} viewport renders without breakage`, async ({ browser }) => {
     const ctx = await browser.newContext({ ...devices[deviceName] })
     const page = await ctx.newPage()
     await page.goto('/community/conference-videos')
@@ -40,7 +40,7 @@ for (const deviceName of DEVICES) {
     await ctx.close()
   })
 
-  test(`mobile orientation test: ${deviceName} landscape view remains interactive`, async ({ browser }) => {
+  test(`@kind:mobile @orientation @device:${deviceName} landscape rotation keeps the page interactive`, async ({ browser }) => {
     const profile = devices[deviceName]
     if (!profile.viewport) test.skip()
     // Rebuild a context with the viewport height/width swapped. Same

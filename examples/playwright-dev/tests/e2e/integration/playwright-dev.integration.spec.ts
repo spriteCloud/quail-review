@@ -16,8 +16,8 @@
  */
 import { test, expect } from '@playwright/test'
 
-test.describe('PlaywrightDev integration scaffold (skipped)', () => {
-  test.skip('integration stub: backing resource not declared', async ({ request }) => {
+test.describe('PlaywrightDev — integration scaffold (skipped)', () => {
+  test.skip('@kind:integration-stub @wireable backing resource not declared', async ({ request }) => {
     // When wired, this test would:
     //   1. Start a Testcontainers-backed dependency (db / broker / cache)
     //   2. Issue the probe-discovered API call against it

@@ -17,9 +17,9 @@ const VIEWPORTS = [
 ] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev responsive layout smoke test at /community/feature-videos', () => {
+test.describe('PlaywrightDev — responsive @ https://playwright.dev/community/feature-videos', () => {
   for (const vp of VIEWPORTS) {
-    test(`@kind:responsive @smoke displays h1 at ${vp.name} viewport (${vp.width}x${vp.height})`, async ({ page }) => {
+    test(`@kind:responsive @smoke renders at ${vp.name} (${vp.width}x${vp.height})`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height })
       await page.goto('/community/feature-videos')
       await expect(page.locator('h1').first()).toBeVisible()

@@ -18,13 +18,13 @@ import { test, expect } from '@playwright/test'
 const STATES = ['default', 'hover', 'focus'] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev — interaction-state visual baselines for https://playwright.dev/community/conference-videos', () => {
-  test('Primary CTA visual states: default, hover, and focus', async ({ page }) => {
+test.describe('PlaywrightDev — interaction-state visual @ https://playwright.dev/community/conference-videos', () => {
+  test('@kind:visual-state @smoke primary CTA across states', async ({ page }) => {
     await page.goto('/community/conference-videos')
     await page.waitForLoadState('networkidle').catch(() => {})
     const target = page.getByRole('link').first()
     if (await target.count() === 0) {
-      test.skip(true, 'No primary call-to-action link found on this page')
+      test.skip(true, 'no primary CTA detected on this page')
       return
     }
 
@@ -37,7 +37,7 @@ test.describe('PlaywrightDev — interaction-state visual baselines for https://
           await target.focus().catch(() => {})
           break
         default:
-          // default state — no interaction applied
+          // default state — no interaction
           break
       }
       await expect(target).toHaveScreenshot(`playwrightdev-cta-${state}.png`, {

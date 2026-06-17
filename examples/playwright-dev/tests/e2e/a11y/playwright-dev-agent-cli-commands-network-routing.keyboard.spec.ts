@@ -17,7 +17,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
 test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/agent-cli/commands/network-routing', () => {
-  test('@kind:keyboard @smoke Tab through the first 10 focusables', async ({ page }) => {
+  test('@kind:keyboard @smoke tab through the first 10 focusables', async ({ page }) => {
     await page.goto('/agent-cli/commands/network-routing')
 
     const focusables = await page.locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').all()
@@ -35,7 +35,7 @@ test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/ag
     expect.soft(reached, `tab reached only ${reached} of ${max} focusables`).toBeGreaterThanOrEqual(Math.floor(max * 0.7))
   })
 
-  test('@kind:keyboard @focus-indicator First focused element has a visible focus indicator', async ({ page }) => {
+  test('@kind:keyboard @focus-indicator first focused element has a visible focus indicator', async ({ page }) => {
     await page.goto('/agent-cli/commands/network-routing')
     await page.keyboard.press('Tab')
 
@@ -65,7 +65,7 @@ test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/ag
     expect.soft(stillOpen, 'dialog should close on Escape').toBe(false)
   })
 
-  test('@kind:keyboard @enter-space Enter activates focused links and buttons', async ({ page }) => {
+  test('@kind:keyboard @enter-space Enter activates focused links/buttons', async ({ page }) => {
     await page.goto('/agent-cli/commands/network-routing')
     // Find the first interactive control of each type.
     const link = page.locator('a[href]:not([href^="#"]):not([href^="mailto:"]):not([href^="tel:"])').first()

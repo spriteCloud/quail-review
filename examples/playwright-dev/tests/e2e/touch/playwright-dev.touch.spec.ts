@@ -19,7 +19,7 @@ test.use({ ...devices['iPhone 13'] })
 
 test.describe.configure({ mode: 'parallel' })
 test.describe('PlaywrightDev — touch gestures @ https://playwright.dev', () => {
-  test('@kind:touch @smoke long-press on the main call-to-action button does not trigger a click twice', async ({ page }) => {
+  test('@kind:touch @smoke long-press on the primary CTA does not double-fire', async ({ page }) => {
     await page.goto('/')
     const cta = page.getByRole('button').first().or(page.getByRole('link').first())
     if (await cta.count() === 0) test.skip()
@@ -35,7 +35,7 @@ test.describe('PlaywrightDev — touch gestures @ https://playwright.dev', () =>
     expect.soft(clicks, 'tap should fire exactly one click').toBeLessThanOrEqual(1)
   })
 
-  test('@kind:touch @swipe swiping horizontally across the page keeps the page functional', async ({ page }) => {
+  test('@kind:touch @swipe horizontal swipe on the document keeps the page interactive', async ({ page }) => {
     await page.goto('/')
     const viewport = page.viewportSize() || { width: 390, height: 844 }
     // Synthesize a swipe by chaining touchscreen taps; mobile carousels
@@ -45,7 +45,7 @@ test.describe('PlaywrightDev — touch gestures @ https://playwright.dev', () =>
     await expect(page.locator('h1, [role="heading"][aria-level="1"]').first()).toBeVisible()
   })
 
-  test('@kind:touch @pinch-zoom simulated pinch-zoom does not break page interactivity', async ({ page }) => {
+  test('@kind:touch @pinch-zoom synthesised pinch keeps the page interactive', async ({ page }) => {
     await page.goto('/')
     const viewport = page.viewportSize() || { width: 390, height: 844 }
     const cx = viewport.width / 2
@@ -62,7 +62,7 @@ test.describe('PlaywrightDev — touch gestures @ https://playwright.dev', () =>
     await expect(page.locator('h1, [role="heading"][aria-level="1"]').first()).toBeVisible()
   })
 
-  test('@kind:touch @scroll-momentum fast vertical swipe gestures do not corrupt the page layout', async ({ page }) => {
+  test('@kind:touch @scroll-momentum rapid vertical swipes do not break the layout', async ({ page }) => {
     await page.goto('/')
     const viewport = page.viewportSize() || { width: 390, height: 844 }
     const cx = viewport.width / 2
@@ -77,7 +77,7 @@ test.describe('PlaywrightDev — touch gestures @ https://playwright.dev', () =>
     await expect(page.locator('h1, [role="heading"][aria-level="1"]').first()).toBeVisible()
   })
 
-  test('@kind:touch @tap-then-rotate tapping just before rotating the device doesn’t cause duplicate clicks', async ({ browser }) => {
+  test('@kind:touch @tap-then-rotate tap during orientation change does not duplicate-fire', async ({ browser }) => {
     const profile = devices['iPhone 13']
     if (!profile.viewport) test.skip()
     const ctx = await browser.newContext(profile)

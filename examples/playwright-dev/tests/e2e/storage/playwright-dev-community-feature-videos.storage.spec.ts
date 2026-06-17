@@ -13,7 +13,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
 test.describe('PlaywrightDev — storage resilience @ https://playwright.dev/community/feature-videos', () => {
-  test('@kind:storage @smoke renders with cleared storage', async ({ page, context }) => {
+  test('@kind:storage @smoke renders with empty storage', async ({ page, context }) => {
     await context.clearCookies()
     await page.goto('/community/feature-videos')
     await page.evaluate(() => { try { localStorage.clear(); sessionStorage.clear() } catch {} })
@@ -21,7 +21,7 @@ test.describe('PlaywrightDev — storage resilience @ https://playwright.dev/com
     await expect(page.locator('h1, [role="heading"][aria-level="1"]').first()).toBeVisible()
   })
 
-  test('@kind:storage @corrupt page handles corrupted storage gracefully', async ({ page }) => {
+  test('@kind:storage @corrupt page survives garbage in storage', async ({ page }) => {
     await page.goto('/community/feature-videos')
     await page.evaluate(() => {
       try {

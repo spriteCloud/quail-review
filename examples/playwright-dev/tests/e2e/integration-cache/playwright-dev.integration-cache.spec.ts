@@ -16,8 +16,8 @@
  */
 import { test, expect } from '@playwright/test'
 
-test.describe('PlaywrightDev integration cache scaffold (skipped)', () => {
-  test.skip('@kind:integration-cache @wireable @set-get round-trip: persists and reads back', async ({ request }) => {
+test.describe('PlaywrightDev — integration: cache scaffold (skipped)', () => {
+  test.skip('@kind:integration-cache @wireable @set-get round-trip persists and reads back', async ({ request }) => {
     // When wired:
     //   1. SET key=k val=v in cache
     //   2. Probe an endpoint that reads the cache
@@ -27,7 +27,7 @@ test.describe('PlaywrightDev integration cache scaffold (skipped)', () => {
     expect(r.ok()).toBeTruthy()
   })
 
-  test.skip('@kind:integration-cache @wireable @ttl: entry expires within declared TTL', async ({ request }) => {
+  test.skip('@kind:integration-cache @wireable @ttl entry expires within declared TTL', async ({ request }) => {
     // When wired:
     //   1. SET with TTL=2s
     //   2. Wait 3s
@@ -36,7 +36,7 @@ test.describe('PlaywrightDev integration cache scaffold (skipped)', () => {
     expect(r.ok()).toBeTruthy()
   })
 
-  test.skip('@kind:integration-cache @wireable @invalidation: write-through invalidates the read path', async ({ request }) => {
+  test.skip('@kind:integration-cache @wireable @invalidation write-through invalidates the read path', async ({ request }) => {
     // When wired:
     //   1. Read endpoint A (warms cache)
     //   2. POST to endpoint that mutates the cached state

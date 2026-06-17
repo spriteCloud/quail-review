@@ -17,7 +17,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
 test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/agent-cli/commands/tracing', () => {
-  test('@kind:keyboard @smoke tab cycles through the first 10 focusables', async ({ page }) => {
+  test('@kind:keyboard @smoke tab through the first 10 focusables', async ({ page }) => {
     await page.goto('/agent-cli/commands/tracing')
 
     const focusables = await page.locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').all()
@@ -65,7 +65,7 @@ test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/ag
     expect.soft(stillOpen, 'dialog should close on Escape').toBe(false)
   })
 
-  test('@kind:keyboard @enter-space Enter activates focused links and buttons', async ({ page }) => {
+  test('@kind:keyboard @enter-space Enter activates focused links/buttons', async ({ page }) => {
     await page.goto('/agent-cli/commands/tracing')
     // Find the first interactive control of each type.
     const link = page.locator('a[href]:not([href^="#"]):not([href^="mailto:"]):not([href^="tel:"])').first()

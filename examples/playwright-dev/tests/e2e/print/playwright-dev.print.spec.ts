@@ -11,8 +11,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev print layout at https://playwright.dev', () => {
-  test('renders page cleanly in print layout', async ({ page }) => {
+test.describe('PlaywrightDev — print @ https://playwright.dev', () => {
+  test('@kind:print @smoke renders under media: print', async ({ page }) => {
     await page.goto('/')
     await page.emulateMedia({ media: 'print' })
     // h1 must still be in the document. Some sites hide the entire

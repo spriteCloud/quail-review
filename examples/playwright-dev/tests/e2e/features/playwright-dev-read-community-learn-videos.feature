@@ -17,7 +17,7 @@ Feature: PlaywrightDev — read journey
   So that the page delivers on its user goal
 
   @journey:read @priority:nice-to-have @smoke
-  Scenario: read journey reaches its final page
+  Scenario: read journey reaches its terminal page
     Given I open the landing page
     And the page title contains "Fast and reliable end-to-end testing for modern web apps | Playwright"
     When I navigate directly to "/community/learn-videos"
@@ -25,33 +25,13 @@ Feature: PlaywrightDev — read journey
     And the page title contains "Learn Videos | Playwright"
 
   @journey:read @priority:nice-to-have @kind:resume
-  Scenario: read — deep-link to the final page renders correctly
+  Scenario: read — deep-link to the terminal page renders correctly
     Given I open the page "/community/learn-videos"
     Then I see the heading "Learn Videos"
 
   @journey:read @priority:nice-to-have @kind:back-button
-  Scenario: read — back button after navigation returns to the home page
+  Scenario: read — back button after navigation returns to landing
     Given I open the landing page
     When I click the link to "/community/learn-videos"
     When I go back in the browser history
-
-  # ───────────────────────────────────────────────────────────────
-  # LLM-composed scenarios (model: qwen3-coder-next:latest)
-  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
-  # ───────────────────────────────────────────────────────────────
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:happy @model:qwen3-coder-next-latest
-  Scenario: click the Learn Videos link
-    Given I open the landing page
-    When I click the link to "/community/learn-videos"
-    Then the page title contains "Learn Videos | Playwright"
-    Then the main heading reads "Learn Videos"
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: reload the Learn Videos page
-    Given I open the page "/community/learn-videos"
-    When I reload the page
-    Then the page title contains "Learn Videos | Playwright"
-    Then the main heading reads "Learn Videos"
-    Then no error message is shown in the form region
 

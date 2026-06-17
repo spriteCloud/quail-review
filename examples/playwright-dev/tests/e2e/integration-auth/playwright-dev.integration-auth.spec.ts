@@ -17,8 +17,8 @@
  */
 import { test, expect } from '@playwright/test'
 
-test.describe('PlaywrightDev — integration auth scaffold (skipped)', () => {
-  test.skip('unauthenticated request without Authorization header returns 401', async ({ request }) => {
+test.describe('PlaywrightDev — integration: auth scaffold (skipped)', () => {
+  test.skip('@kind:integration-auth @wireable @unauth missing Authorization returns 401', async ({ request }) => {
     // When wired:
     //   1. Probe a protected endpoint without Authorization
     //   2. Confirm 401 (not 403) — 401 signals "needs auth" properly
@@ -27,7 +27,7 @@ test.describe('PlaywrightDev — integration auth scaffold (skipped)', () => {
     expect.soft(r.status()).toBe(401)
   })
 
-  test.skip('authenticated request with valid Authorization token returns 2xx', async ({ request }) => {
+  test.skip('@kind:integration-auth @wireable @valid-token Authorization with valid token returns 2xx', async ({ request }) => {
     // When wired:
     //   1. Mint a token (or read REVIEWQA_AUTH_TOKEN)
     //   2. Request with Authorization: Bearer <token>
@@ -40,7 +40,7 @@ test.describe('PlaywrightDev — integration auth scaffold (skipped)', () => {
     expect(r.ok()).toBeTruthy()
   })
 
-  test.skip('request with expired Authorization token is rejected with 401', async ({ request }) => {
+  test.skip('@kind:integration-auth @wireable @expired expired-token Authorization is rejected', async ({ request }) => {
     // When wired:
     //   1. Mint a token with exp in the past, OR use an obviously bad
     //      token from REVIEWQA_AUTH_TOKEN_EXPIRED

@@ -17,7 +17,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
 test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/agent-cli/capabilities', () => {
-  test('@kind:keyboard @smoke tabs through the first 10 focusable elements', async ({ page }) => {
+  test('@kind:keyboard @smoke tab through the first 10 focusables', async ({ page }) => {
     await page.goto('/agent-cli/capabilities')
 
     const focusables = await page.locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').all()
@@ -45,10 +45,10 @@ test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/ag
       const cs = getComputedStyle(el)
       return cs.outlineStyle !== 'none' || cs.boxShadow !== 'none'
     })
-    expect.soft(hasIndicator, 'first element focused via Tab lacks a visible focus indicator').toBe(true)
+    expect.soft(hasIndicator, 'first tab-focused element has no visible focus indicator').toBe(true)
   })
 
-  test('@kind:keyboard @escape-dismiss Escape key closes a visible dialog and returns focus', async ({ page }) => {
+  test('@kind:keyboard @escape-dismiss Escape closes a visible dialog and returns focus', async ({ page }) => {
     await page.goto('/agent-cli/capabilities')
     // Find a candidate dialog or modal trigger; skip if absent.
     const trigger = page.locator('[aria-haspopup="dialog"], [data-modal-trigger], [aria-controls][aria-expanded]').first()
@@ -65,7 +65,7 @@ test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/ag
     expect.soft(stillOpen, 'dialog should close on Escape').toBe(false)
   })
 
-  test('@kind:keyboard @enter-space Enter key activates focused links and buttons', async ({ page }) => {
+  test('@kind:keyboard @enter-space Enter activates focused links/buttons', async ({ page }) => {
     await page.goto('/agent-cli/capabilities')
     // Find the first interactive control of each type.
     const link = page.locator('a[href]:not([href^="#"]):not([href^="mailto:"]):not([href^="tel:"])').first()
@@ -84,7 +84,7 @@ test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/ag
     }
   })
 
-  test('@kind:keyboard @no-trap Tabbing past the last focusable wraps or exits the page', async ({ page }) => {
+  test('@kind:keyboard @no-trap Tab from the last focusable wraps or exits the page', async ({ page }) => {
     // Find the last focusable; Tab once more; confirm focus moved
     // OR landed back on the first focusable (wrap). What we forbid
     // is staying on the same element (a focus trap outside a modal).

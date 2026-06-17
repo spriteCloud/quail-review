@@ -155,10 +155,13 @@ func TestSummaryTemplate_RendersPriorityMix(t *testing.T) {
 	}
 	body := string(out[0].Content)
 	mustContain(t, body, "<!doctype html>")
-	mustContain(t, body, "reviewqa work summary")
+	mustContain(t, body, "reviewqa · stakeholder summary")
 	mustContain(t, body, "https://x.test")
-	mustContain(t, body, ">3<")        // total journeys
-	mustContain(t, body, ">1<")        // critical count
+	mustContain(t, body, "spriteCloud")          // wordmark
+	mustContain(t, body, "pixel-rail")           // brand motif
+	mustContain(t, body, "kpi-value")            // new KPI grid
+	mustContain(t, body, ">3<")                  // total journeys somewhere
+	mustContain(t, body, ">1<")                  // critical count
 	mustContain(t, body, "critical (1)")
 	mustContain(t, body, "standard (1)")
 	mustContain(t, body, "nice-to-have (1)")

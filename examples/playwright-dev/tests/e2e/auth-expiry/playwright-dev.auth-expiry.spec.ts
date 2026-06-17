@@ -11,8 +11,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev: Handling expired auth sessions', () => {
-  test('After clearing stored auth mid-journey, the site prompts for sign-in instead of failing silently', async ({ page, context }) => {
+test.describe('PlaywrightDev — auth expiry @ https://playwright.dev', () => {
+  test('@kind:auth-expiry @smoke clearing cookies mid-journey surfaces a sign-in prompt', async ({ page, context }) => {
     await page.goto('/')
     // Simulate the user's session expiring server-side.
     await context.clearCookies()

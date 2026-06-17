@@ -21,21 +21,21 @@ import { test, expect } from '@playwright/test'
 import { AxeBuilder } from '@axe-core/playwright'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev — accessibility on https://playwright.dev/agent-cli/configuration', () => {
-  test('@kind:a11y @smoke: no serious or critical axe violations', async ({ page }) => {
+test.describe('PlaywrightDev — accessibility @ https://playwright.dev/agent-cli/configuration', () => {
+  test('@kind:a11y @smoke no serious or critical axe violations', async ({ page }) => {
     await page.goto('/agent-cli/configuration')
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze()
     const serious = results.violations.filter(v => v.impact === 'serious' || v.impact === 'critical')
-    expect.soft(results.violations, `axe found ${results.violations.length} total violations`).toEqual(results.violations)
+    expect.soft(results.violations, `axe found ${results.violations.length} violation(s) total`).toEqual(results.violations)
     if (serious.length > 0) {
       console.log('serious/critical violations:', JSON.stringify(serious.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })), null, 2))
     }
     expect(serious).toHaveLength(0)
   })
 
-  test('@kind:a11y @wcag-aa: WCAG 2.1 AA-only profile', async ({ page }) => {
+  test('@kind:a11y @wcag-aa WCAG 2.1 AA-only profile', async ({ page }) => {
     // Targeted gate: many teams require AA compliance specifically.
     // Running with just the wcag21aa tag lets the report distinguish
     // AA-required failures from A-required ones in a single grep.
@@ -45,12 +45,12 @@ test.describe('PlaywrightDev — accessibility on https://playwright.dev/agent-c
       .analyze()
     const serious = results.violations.filter(v => v.impact === 'serious' || v.impact === 'critical')
     if (serious.length > 0) {
-      console.log('AA serious/critical violations:', JSON.stringify(serious.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })), null, 2))
+      console.log('AA serious/critical:', JSON.stringify(serious.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })), null, 2))
     }
     expect.soft(serious, `${serious.length} serious/critical WCAG 2.1 AA violations`).toHaveLength(0)
   })
 
-  test('@kind:a11y @color-contrast: color contrast meets the AA threshold', async ({ page }) => {
+  test('@kind:a11y @color-contrast color contrast meets the AA threshold', async ({ page }) => {
     // The single most-violated WCAG rule in production. Worth its own
     // assertion so the report surfaces contrast separately from the
     // rest of the axe bag.
@@ -59,7 +59,7 @@ test.describe('PlaywrightDev — accessibility on https://playwright.dev/agent-c
       .options({ runOnly: { type: 'rule', values: ['color-contrast'] } })
       .analyze()
     if (results.violations.length > 0) {
-      console.log('color contrast violations:', JSON.stringify(results.violations.map(v => ({
+      console.log('color-contrast violations:', JSON.stringify(results.violations.map(v => ({
         nodes: v.nodes.length,
         firstSample: v.nodes[0]?.html?.slice(0, 120),
       })), null, 2))
@@ -67,7 +67,7 @@ test.describe('PlaywrightDev — accessibility on https://playwright.dev/agent-c
     expect.soft(results.violations, `${results.violations.length} color-contrast violation(s)`).toHaveLength(0)
   })
 
-  test('@kind:a11y @aria-attrs: ARIA attribute discipline', async ({ page }) => {
+  test('@kind:a11y @aria-attrs ARIA attribute discipline', async ({ page }) => {
     // Catch the common ARIA mis-uses (invalid attr names, required
     // children missing, valid roles for elements). Separate gate so
     // teams can distinguish a wiring bug from a visual issue.
@@ -76,7 +76,7 @@ test.describe('PlaywrightDev — accessibility on https://playwright.dev/agent-c
       .options({ runOnly: { type: 'tag', values: ['cat.aria'] } })
       .analyze()
     if (results.violations.length > 0) {
-      console.log('ARIA attribute violations:', JSON.stringify(results.violations.map(v => ({
+      console.log('ARIA violations:', JSON.stringify(results.violations.map(v => ({
         id: v.id,
         impact: v.impact,
         nodes: v.nodes.length,
@@ -85,7 +85,7 @@ test.describe('PlaywrightDev — accessibility on https://playwright.dev/agent-c
     expect.soft(results.violations, `${results.violations.length} ARIA violation(s)`).toHaveLength(0)
   })
 
-  test('@kind:a11y @form-labels: every form input has a programmatic label', async ({ page }) => {
+  test('@kind:a11y @form-labels every form input has a programmatic label', async ({ page }) => {
     // Cheaper signal than axe for form-heavy pages: walk every input
     // and confirm it has <label for>, aria-label, aria-labelledby, OR
     // a placeholder (placeholder is the weakest acceptable fallback).
@@ -108,7 +108,7 @@ test.describe('PlaywrightDev — accessibility on https://playwright.dev/agent-c
         }))
     })
     if (unlabeled.length > 0) {
-      console.log('unlabeled form inputs:', JSON.stringify(unlabeled, null, 2))
+      console.log('unlabeled inputs:', JSON.stringify(unlabeled, null, 2))
     }
     expect.soft(unlabeled, `${unlabeled.length} unlabeled form input(s)`).toHaveLength(0)
   })

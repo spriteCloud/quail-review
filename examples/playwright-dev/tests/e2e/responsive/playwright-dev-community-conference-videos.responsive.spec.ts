@@ -17,13 +17,15 @@ const VIEWPORTS = [
 ] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev responsive layout smoke test', () => {
+test.describe('PlaywrightDev — responsive @ https://playwright.dev/community/conference-videos', () => {
   for (const vp of VIEWPORTS) {
-    test(`@kind:responsive @smoke renders correctly on ${vp.name} viewport (${vp.width}x${vp.height})`, async ({ page }) => {
+    test(`@kind:responsive @smoke renders at ${vp.name} (${vp.width}x${vp.height})`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height })
       await page.goto('/community/conference-videos')
       await expect(page.locator('h1').first()).toBeVisible()
-      // Verify page renders content: checks for visible body text (no blank pages or layout crashes)
+      // Hard-fail signals: no body content rendered, document overflow.
+      const bodyHasText = await page.evaluate(() => (document.body.innerText || '').trim().length > 0)
+      expect(bodyHasText, 'body should have text at this viewport').toBe(true)
     })
   }
 })

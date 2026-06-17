@@ -12,8 +12,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('PlaywrightDev accessibility preferences tests on https://playwright.dev', () => {
-  test('@kind:a11y-prefs @reduced-motion verifies reduced motion is respected', async ({ browser }) => {
+test.describe('PlaywrightDev — a11y prefs @ https://playwright.dev', () => {
+  test('@kind:a11y-prefs @reduced-motion renders with prefers-reduced-motion', async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: 'reduce' })
     const page = await context.newPage()
     await page.goto('/')
@@ -29,7 +29,7 @@ test.describe('PlaywrightDev accessibility preferences tests on https://playwrig
     await context.close()
   })
 
-  test('@kind:a11y-prefs @forced-colors verifies forced-colors mode is respected', async ({ browser }) => {
+  test('@kind:a11y-prefs @forced-colors renders under forced-colors', async ({ browser }) => {
     const context = await browser.newContext({ forcedColors: 'active' })
     const page = await context.newPage()
     await page.goto('/')
@@ -37,7 +37,7 @@ test.describe('PlaywrightDev accessibility preferences tests on https://playwrig
     await context.close()
   })
 
-  test('@kind:a11y-prefs @contrast verifies prefers-contrast: more is respected', async ({ browser }) => {
+  test('@kind:a11y-prefs @contrast renders with prefers-contrast: more', async ({ browser }) => {
     const context = await browser.newContext({ contrast: 'more' })
     const page = await context.newPage()
     await page.goto('/')

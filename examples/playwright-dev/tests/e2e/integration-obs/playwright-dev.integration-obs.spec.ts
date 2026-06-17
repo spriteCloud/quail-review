@@ -16,8 +16,8 @@
  */
 import { test, expect } from '@playwright/test'
 
-test.describe('PlaywrightDev — integration: observability scaffold (skipped, requires tracing backend)', () => {
-  test.skip('traceparent header propagates downstream when tracing is wired', async ({ request }) => {
+test.describe('PlaywrightDev — integration: observability scaffold (skipped)', () => {
+  test.skip('@kind:integration-obs @wireable @trace-propagation traceparent header propagates downstream', async ({ request }) => {
     // When wired:
     //   1. Issue a request with traceparent: 00-<traceId>-<spanId>-01
     //   2. Confirm the downstream service receives the same trace-id
@@ -28,7 +28,7 @@ test.describe('PlaywrightDev — integration: observability scaffold (skipped, r
     expect(r.ok()).toBeTruthy()
   })
 
-  test.skip('every response carries an X-Request-Id when tracing is wired', async ({ request }) => {
+  test.skip('@kind:integration-obs @wireable @request-id every response carries an X-Request-Id', async ({ request }) => {
     // When wired:
     //   1. Issue 10 requests with no X-Request-Id
     //   2. Confirm every response.headers['x-request-id'] is set + unique
@@ -37,7 +37,7 @@ test.describe('PlaywrightDev — integration: observability scaffold (skipped, r
     expect(r.headers()['x-request-id']).toBeTruthy()
   })
 
-  test.skip('critical-path metrics are reported in Server-Timing when tracing is wired', async ({ request }) => {
+  test.skip('@kind:integration-obs @wireable @server-timing critical-path metrics are reported', async ({ request }) => {
     // When wired:
     //   1. Issue request; parse Server-Timing header
     //   2. Confirm db, cache, render phases are reported

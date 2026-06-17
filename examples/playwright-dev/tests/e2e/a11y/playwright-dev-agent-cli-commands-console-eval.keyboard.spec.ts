@@ -5,19 +5,19 @@
  * five tests covering the keyboard-accessibility concerns axe-core
  * cannot enforce statically:
  *
- *   smoke           — Tab key cycles through the first 10 focusable elements
- *   focus-indicator — every focusable element has a visible focus indicator
- *   escape-dismiss  — Escape key closes a modal or dialog and returns focus to the trigger
- *   enter-space     — Enter activates links and buttons; Space activates buttons only
- *   no-trap         — Tab from the last focusable wraps to the first or exits the page (no focus trap)
+ *   smoke           — Tab cycles through the first 10 focusables
+ *   focus-indicator — every focusable has a visible focus indicator
+ *   escape-dismiss  — Escape closes a modal/dialog and returns focus
+ *   enter-space     — Enter activates links/buttons; Space activates buttons
+ *   no-trap         — Tab from the last focusable wraps or exits (no trap)
  *
  * Filter: `npx playwright test --grep @kind:keyboard`
  */
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Keyboard navigation on PlaywrightDev’s console-eval page', () => {
-  test('@kind:keyboard @smoke Tab through the first 10 focusables', async ({ page }) => {
+test.describe('PlaywrightDev — keyboard navigation @ https://playwright.dev/agent-cli/commands/console-eval', () => {
+  test('@kind:keyboard @smoke tab through the first 10 focusables', async ({ page }) => {
     await page.goto('/agent-cli/commands/console-eval')
 
     const focusables = await page.locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').all()
@@ -35,7 +35,7 @@ test.describe('Keyboard navigation on PlaywrightDev’s console-eval page', () =
     expect.soft(reached, `tab reached only ${reached} of ${max} focusables`).toBeGreaterThanOrEqual(Math.floor(max * 0.7))
   })
 
-  test('@kind:keyboard @focus-indicator First focused element has a visible focus indicator', async ({ page }) => {
+  test('@kind:keyboard @focus-indicator first focused element has a visible focus indicator', async ({ page }) => {
     await page.goto('/agent-cli/commands/console-eval')
     await page.keyboard.press('Tab')
 
@@ -65,7 +65,7 @@ test.describe('Keyboard navigation on PlaywrightDev’s console-eval page', () =
     expect.soft(stillOpen, 'dialog should close on Escape').toBe(false)
   })
 
-  test('@kind:keyboard @enter-space Enter activates focused links and buttons', async ({ page }) => {
+  test('@kind:keyboard @enter-space Enter activates focused links/buttons', async ({ page }) => {
     await page.goto('/agent-cli/commands/console-eval')
     // Find the first interactive control of each type.
     const link = page.locator('a[href]:not([href^="#"]):not([href^="mailto:"]):not([href^="tel:"])').first()
