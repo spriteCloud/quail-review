@@ -62,6 +62,89 @@ Feature: {{.Symbol.Name}} — {{.JourneyKind}} journey
     When I submit the form without filling any required field
     Then I remain on the same page
     And no success message is shown
+
+  @journey:{{.JourneyKind}} @priority:{{journeyPriority .JourneyKind}} @negative @kind:retry
+  Scenario: {{.JourneyKind}} — retry after empty submission succeeds
+    Given I open the landing page
+    When I submit the form without filling any required field
+    Then I remain on the same page
+{{- range $i := .Symbol.Inputs }}
+{{- if and $i.Required (not (or (eq $i.Type "submit") (eq $i.Type "hidden"))) }}
+    When I enter "{{fillValueFor $i}}" into the "{{or $i.Name $i.Placeholder $i.Type}}" field
+{{- end }}
+{{- end }}
+    When I submit the form
+    Then no error message is shown in the form region
+{{- end }}
+
+{{- if and .Symbol.HasForm .Symbol.Inputs }}
+{{- /* Boundary-of-happy: a max-length value for the first text-like
+       input. Asserts the field accepts up to its declared max
+       without breaking the layout. */ -}}
+{{- with firstTextInput .Symbol.Inputs }}{{ $f := index . 0 }}
+
+  @journey:{{$.JourneyKind}} @priority:{{journeyPriority $.JourneyKind}} @kind:boundary
+  Scenario: {{$.JourneyKind}} — long input does not break the form
+    Given I open the landing page
+    When I enter "{{boundaryValueFor $f}}" into the "{{or $f.Name $f.Placeholder $f.Type}}" field
+    Then no error message is shown in the form region
+
+  @journey:{{$.JourneyKind}} @priority:{{journeyPriority $.JourneyKind}} @kind:tab-order
+  Scenario: {{$.JourneyKind}} — tab order reaches the {{or $f.Name $f.Placeholder $f.Type}} field
+    Given I open the landing page
+    When I focus the "{{or $f.Name $f.Placeholder $f.Type}}" field
+    When I enter "{{fillValueFor $f}}" into the "{{or $f.Name $f.Placeholder $f.Type}}" field
+    Then the "{{or $f.Name $f.Placeholder $f.Type}}" field has the value "{{fillValueFor $f}}"
+{{- end }}
+{{- end }}
+
+{{- /* Empty-state vs populated: only when the page advertises a list
+       or search shape (TagList) so we don't blanket every page. */ -}}
+{{- if pageIsListLike .Symbol }}
+
+  @journey:{{.JourneyKind}} @priority:{{journeyPriority .JourneyKind}} @kind:empty-state
+  Scenario: {{.JourneyKind}} — page renders the landing list
+    Given I open the landing page
+    Then the page has at least 1 items
+{{- end }}
+
+{{- /* Reload mid-flow: applies to multi-step journeys. */ -}}
+{{- if gt (len .Symbols) 1 }}
+{{- $term := index .Symbols (sub (len .Symbols) 1) }}
+{{- if $term.EnteredVia }}
+
+  @journey:{{.JourneyKind}} @priority:{{journeyPriority .JourneyKind}} @kind:resume
+  Scenario: {{.JourneyKind}} — deep-link to the terminal page renders correctly
+    Given I open the page "{{$term.EnteredVia}}"
+{{- $h1 := firstH1 $term.Contents }}
+{{- if $h1.Text }}
+    Then I see the heading "{{$h1.Text}}"
+{{- end }}
+
+  @journey:{{.JourneyKind}} @priority:{{journeyPriority .JourneyKind}} @kind:back-button
+  Scenario: {{.JourneyKind}} — back button after navigation returns to landing
+    Given I open the landing page
+    When I click the link to "{{$term.EnteredVia}}"
+    When I go back in the browser history
+{{- $landingH1 := firstH1 (index .Symbols 0).Contents }}
+{{- if $landingH1.Text }}
+    Then the main heading reads "{{$landingH1.Text}}"
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- /* Long-content overflow: for content pages with a heading, paste a
+       very long value into the first input (when one exists) and
+       assert the page doesn't break. */ -}}
+{{- if and .Symbol.HasForm .Symbol.Inputs }}
+{{- with firstOversizableInput .Symbol.Inputs }}{{ $f := index . 0 }}
+
+  @journey:{{$.JourneyKind}} @priority:{{journeyPriority $.JourneyKind}} @kind:overflow
+  Scenario: {{$.JourneyKind}} — oversized input does not crash the page
+    Given I open the landing page
+    When I enter "{{oversizedValueFor $f}}" into the "{{or $f.Name $f.Placeholder $f.Type}}" field
+    Then no error message is shown in the form region
+{{- end }}
 {{- end }}
 
 {{- if .ExtraScenarios }}

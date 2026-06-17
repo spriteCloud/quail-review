@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — explore journey
   So that the page delivers on its user goal
 
   @journey:explore @priority:nice-to-have @smoke
-  Scenario: explore journey reaches its final page
+  Scenario: navigating to performance testing shows the expected page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -25,25 +25,30 @@ Feature: WwwSpritecloudCom — explore journey
     Then I see the heading "Your Software Put Through its Paces."
     And the page title contains "spriteCloud - Performance Testing"
 
+  @journey:explore @priority:nice-to-have @kind:resume
+  Scenario: directly visiting performance testing page works
+    Given I open the page "/performance-testing"
+    Then I see the heading "Your Software Put Through its Paces."
+
+  @journey:explore @priority:nice-to-have @kind:back-button
+  Scenario: using back button from performance testing returns to home
+    Given I open the landing page
+    When I click the link to "/performance-testing"
+    When I go back in the browser history
+    Then the main heading reads "Test your software, not your reputation."
+
   # ───────────────────────────────────────────────────────────────
   # LLM-composed scenarios (model: qwen3-coder-next:latest)
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
   @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: explore Test Automation page
+  Scenario: landing page displays the main heading
     Given I open the landing page
-    When I click the link to "/test-automation"
-    Then the page title contains "Test Automation"
+    Then the main heading reads "Test your software, not your reputation."
 
   @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: navigate to the Contact page
+  Scenario: scrolling to page bottom shows expected content
     Given I am on the landing page
-    When I click the link to "/contact"
-    Then no error message is shown in the form region
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: navigate to the Guides page via menu
-    Given I open the landing page
-    When I click the link to "/guides"
-    Then the URL contains "/guides"
+    When I scroll to the bottom of the page
+    Then the page has at least 5 items

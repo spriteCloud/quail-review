@@ -163,6 +163,11 @@ Then(/^I scroll into view of the "([^"]+)" element$/, async ({ page }, text: str
   await page.getByText(text, { exact: false }).first().scrollIntoViewIfNeeded()
 })
 
+// v0.36: back-button consistency tests.
+When('I go back in the browser history', async ({ page }) => {
+  await page.goBack()
+})
+
 function escapeRegex(s: string): string {
   return s.replace(/[\\^$.*+?()[\]{}|/]/g, '\\$&')
 }

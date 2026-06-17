@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — browse journey
   So that the page delivers on its user goal
 
   @journey:browse @priority:standard @smoke
-  Scenario: browse journey reaches its final destination
+  Scenario: User can navigate through the browse journey to its final page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -27,18 +27,37 @@ Feature: WwwSpritecloudCom — browse journey
     Then I see the heading "Testing is in our DNA."
     And the page title contains "About Us"
 
+  @journey:browse @priority:standard @kind:resume
+  Scenario: Direct navigation to the about-us page loads successfully
+    Given I open the page "/about-us"
+    Then I see the heading "Testing is in our DNA."
+
+  @journey:browse @priority:standard @kind:back-button
+  Scenario: Using browser back button returns user to the landing page
+    Given I open the landing page
+    When I click the link to "/about-us"
+    When I go back in the browser history
+    Then the main heading reads "Test your software, not your reputation."
+
   # ───────────────────────────────────────────────────────────────
   # LLM-composed scenarios (model: qwen3-coder-next:latest)
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
   @journey:browse @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: navigate to contact page from landing
-    Given I open the landing page
+  Scenario: User can open the contact page via the header navigation
+    Given I am on the landing page
     When I click the link to "/contact"
     Then the URL contains "/contact"
 
   @journey:browse @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: verify main heading on landing
-    Given I open the landing page
+  Scenario: Scrolling to the bottom of the landing page displays correct content
+    Given I am on the landing page
+    When I scroll to the bottom of the page
     Then the main heading reads "Test your software, not your reputation."
+
+  @journey:browse @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Opening the navigation menu shows expected number of items
+    Given I am on the landing page
+    When I open the menu
+    Then the page has at least 10 items

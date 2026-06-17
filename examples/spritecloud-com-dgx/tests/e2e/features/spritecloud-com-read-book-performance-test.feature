@@ -11,13 +11,13 @@
 #   npx playwright test --grep @journey:read
 #   npx playwright test --grep @smoke
 
-Feature: SpriteCloud — read journey
+Feature: WwwSpritecloudCom — read journey
   As a visitor of https://www.spritecloud.com
   I want to complete the read flow
   So that the page delivers on its user goal
 
   @journey:read @priority:nice-to-have @smoke
-  Scenario: Read journey reaches its terminal page
+  Scenario: read journey ends on the correct page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -25,27 +25,25 @@ Feature: SpriteCloud — read journey
     Then I see the heading "Performance Test"
     And the page title contains "Book - Performance Test"
 
+  @journey:read @priority:nice-to-have @kind:resume
+  Scenario: read — deep-link to the terminal page loads properly
+    Given I open the page "/book-performance-test"
+    Then I see the heading "Performance Test"
+
+  @journey:read @priority:nice-to-have @kind:back-button
+  Scenario: read — using the back button after navigation returns to the landing page
+    Given I open the landing page
+    When I click the link to "/book-performance-test"
+    When I go back in the browser history
+    Then the main heading reads "Test your software, not your reputation."
+
   # ───────────────────────────────────────────────────────────────
   # LLM-composed scenarios (model: qwen3-coder-next:latest)
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
-  @journey:read @priority:nice-to-have @llm-composed @kind:happy @model:qwen3-coder-next-latest
-  Scenario: View landing page successfully
-    Given I open the landing page
-    Then the page title contains "spriteCloud"
-    Then the main heading reads "Test your software, not your reputation."
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Navigate to Test Automation page from footer
-    Given I open the landing page
-    When I click the link to "/test-automation"
-    Then the URL contains "/test-automation"
-    Then the page title contains "Test Automation"
-
   @journey:read @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Navigate to Guides via footer
-    Given I open the landing page
-    When I click the link to "/guides"
-    Then the URL contains "/guides"
-    Then the page title contains "Guides"
+  Scenario: scroll to bottom and confirm footer shows expected content
+    Given I am on the homepage
+    When I scroll to the bottom of the page
+    Then I see the heading "Test your software, not your reputation."
