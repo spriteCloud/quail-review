@@ -59,6 +59,9 @@ Feature: WwwSpritecloudCom — convert journey
       | typical | jane@example.com |
       | plus-alias | jane+alias@example.com |
       | subdomain | user@mail.example.co.uk |
+      | unicode-domain | user@例え.jp |
+      | ip-literal | user@[192.0.2.1] |
+      | long-local | very.long.local.part.that.is.still.valid@example.com |
 
   @journey:convert @priority:critical @kind:boundary
   Scenario: convert — long input does not break the form
@@ -84,9 +87,17 @@ Feature: WwwSpritecloudCom — convert journey
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
+  @journey:convert @priority:critical @llm-composed @kind:state @model:qwen3-coder-next-latest
+  Scenario: Reload before submission clears email field
+    Given I open the landing page
+    When I enter "user@example.com" into the "Your email address" field
+    When I reload the page
+    Then the "Your email address" field has the value ""
+
   @journey:convert @priority:critical @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Submit form without filling required field
+  Scenario: Double submit prevents duplicate entries
     Given I am on the landing page
-    When I submit the form without filling any required field
-    Then no success message is shown
-    Then I remain on the same page
+    When I enter "user@example.com" into the "Your email address" field
+    When I submit the form twice in rapid succession
+    Then the form is not double-submitted
+

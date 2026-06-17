@@ -37,3 +37,4 @@ test.describe('WwwSpritecloudCom — visual regression @ https://www.spritecloud
     })
   }
 })
+

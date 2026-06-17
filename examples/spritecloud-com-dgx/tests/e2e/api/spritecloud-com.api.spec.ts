@@ -16,9 +16,9 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — API contract test for https://www.spritecloud.com endpoint', () => {
+test.describe('WwwSpritecloudCom — API contract @ https://www.spritecloud.com', () => {
 
-  test('@kind:api @smoke: valid email in form returns 2xx response', async ({ request }) => {
+  test('@kind:api @smoke happy: realistic body returns 2xx', async ({ request }) => {
     const response = await request.get('https://www.spritecloud.com', {
       form: {
         'email-2': 'test@example.com',
@@ -29,7 +29,7 @@ test.describe('WwwSpritecloudCom — API contract test for https://www.spriteclo
     expect(response.status()).toBeLessThan(400)
   })
 
-  test('@kind:api @negative: empty form returns 4xx error', async ({ request }) => {
+  test('@kind:api @negative missing required fields returns 4xx', async ({ request }) => {
     const response = await request.get('https://www.spritecloud.com', {
       form: {},
     })
@@ -39,7 +39,7 @@ test.describe('WwwSpritecloudCom — API contract test for https://www.spriteclo
     expect(response.status()).toBeLessThan(500)
   })
 
-  test('@kind:api @negative: invalid email format returns 4xx or validation error', async ({ request }) => {
+  test('@kind:api @negative malformed email returns 4xx', async ({ request }) => {
     const response = await request.get('https://www.spritecloud.com', {
       form: {
         'email-2': 'not-an-email',
@@ -56,7 +56,7 @@ test.describe('WwwSpritecloudCom — API contract test for https://www.spriteclo
     }
   })
 
-  test('@kind:api @negative: large email value does not cause 5xx server error', async ({ request }) => {
+  test('@kind:api @negative oversized payload does not 5xx', async ({ request }) => {
     const huge = 'a'.repeat(50_000)
     const response = await request.get('https://www.spritecloud.com', {
       form: {
@@ -66,4 +66,72 @@ test.describe('WwwSpritecloudCom — API contract test for https://www.spriteclo
     // Truncated / 413 / 400 all acceptable; what we DON'T want is a 5xx.
     expect(response.status()).toBeLessThan(500)
   })
+
+  // ─────────────────────────────────────────────────────────────
+  // v0.50: extended form-negative coverage. The deck-cited "15-25
+  // negatives per form" target needs more than 4 default cases —
+  // each block below covers a value class an adversarial QA would
+  // test by hand. None of these assert success; they each assert
+  // the server doesn't 5xx and doesn't leak a stack trace.
+  // ─────────────────────────────────────────────────────────────
+
+  test('@kind:api @negative unicode payload does not 5xx', async ({ request }) => {
+    const response = await request.get('https://www.spritecloud.com', {
+      form: {
+        'email-2': 'café-niño-用户-🎉-test@example.com',
+      },
+    })
+    expect(response.status()).toBeLessThan(500)
+  })
+
+  test('@kind:api @negative sql-injection-shaped input does not 5xx', async ({ request }) => {
+    // Tests the server's input sanitization. The contract: MUST NOT
+    // 5xx and MUST NOT echo back unescaped fragments.
+    const payload = "'; DROP TABLE users; --"
+    const response = await request.get('https://www.spritecloud.com', {
+      form: {
+        'email-2': payload,
+      },
+    })
+    expect(response.status()).toBeLessThan(500)
+    const body = await response.text().catch(() => '')
+    expect.soft(body.toLowerCase()).not.toContain('sqlstate')
+    expect.soft(body.toLowerCase()).not.toContain('syntax error')
+  })
+
+  test('@kind:api @negative xss-shaped input is escaped or rejected', async ({ request }) => {
+    const payload = '<script>window.__rqXSS=1</script>'
+    const response = await request.get('https://www.spritecloud.com', {
+      form: {
+        'email-2': payload,
+      },
+    })
+    expect(response.status()).toBeLessThan(500)
+    const body = await response.text().catch(() => '')
+    expect.soft(body).not.toContain('<script>window.__rqXSS=1</script>')
+  })
+
+  test('@kind:api @negative null-byte injection does not 5xx', async ({ request }) => {
+    const response = await request.get('https://www.spritecloud.com', {
+      form: {
+        'email-2': 'value\x00malicious',
+      },
+    })
+    expect(response.status()).toBeLessThan(500)
+  })
+
+  test('@kind:api @negative rapid burst stays healthy or is rate-limited', async ({ request }) => {
+    // 10 concurrent identical requests. Either the server rate-limits
+    // (429) — fine — or it serves all 10 without 5xx-ing.
+    const body = {
+      'email-2': 'test@example.com',
+    }
+    const responses = await Promise.all(
+      Array.from({ length: 10 }, () => request.get('https://www.spritecloud.com', { form: body }))
+    )
+    for (const r of responses) {
+      expect.soft(r.status(), `burst response status ${r.status()}`).toBeLessThan(500)
+    }
+  })
 })
+

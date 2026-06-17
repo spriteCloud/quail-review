@@ -26,7 +26,24 @@ templates ship and are exercised by the test suite. See the section
 | [`gohugo-io/`](./gohugo-io/) | <https://gohugo.io> | OSS marketing + content | off |
 | [`books-toscrape-com/`](./books-toscrape-com/) | <https://books.toscrape.com> | E-commerce list-and-detail | off |
 | [`es-wikipedia-org-madrid/`](./es-wikipedia-org-madrid/) | <https://es.wikipedia.org/wiki/Madrid> | Non-English content page | off |
-| [`spritecloud-com-dgx/`](./spritecloud-com-dgx/) | <https://www.spritecloud.com> | Marketing + lead-gen forms | **on** (DGX `qwen3-coder-next:latest`) — adds 17 `@llm-composed` Scenarios on top of 10 deterministic |
+| [`spritecloud-com-dgx/`](./spritecloud-com-dgx/) | <https://www.spritecloud.com> | Marketing + lead-gen forms | **on** (DGX `qwen3-coder-next:latest`) — adds 14 `@llm-composed` Scenarios on top of 36 deterministic |
+| [`petstore-swagger-io-dgx/`](./petstore-swagger-io-dgx/) | <https://petstore3.swagger.io> | API service exposing OpenAPI 3 — **lights up the Contract layer** | **on** (DGX `qwen3-coder-next:latest`) — see Contract-layer note below |
+
+## The two DGX examples are complementary
+
+| | `spritecloud-com-dgx` (marketing site) | `petstore-swagger-io-dgx` (API service) |
+|---|---|---|
+| Files emitted | **118** | **41** |
+| Gherkin Scenarios | 50 (14 `@llm-composed`) | 0 (no UI journeys — API only) |
+| Contract layer | 0 (no OpenAPI surface) | **12 contract specs** from the OpenAPI 3 doc |
+| API layer | 1 form-based contract | 4 endpoint-based API specs |
+| UI / a11y / perf | 35+ specs across the crawled marketing pages | 1 per layer (SPA shell only) |
+| Demonstrates | per-page edge-case depth + composer adding journey variants | Layer 4 / Contract — schema-driven test generation against a real OpenAPI 3 spec |
+
+Picking these two together gives you the **full 10-layer taxonomy** in two probes:
+the marketing site exercises Layers 5/7/8/10 (Integration / UI / Mobile / Non-functional);
+the API service exercises Layers 3/4 (API / Contract). Layers 1/2/6/9 (Unit / Component
+/ Backend / Data) need source code in a PR diff — they don't apply to a live-URL probe by design.
 
 ## What's in each subdirectory
 

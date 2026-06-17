@@ -11,13 +11,13 @@
 #   npx playwright test --grep @journey:read
 #   npx playwright test --grep @smoke
 
-Feature: SpriteCloud read journey
+Feature: WwwSpritecloudCom — read journey
   As a visitor of https://www.spritecloud.com
   I want to complete the read flow
   So that the page delivers on its user goal
 
   @journey:read @priority:nice-to-have @smoke
-  Scenario: Visitor completes the read flow and lands on the correct page
+  Scenario: read journey reaches its terminal page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,20 +26,21 @@ Feature: SpriteCloud read journey
     And the page title contains "Book - Performance Test"
 
   @journey:read @priority:nice-to-have @kind:resume
-  Scenario: Reader navigates directly to the terminal page and sees correct content
+  Scenario: read — deep-link to the terminal page renders correctly
     Given I open the page "/book-performance-test"
     Then I see the heading "Performance Test"
 
   @journey:read @priority:nice-to-have @kind:back-button
-  Scenario: Reader uses browser back to return from terminal to landing page
+  Scenario: read — back button after navigation returns to landing
     Given I open the landing page
     When I click the link to "/book-performance-test"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
 
   @journey:read @priority:nice-to-have @kind:cross-journey
-  Scenario: Reader navigates between landing and terminal pages without errors
+  Scenario: read — switching to landing and back leaves no broken state
     Given I open the landing page
     When I navigate directly to "/"
     And I go back in the browser history
     Then no error message is shown in the form region
+

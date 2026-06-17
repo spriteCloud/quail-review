@@ -13,8 +13,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — keyboard navigation smoke test', () => {
-  test('@kind:keyboard @smoke tab through first 10 focusable elements', async ({ page }) => {
+test.describe('WwwSpritecloudCom — keyboard navigation @ https://www.spritecloud.com', () => {
+  test('@kind:keyboard @smoke tab through the first 10 focusables', async ({ page }) => {
     await page.goto('/')
 
     const focusables = await page.locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').all()
@@ -32,7 +32,7 @@ test.describe('WwwSpritecloudCom — keyboard navigation smoke test', () => {
     expect.soft(reached, `tab reached only ${reached} of ${max} focusables`).toBeGreaterThanOrEqual(Math.floor(max * 0.7))
   })
 
-  test('@kind:keyboard @smoke first tab-focused element shows visible focus indicator', async ({ page }) => {
+  test('@kind:keyboard @smoke first focused element has a visible focus indicator', async ({ page }) => {
     await page.goto('/')
     await page.keyboard.press('Tab')
 
@@ -45,3 +45,4 @@ test.describe('WwwSpritecloudCom — keyboard navigation smoke test', () => {
     expect.soft(hasIndicator, 'first tab-focused element has no visible focus indicator').toBe(true)
   })
 })
+

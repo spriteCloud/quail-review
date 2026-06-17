@@ -12,17 +12,18 @@ import { test, expect } from '@playwright/test'
 import { AxeBuilder } from '@axe-core/playwright'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — accessibility check at https://www.spritecloud.com', () => {
-  test('a11y smoke test: no serious or critical axe violations', async ({ page }) => {
+test.describe('WwwSpritecloudCom — accessibility @ https://www.spritecloud.com', () => {
+  test('@kind:a11y @smoke no serious or critical axe violations', async ({ page }) => {
     await page.goto('/')
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze()
     const serious = results.violations.filter(v => v.impact === 'serious' || v.impact === 'critical')
-    expect.soft(results.violations, `axe found ${results.violations.length} violation(s) in total`).toEqual(results.violations)
+    expect.soft(results.violations, `axe found ${results.violations.length} violation(s) total`).toEqual(results.violations)
     if (serious.length > 0) {
       console.log('serious/critical violations:', JSON.stringify(serious.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })), null, 2))
     }
     expect(serious).toHaveLength(0)
   })
 })
+

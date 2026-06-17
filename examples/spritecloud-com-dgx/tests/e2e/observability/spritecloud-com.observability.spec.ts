@@ -11,8 +11,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — observability headers check for https://www.spritecloud.com', () => {
-  test('@kind:observability @smoke verifies at least one observability header is present', async ({ request }) => {
+test.describe('WwwSpritecloudCom — observability headers @ https://www.spritecloud.com', () => {
+  test('@kind:observability @smoke origin emits at least one observability header', async ({ request }) => {
     const response = await request.get('https://www.spritecloud.com')
     const headers = response.headers()
     const signals = {
@@ -27,3 +27,4 @@ test.describe('WwwSpritecloudCom — observability headers check for https://www
     expect.soft(any, 'no observability headers found — consider emitting x-request-id or server-timing for ops').toBe(true)
   })
 })
+

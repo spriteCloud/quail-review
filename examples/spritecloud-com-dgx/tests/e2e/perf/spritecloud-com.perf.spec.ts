@@ -13,7 +13,7 @@ const SLO_MS = Number(process.env.PERF_SLO_MS ?? 3000)
 
 test.describe.configure({ mode: 'parallel' })
 test.describe('WwwSpritecloudCom — performance @ https://www.spritecloud.com', () => {
-  test(`@kind:perf @smoke loads under ${SLO_MS} ms`, async ({ page }) => {
+  test(`@kind:perf @smoke loads under ${SLO_MS}ms`, async ({ page }) => {
     const start = Date.now()
     await page.goto('/', { waitUntil: 'load' })
     const elapsed = Date.now() - start
@@ -23,3 +23,4 @@ test.describe('WwwSpritecloudCom — performance @ https://www.spritecloud.com',
     expect(elapsed).toBeLessThan(SLO_MS * 2)
   })
 })
+

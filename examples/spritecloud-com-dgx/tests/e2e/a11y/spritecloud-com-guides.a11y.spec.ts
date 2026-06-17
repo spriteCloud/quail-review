@@ -26,3 +26,4 @@ test.describe('WwwSpritecloudCom — accessibility @ https://www.spritecloud.com
     expect(serious).toHaveLength(0)
   })
 })
+

@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — explore journey
   So that the page delivers on its user goal
 
   @journey:explore @priority:nice-to-have @smoke
-  Scenario: user can reach the contact page through the explore flow
+  Scenario: explore journey reaches its terminal page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,40 +26,21 @@ Feature: WwwSpritecloudCom — explore journey
     And the page title contains "spriteCloud — Meeting Booking Form"
 
   @journey:explore @priority:nice-to-have @kind:resume
-  Scenario: deep-linking to the contact page works as expected
+  Scenario: explore — deep-link to the terminal page renders correctly
     Given I open the page "/contact"
     Then I see the heading "Let's Chat"
 
   @journey:explore @priority:nice-to-have @kind:back-button
-  Scenario: using the browser back button returns to the landing page
+  Scenario: explore — back button after navigation returns to landing
     Given I open the landing page
     When I click the link to "/contact"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
 
   @journey:explore @priority:nice-to-have @kind:cross-journey
-  Scenario: navigating to the home page and returning doesn’t break state
+  Scenario: explore — switching to landing and back leaves no broken state
     Given I open the landing page
     When I navigate directly to "/"
     And I go back in the browser history
     Then no error message is shown in the form region
 
-  # ───────────────────────────────────────────────────────────────
-  # LLM-composed scenarios (model: qwen3-coder-next:latest)
-  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
-  # ───────────────────────────────────────────────────────────────
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: user can navigate to service pages from the homepage
-    Given I am on the landing page
-    When I click the link to "/test-automation"
-    Then the page title contains "Test Automation"
-    When I click the link to "/performance-testing"
-    Then the page title contains "Performance Testing"
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: footer links successfully take users to the case studies page
-    Given I open the landing page
-    When I click the link to "/case-studies"
-    Then the URL contains "/case-studies"
-    Then the main heading reads "Case Studies"

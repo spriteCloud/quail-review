@@ -192,6 +192,35 @@ Given('I am not signed in', async ({ context }) => {
   await context.clearCookies()
 })
 
+// v0.41c — vocabulary for the edge-case scenarios the LLM composer
+// now has the context to propose (race, reload, cross-tab). Each step
+// has a real implementation so the composer can't ship a false
+// assertion behind a no-op definition.
+
+When('I submit the form twice in rapid succession', async ({ page }) => {
+  const form = page.locator('form').first()
+  await Promise.allSettled([
+    form.locator('button[type="submit"], input[type="submit"]').first().click({ noWaitAfter: true }),
+    form.locator('button[type="submit"], input[type="submit"]').first().click({ noWaitAfter: true }),
+  ])
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
+})
+
+Then('the form is not double-submitted', async ({ page }) => {
+  // Heuristic: at most one success indicator on the page. Hardens
+  // against a backend that creates two records when the front end
+  // doesn't debounce a fast double-click.
+  const indicators = page.locator('text=/success|thanks|received|created/i')
+  const count = await indicators.count()
+  expect(count, 'expected at most one success indicator after double-submit').toBeLessThanOrEqual(1)
+})
+
+When('I reload the page', async ({ page }) => {
+  await page.reload()
+  await page.waitForLoadState('domcontentloaded')
+})
+
 function escapeRegex(s: string): string {
   return s.replace(/[\\^$.*+?()[\]{}|/]/g, '\\$&')
 }
+

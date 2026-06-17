@@ -55,7 +55,10 @@ func Fetch(ctx context.Context, target string) (*Result, error) {
 		return nil, fmt.Errorf("probe: build request: %w", err)
 	}
 	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+	// v0.52 — broadened Accept so OpenAPI/Swagger JSON endpoints
+	// don't 406 on us (petstore3.swagger.io did). We still prefer
+	// HTML for the crawl path; JSON/XML come second.
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/json;q=0.9,application/yaml;q=0.8,*/*;q=0.5")
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("probe: fetch %s: %w", target, err)
@@ -383,11 +386,29 @@ func probeOneOrigin(ctx context.Context, u string, coverage CoverageMode, filter
 	}
 	m, crawlErrs := crawlOriginWithFallback(ctx, u, fetcher, opts, useBrowser)
 	if m == nil || len(m.Pages) == 0 {
-		return nil, crawlErrs
+		// v0.52 — even when the spider gets zero pages back (SPA shell
+		// with no static HTML), the origin may still expose an
+		// OpenAPI / GraphQL / Webhook surface that's worth contract-
+		// testing. Probe those independently so an API-only target
+		// like petstore3.swagger.io produces a populated suite.
+		var items []plan.Item
+		items = append(items, openAPIContractItems(ctx, u)...)
+		items = append(items, graphQLContractItems(ctx, u)...)
+		items = append(items, webhookContractItems(ctx, u)...)
+		return items, crawlErrs
 	}
 	journeys := identifyAndFilterJourneys(m, coverage, filter, u)
 	if len(journeys) == 0 {
-		return nil, crawlErrs
+		// v0.52 — no journeys detected (SPA, API-only origin) but the
+		// crawler still has at least one page. Emit the contract +
+		// quality companions against that bare mindmap so the
+		// taxonomy isn't empty.
+		var items []plan.Item
+		items = append(items, qualityCompanions(u, m, coverage)...)
+		items = append(items, openAPIContractItems(ctx, u)...)
+		items = append(items, graphQLContractItems(ctx, u)...)
+		items = append(items, webhookContractItems(ctx, u)...)
+		return items, crawlErrs
 	}
 	journeyItems := promoteJourneysToFeatures(journeys, u)
 	fuzzItems := emitFuzzItems(m, u, coverage.FuzzCap())
@@ -757,7 +778,15 @@ func openAPIContractItems(ctx context.Context, sourceURL string) []plan.Item {
 		return nil
 	}
 	origin := parsed.Scheme + "://" + parsed.Host
-	candidates := []string{"/openapi.json", "/swagger.json", "/api-docs.json", "/v1/openapi.json"}
+	// v0.52 — added common modern API root variants. Petstore3
+	// exposes /api/v3/openapi.json; Spring services frequently expose
+	// /v3/api-docs; many fastify/koa setups expose /docs/json.
+	candidates := []string{
+		"/openapi.json", "/swagger.json", "/api-docs.json",
+		"/v1/openapi.json", "/v2/openapi.json", "/v3/openapi.json",
+		"/api/openapi.json", "/api/v1/openapi.json", "/api/v3/openapi.json",
+		"/v3/api-docs", "/docs/json", "/swagger/v1/swagger.json",
+	}
 	var doc []byte
 	var docURL string
 	for _, p := range candidates {

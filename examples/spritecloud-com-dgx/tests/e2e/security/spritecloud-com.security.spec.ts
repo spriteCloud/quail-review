@@ -15,19 +15,20 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — security headers for https://www.spritecloud.com', () => {
-  test('baseline security headers are present', async ({ request }) => {
+test.describe('WwwSpritecloudCom — security headers @ https://www.spritecloud.com', () => {
+  test('@kind:security @smoke baseline security headers present', async ({ request }) => {
     const response = await request.get('https://www.spritecloud.com')
-    expect(response.status(), 'origin responds').toBeLessThan(500)
+    expect(response.status(), 'origin should respond').toBeLessThan(500)
     const headers = response.headers()
 
-    expect.soft(headers['strict-transport-security'], 'HSTS header missing').toBeTruthy()
+    expect.soft(headers['strict-transport-security'], 'HSTS not set').toBeTruthy()
     const csp = headers['content-security-policy'] || ''
-    expect.soft(csp, 'Content-Security-Policy header missing').toBeTruthy()
+    expect.soft(csp, 'Content-Security-Policy not set').toBeTruthy()
     const xfo = headers['x-frame-options']
     const cspFrameAncestors = /frame-ancestors/i.test(csp)
-    expect.soft(xfo || cspFrameAncestors, 'missing clickjacking protection (X-Frame-Options or CSP frame-ancestors)').toBeTruthy()
-    expect.soft(headers['x-content-type-options'], 'X-Content-Type-Options header missing').toBe('nosniff')
-    expect.soft(headers['referrer-policy'], 'Referrer-Policy header missing').toBeTruthy()
+    expect.soft(xfo || cspFrameAncestors, 'no clickjacking protection (X-Frame-Options or CSP frame-ancestors)').toBeTruthy()
+    expect.soft(headers['x-content-type-options'], 'X-Content-Type-Options not set').toBe('nosniff')
+    expect.soft(headers['referrer-policy'], 'Referrer-Policy not set').toBeTruthy()
   })
 })
+

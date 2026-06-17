@@ -12,8 +12,8 @@ import { test, expect } from '@playwright/test'
 import { AxeBuilder } from '@axe-core/playwright'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — accessibility check for https://www.spritecloud.com/cybersecurity', () => {
-  test('accessibility smoke test: no serious or critical axe violations', async ({ page }) => {
+test.describe('WwwSpritecloudCom — accessibility @ https://www.spritecloud.com/cybersecurity', () => {
+  test('@kind:a11y @smoke no serious or critical axe violations', async ({ page }) => {
     await page.goto('/cybersecurity')
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -26,3 +26,4 @@ test.describe('WwwSpritecloudCom — accessibility check for https://www.spritec
     expect(serious).toHaveLength(0)
   })
 })
+

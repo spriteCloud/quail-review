@@ -18,8 +18,8 @@ import { test, expect } from '@playwright/test'
 const STATES = ['default', 'hover', 'focus'] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — interaction-state visuals for https://www.spritecloud.com/on-demand', () => {
-  test('@kind:visual-state @smoke primary CTA across default, hover, and focus states', async ({ page }) => {
+test.describe('WwwSpritecloudCom — interaction-state visual @ https://www.spritecloud.com/on-demand', () => {
+  test('@kind:visual-state @smoke primary CTA across states', async ({ page }) => {
     await page.goto('/on-demand')
     await page.waitForLoadState('networkidle').catch(() => {})
     const target = page.getByRole('link').first()
@@ -47,3 +47,4 @@ test.describe('WwwSpritecloudCom — interaction-state visuals for https://www.s
     }
   })
 })
+

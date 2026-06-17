@@ -29,3 +29,4 @@ test.describe('WwwSpritecloudCom — responsive @ https://www.spritecloud.com/on
     })
   }
 })
+

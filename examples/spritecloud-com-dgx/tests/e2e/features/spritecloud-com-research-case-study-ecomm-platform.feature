@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — research journey
   So that the page delivers on its user goal
 
   @journey:research @priority:standard @smoke
-  Scenario: research journey completes on the case study page
+  Scenario: research journey reaches its terminal page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,12 +26,12 @@ Feature: WwwSpritecloudCom — research journey
     And the page title contains "Case Study - eCommerce Platform"
 
   @journey:research @priority:standard @kind:resume
-  Scenario: research — direct link to case study page loads properly
+  Scenario: research — deep-link to the terminal page renders correctly
     Given I open the page "/case-study-ecomm-platform"
     Then I see the heading "Performance Testing for an eCommerce Platform"
 
   @journey:research @priority:standard @kind:back-button
-  Scenario: research — using back button returns to the landing page
+  Scenario: research — back button after navigation returns to landing
     Given I open the landing page
     When I click the link to "/case-study-ecomm-platform"
     When I go back in the browser history
@@ -43,14 +43,18 @@ Feature: WwwSpritecloudCom — research journey
   # ───────────────────────────────────────────────────────────────
 
   @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: User scrolls down to see the case studies section
-    Given I am on the landing page
-    When I scroll to the bottom of the page
-    Then I see the heading "Case Studies"
+  Scenario: Navigate then go back
+    Given I open the landing page
+    When I click the link to "/case-study-ecomm-platform"
+    Then the page title contains "Case Study - eCommerce Platform"
+    Then the main heading reads "Performance Testing for an eCommerce Platform"
+    When I go back in the browser history
+    Then the main heading reads "Test your software, not your reputation."
 
   @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: User opens then closes the navigation menu
-    Given I am on the landing page
-    When I open the menu
-    And I close the menu
-    Then I remain on the same page
+  Scenario: Navigate with direct URL
+    Given I am not signed in
+    When I navigate directly to "/case-study-ecomm-platform"
+    Then the page title contains "Case Study - eCommerce Platform"
+    Then the main heading reads "Performance Testing for an eCommerce Platform"
+

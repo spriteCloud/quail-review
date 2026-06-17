@@ -13,8 +13,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Accessibility landmark structure for spritecloud.com/on-demand', () => {
-  test('Ensures one <main>, one <h1>, and at least one <nav>', async ({ page }) => {
+test.describe('WwwSpritecloudCom — a11y landmarks @ https://www.spritecloud.com/on-demand', () => {
+  test('@kind:a11y-landmarks @smoke single main + h1 + nav', async ({ page }) => {
     await page.goto('/on-demand')
 
     const mains = await page.locator('main, [role="main"]').count()
@@ -27,9 +27,10 @@ test.describe('Accessibility landmark structure for spritecloud.com/on-demand', 
     expect.soft(navs, `expected at least one <nav> region`).toBeGreaterThanOrEqual(1)
   })
 
-  test('Verifies no focusable elements are inside hidden regions', async ({ page }) => {
+  test('@kind:a11y-landmarks @negative no focusables inside aria-hidden', async ({ page }) => {
     await page.goto('/on-demand')
     const hiddenFocusables = await page.locator('[aria-hidden="true"]').locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').count()
     expect.soft(hiddenFocusables, `${hiddenFocusables} focusable elements inside aria-hidden — confusing for screen readers`).toBe(0)
   })
 })
+
