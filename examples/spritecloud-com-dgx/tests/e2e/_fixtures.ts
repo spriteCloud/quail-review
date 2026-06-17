@@ -17,7 +17,7 @@ type Fixtures = {
 }
 
 export const test = base.extend<Fixtures>({
-  // `auto: true` so the listener and the final assertion run for every
+  // `auto: true` ensures the listener and final assertion run for every
   // test in this suite without the spec having to declare `pageErrors`
   // in its function-parameter destructuring.
   pageErrors: [async ({ page }, use) => {

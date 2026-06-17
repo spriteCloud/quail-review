@@ -13,8 +13,8 @@ import { test, expect } from '@playwright/test'
 const HEALTH_PATHS = ['/health', '/healthz', '/ready', '/readyz', '/status', '/livez']
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Spritecloud site health probes (https://www.spritecloud.com)', () => {
-  test('Verifies at least one common health endpoint returns a 2xx status', async ({ request }) => {
+test.describe('WwwSpritecloudCom — health check probes @ https://www.spritecloud.com', () => {
+  test('@kind:health @smoke — verify at least one well-known health endpoint returns 2xx', async ({ request }) => {
     const results: Array<{ path: string; status: number }> = []
     for (const path of HEALTH_PATHS) {
       try {
@@ -30,10 +30,10 @@ test.describe('Spritecloud site health probes (https://www.spritecloud.com)', ()
     if (!anyHealthy) {
       console.log('no well-known health endpoint responded 2xx — consider exposing /health or /healthz')
     }
-    expect.soft(anyHealthy, 'no health endpoint returned a 2xx status').toBe(true)
+    expect.soft(anyHealthy, 'no health endpoint responded with a 2xx status').toBe(true)
     // Hard fail only when EVERY probe errored (network down) — a 404 is
     // a perfectly valid response.
     const allErrored = results.every(r => r.status === -1)
-    expect(allErrored, 'all health probes failed — is the site unreachable?').toBe(false)
+    expect(allErrored, 'all health probes failed — might indicate origin is unreachable').toBe(false)
   })
 })

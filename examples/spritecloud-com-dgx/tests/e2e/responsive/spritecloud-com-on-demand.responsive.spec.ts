@@ -17,15 +17,15 @@ const VIEWPORTS = [
 ] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — responsive check of https://www.spritecloud.com/on-demand', () => {
+test.describe('WwwSpritecloudCom responsive test for https://www.spritecloud.com/on-demand', () => {
   for (const vp of VIEWPORTS) {
-    test(`@kind:responsive @smoke shows content at ${vp.name} (${vp.width}x${vp.height})`, async ({ page }) => {
+    test(`renders correctly at ${vp.name} (${vp.width}x${vp.height}) viewport`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height })
       await page.goto('/on-demand')
       await expect(page.locator('h1').first()).toBeVisible()
-      // Hard failure signals: no body text or document overflow
+      // Fails if body has no visible text or page layout breaks
       const bodyHasText = await page.evaluate(() => (document.body.innerText || '').trim().length > 0)
-      expect(bodyHasText, 'body should contain visible text').toBe(true)
+      expect(bodyHasText, 'body should have text at this viewport').toBe(true)
     })
   }
 })

@@ -17,9 +17,9 @@ const VIEWPORTS = [
 ] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — responsive layout smoke test at https://www.spritecloud.com/style-guide', () => {
+test.describe('WwwSpritecloudCom — responsive checks on https://www.spritecloud.com/style-guide', () => {
   for (const vp of VIEWPORTS) {
-    test(`renders at ${vp.name} (${vp.width}x${vp.height}) with responsive layout check`, async ({ page }) => {
+    test(`@kind:responsive @smoke renders at ${vp.name} (${vp.width}x${vp.height})`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height })
       await page.goto('/style-guide')
       await expect(page.locator('h1').first()).toBeVisible()

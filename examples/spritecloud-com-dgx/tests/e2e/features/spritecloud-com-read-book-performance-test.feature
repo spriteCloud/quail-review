@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — read journey
   So that the page delivers on its user goal
 
   @journey:read @priority:nice-to-have @smoke
-  Scenario: read journey reaches its terminal page
+  Scenario: read journey ends on the correct page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,19 +26,19 @@ Feature: WwwSpritecloudCom — read journey
     And the page title contains "Book - Performance Test"
 
   @journey:read @priority:nice-to-have @kind:resume
-  Scenario: read — deep-link to the terminal page renders correctly
+  Scenario: read — deep-linking to the terminal page loads it properly
     Given I open the page "/book-performance-test"
     Then I see the heading "Performance Test"
 
   @journey:read @priority:nice-to-have @kind:back-button
-  Scenario: read — back button after navigation returns to landing
+  Scenario: read — using the back button after navigation returns to the landing page
     Given I open the landing page
     When I click the link to "/book-performance-test"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
 
   @journey:read @priority:nice-to-have @kind:cross-journey
-  Scenario: read — switching to landing and back leaves no broken state
+  Scenario: read — navigating to landing and back doesn’t break the page state
     Given I open the landing page
     When I navigate directly to "/"
     And I go back in the browser history
@@ -50,19 +50,15 @@ Feature: WwwSpritecloudCom — read journey
   # ───────────────────────────────────────────────────────────────
 
   @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: visit case studies page
-    Given I am on the landing page
+  Scenario: user navigates from the landing page to the case studies page
+    Given I open the landing page
     When I click the link to "/case-studies"
-    Then the page title contains "Case Studies"
+    Then the URL contains "/case-studies"
+    Then the main heading reads "Case Studies"
 
   @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: navigate to blog via guides link
+  Scenario: user opens the guides page via the footer navigation
     Given I open the landing page
     When I click the link to "/guides"
-    Then the main heading reads "Guides"
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: access contact page from footer
-    Given I am on the landing page
-    When I click the link to "/contact"
-    Then the page title contains "Contact"
+    Then the URL contains "/guides"
+    Then the page has at least 5 items
