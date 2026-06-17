@@ -78,11 +78,17 @@ func composeScenarios(ctx context.Context, cfg config.Config, items []plan.Item)
 			continue
 		}
 		j := buildJourneyForComposer(items[i])
-		// v0.41c: bumped from 3→5 to take advantage of the richer
-		// multi-step prompt populated by v0.41a. The composer can now
-		// reason about destination pages so there's more legitimate
-		// surface to compose against.
-		extras, winningModel, err := composer.ProposeWithLadderAndCache(ctx, ladder, j, 5, feedback, cache)
+		// v0.41c bumped the per-journey scenario count from 3→5;
+		// v0.46 makes it adaptive — long multi-step journeys with
+		// many destination pages produce prompts whose response
+		// won't fit in a 2k output budget (observed against the DGX
+		// when probing spritecloud.com at --coverage=depth). Falls
+		// back to 3 when the journey has 4+ destination pages.
+		n := 5
+		if len(j.Pages) >= 4 {
+			n = 3
+		}
+		extras, winningModel, err := composer.ProposeWithLadderAndCache(ctx, ladder, j, n, feedback, cache)
 		if err != nil {
 			rlog.Warn("composer: skipped journey", "kind", j.Kind, "err", err)
 			continue

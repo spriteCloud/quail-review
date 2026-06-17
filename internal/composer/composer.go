@@ -218,10 +218,23 @@ func buildUserPrompt(j Journey, n int) string {
 	if j.HasForm {
 		fmt.Fprintf(&b, "Page has a form. Form summaries: %s\n", strings.Join(j.Forms, "; "))
 	}
-	if len(j.Pages) > 0 {
+	// v0.46 — cap destination-pages-in-prompt at 4. The DGX run
+	// against spritecloud.com surfaced that journeys with 6+ steps
+	// produced prompts whose response would not fit in the model's
+	// output-token budget, returning truncated JSON. Keep the prompt
+	// tight.
+	pages := j.Pages
+	const maxPagesInPrompt = 4
+	if len(pages) > maxPagesInPrompt {
+		pages = pages[:maxPagesInPrompt]
+	}
+	if len(pages) > 0 {
 		b.WriteString("\nDestination pages (use these h1/title values when asserting AFTER navigation — do NOT assert the landing's h1 on a sub-page):\n")
-		for _, p := range j.Pages {
+		for _, p := range pages {
 			fmt.Fprintf(&b, "  %s → title=%q, h1=%q\n", p.Href, p.Title, p.H1)
+		}
+		if len(j.Pages) > maxPagesInPrompt {
+			fmt.Fprintf(&b, "  (... %d more destination pages omitted to keep the response short)\n", len(j.Pages)-maxPagesInPrompt)
 		}
 	}
 	fmt.Fprintf(&b, "\nPropose up to %d additional Scenarios for this journey. JSON only.\n", n)
@@ -231,20 +244,103 @@ func buildUserPrompt(j Journey, n int) string {
 // Parse extracts the JSON array of ExtraScenario from the model's raw
 // response. Tolerant of leading prose, fenced code blocks, and the
 // common LLM dirty-JSON shapes observed in production (trailing
-// commas before `]` / `}`, smart quotes, doubled commas).
+// commas before `]` / `}`, smart quotes, doubled commas). v0.46 adds
+// truncation recovery — when the response runs out mid-array because
+// the model hit its output-token cap, we extract every complete
+// scenario object that did fit and return those rather than throwing
+// out the whole reply.
 func Parse(raw string) ([]ExtraScenario, error) {
 	start := strings.Index(raw, "[")
-	end := strings.LastIndex(raw, "]")
-	if start < 0 || end < start {
+	if start < 0 {
 		return nil, errors.New("composer: no JSON array in response")
 	}
-	jsonText := raw[start : end+1]
-	jsonText = sanitizeDirtyJSON(jsonText)
-	var out []ExtraScenario
-	if err := json.Unmarshal([]byte(jsonText), &out); err != nil {
-		return nil, err
+	end := strings.LastIndex(raw, "]")
+	if end > start {
+		jsonText := sanitizeDirtyJSON(raw[start : end+1])
+		var out []ExtraScenario
+		if err := json.Unmarshal([]byte(jsonText), &out); err == nil {
+			return out, nil
+		}
+		// Fall through to partial recovery below — the full-array
+		// parse failed, often because the model produced a truncated
+		// or malformed-mid-stream array.
 	}
-	return out, nil
+	if recovered := parsePartialArray(raw[start:]); len(recovered) > 0 {
+		return recovered, nil
+	}
+	return nil, errors.New("composer: response not parseable even with partial recovery")
+}
+
+// parsePartialArray walks a (possibly-truncated) JSON array body and
+// returns every complete top-level {...} object that parses as an
+// ExtraScenario. Objects are detected by brace balance, ignoring
+// braces inside double-quoted strings.
+func parsePartialArray(s string) []ExtraScenario {
+	var out []ExtraScenario
+	i := 0
+	// Skip past the opening '['.
+	for i < len(s) && s[i] != '[' {
+		i++
+	}
+	if i >= len(s) {
+		return nil
+	}
+	i++ // past '['
+	for i < len(s) {
+		// Skip whitespace + commas.
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == ',') {
+			i++
+		}
+		if i >= len(s) || s[i] == ']' {
+			break
+		}
+		if s[i] != '{' {
+			i++
+			continue
+		}
+		// Find the matching '}'.
+		depth := 0
+		inStr := false
+		escape := false
+		j := i
+		for ; j < len(s); j++ {
+			c := s[j]
+			if escape {
+				escape = false
+				continue
+			}
+			if c == '\\' && inStr {
+				escape = true
+				continue
+			}
+			if c == '"' {
+				inStr = !inStr
+				continue
+			}
+			if inStr {
+				continue
+			}
+			if c == '{' {
+				depth++
+			} else if c == '}' {
+				depth--
+				if depth == 0 {
+					break
+				}
+			}
+		}
+		if j >= len(s) || depth != 0 {
+			// Truncated mid-object; stop here.
+			break
+		}
+		obj := sanitizeDirtyJSON(s[i : j+1])
+		var scenario ExtraScenario
+		if err := json.Unmarshal([]byte(obj), &scenario); err == nil {
+			out = append(out, scenario)
+		}
+		i = j + 1
+	}
+	return out
 }
 
 // sanitizeDirtyJSON strips the JSON dialects LLMs commonly emit:
