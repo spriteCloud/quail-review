@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -50,7 +51,19 @@ type chatResp struct {
 // Humanize rewrites strings inside the deterministic file. It returns the
 // modified content on success, or the original content unchanged on any
 // error. The contract: same structure, only title/comment strings differ.
+//
+// v0.47 — honors REVIEWQA_HUMANIZE=0 to short-circuit this pass even
+// when the LLM client is otherwise enabled. Useful when the composer
+// (which also uses the LLM) is needed for scenario generation but
+// humanizing every emitted spec is too slow for the run budget. The
+// composer remains active in that mode.
 func (c *Client) Humanize(ctx context.Context, lang, symbolName string, content []byte) []byte {
+	if os.Getenv("REVIEWQA_HUMANIZE") == "0" {
+		c.announceOnce.Do(func() {
+			log.Info("llm humanization disabled (REVIEWQA_HUMANIZE=0); using deterministic output")
+		})
+		return content
+	}
 	if !c.Enabled() {
 		c.announceOnce.Do(func() {
 			log.Info("llm humanization disabled (no OPENAI_API_KEY); using deterministic output")
