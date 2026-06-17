@@ -4,13 +4,48 @@
 [![Release](https://img.shields.io/github/v/release/spriteCloud/reviewqa?color=4B8BBE&labelColor=0F1117)](https://github.com/spriteCloud/reviewqa/releases)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-C0805A?labelColor=0F1117)](./LICENSE)
 
-A small Go binary + GitHub Action that watches a PR, opens a follow-up PR with
-generated tests for the new code, and heals broken Playwright locators.
+A small Go binary + GitHub Action that watches a PR (or a live URL), opens a
+follow-up PR with generated Playwright tests + stakeholder docs, and heals
+broken locators when they drift.
 
 - **One binary**, pure Go, no CGO — works locally and in CI.
 - **AST-first**: regex/heuristic extractors derive test scaffolds deterministically.
 - **LLM only humanizes**: titles, step comments, PR body. Falls back to the deterministic file on any error.
 - **Inference is yours**: any OpenAI-compatible base URL (ollama, vLLM, DGX-hosted vLLM, OpenAI).
+
+## What a `probe` run produces (v0.20)
+
+A single probe of a live URL emits a full, runnable suite plus stakeholder
+docs. From [`https://www.spritecloud.com`](https://www.spritecloud.com) on
+`--coverage standard`:
+
+| File | Purpose |
+|---|---|
+| `tests/e2e/*.spec.ts` | One file per identified user journey — `convert`, `contact`, `authenticate`, `evaluate`, `research`, `browse`, `discover`, `explore`, `read`, `exercise`. Tags: `@journey:<kind> @priority:<level> @smoke`. |
+| `tests/e2e/features/*.feature` | Gherkin documentation sibling for each spec — same Symbol drives both, can't drift. |
+| `tests/e2e/*-fuzz.spec.ts` | Per-page negative / keyboard / oversize-input checks. Capped per probe. |
+| `tests/e2e/api/*.api.spec.ts` | One API-contract spec per `<form action="...">` — happy + 4xx-on-missing + malformed-email + oversized + wrong-method. |
+| `tests/e2e/lib/steps.ts` | Steps API helper module — `visit`, `fillForm`, `submit`, `convert`, `authenticate`, … so specs read at the journey level. |
+| `tests/e2e/_fixtures.ts` | Shared `test`/`expect` with auto page-error tracking. |
+| `tests/e2e/_dom/*.html` | Browser-mode DOM snapshots (when `REVIEWQA_BROWSER_PROBE=1`). |
+| `tests/e2e/docs/test-catalogue.md` | Stakeholder doc: every page crawled, every journey, every priority. |
+| `tests/e2e/docs/summary.html` | Branded HTML deck with priority-mix bar. |
+| `tests/e2e/docs/findings.md` | Bug-discovery ledger — failed tests deduped + persisted across runs. Run `reviewqa ledger update --report playwright-report.json` to refresh. |
+| `playwright.config.ts`, `package.json`, `tsconfig.json`, `.github/workflows/e2e.yml` | Complete project scaffolding — `npx playwright test` works out of the box. |
+
+Per-site `--coverage standard` matrix (today): `https://books.toscrape.com` →
+16 files; `https://www.spritecloud.com` → 30 files including 1 API spec.
+`--coverage breadth` halves the journey-per-kind cap for quick CI smoke;
+`--coverage depth` triples it for high-stakes audits.
+
+Filter examples on the generated suite:
+
+```bash
+npx playwright test --grep @priority:critical   # smoke-of-smokes
+npx playwright test --grep @priority:standard   # nightly
+npx playwright test --grep @journey:convert     # one journey kind
+npx playwright test --grep @kind:api            # API contracts only
+```
 
 ## What it covers (v1)
 
@@ -29,10 +64,14 @@ Locator healing is Playwright-only and runs on test failure by default
 ```
 export GITHUB_TOKEN=...
 export GITHUB_REPOSITORY=owner/repo
-reviewqa scan --pr 42                              # dry-run
-reviewqa generate --pr 42                          # opens follow-up PR from diff
+reviewqa scan --pr 42                                                            # dry-run
+reviewqa generate --pr 42                                                        # opens follow-up PR from diff
 reviewqa heal --pr 42 --report playwright-report.json
-reviewqa probe --url=https://www.spritecloud.com   # generate from a live URL (no diff needed)
+reviewqa probe --url=https://www.spritecloud.com                                 # generate from a live URL
+reviewqa probe --url=https://shop.example.com --coverage depth                   # bigger / deeper crawl
+reviewqa prompt "verify the checkout flow" --url=https://shop.example.com        # focused, filter by NL
+reviewqa prompt "verify the contact form" --url=https://x.com --evidence         # also runs + bundles a ZIP
+reviewqa ledger update --report=playwright-report.json                           # merge fresh failures into findings.md
 ```
 
 The `probe` subcommand is useful when there's nothing in the diff to extract from — e.g. a fresh repo with only a README, or when the source of truth is a deployed site rather than the code. It fetches the URL, scans the HTML for `data-testid` / `<input>` / `<a href>` anchors, and emits a Playwright happy-flow.

@@ -30,8 +30,8 @@ import (
 // Honors a missing-`npx` / missing-Playwright environment by logging the
 // reason and writing the specs without running the tests — the consumer
 // can still inspect what was generated.
-func runPromptEvidence(ctx context.Context, cfg config.Config, urls []string, filter prompt.Filter) error {
-	items, errs := probe.RunAllWithFilter(ctx, urls, filter)
+func runPromptEvidence(ctx context.Context, cfg config.Config, urls []string, filter prompt.Filter, coverage probe.CoverageMode) error {
+	items, errs := probe.RunAllWithCoverage(ctx, urls, filter, coverage)
 	for _, e := range errs {
 		rlog.Warn("probe url failed", "err", e)
 	}
@@ -59,10 +59,22 @@ func runPromptEvidence(ctx context.Context, cfg config.Config, urls []string, fi
 	runCmd.Dir = cfg.WorkDir
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
+	// Pin the JSON reporter output so the ledger merge can find it.
+	runCmd.Env = append(os.Environ(),
+		"PLAYWRIGHT_JSON_OUTPUT_NAME=playwright-report.json",
+	)
 	if runErr := runCmd.Run(); runErr != nil {
 		// Failed tests are EXPECTED for an evidence pack (the whole point
 		// is to capture what happened, pass or fail). Log + carry on.
 		rlog.Warn("prompt --evidence: playwright exited non-zero", "err", runErr)
+	}
+
+	// Update the bug-discovery ledger from the just-emitted JSON report
+	// so the evidence ZIP includes findings.md with today's pass.
+	reportJSON := filepath.Join(cfg.WorkDir, "playwright-report.json")
+	ledgerPath := filepath.Join(cfg.WorkDir, "tests", "e2e", "docs", "findings.md")
+	if updErr := runLedgerUpdate(reportJSON, ledgerPath); updErr != nil {
+		rlog.Warn("prompt --evidence: ledger merge skipped", "err", updErr)
 	}
 
 	stamp := time.Now().UTC().Format("20060102-150405")
@@ -104,8 +116,12 @@ func writeRendered(workDir string, rs []gen.Rendered) []string {
 // playwrightInvocation returns the command+args to drive playwright. Prefers
 // a hoisted ./node_modules/.bin/playwright (no network), falls back to
 // `npx playwright`. Returns ("", nil) when neither is available.
+//
+// The reporter list includes JSON because the bug-discovery ledger
+// (runLedgerUpdate) reads it post-run. PLAYWRIGHT_JSON_OUTPUT_NAME is
+// set by the caller so the JSON lands at a predictable path.
 func playwrightInvocation(grep string) (string, []string) {
-	args := []string{"test", "--reporter=html,list"}
+	args := []string{"test", "--reporter=html,list,json"}
 	if grep != "" {
 		args = append(args, "--grep", grep)
 	}

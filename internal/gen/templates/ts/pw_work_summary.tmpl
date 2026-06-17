@@ -64,7 +64,7 @@
 <body>
 <header>
   <h1>reviewqa work summary</h1>
-  <div class="sub">{{.Catalogue.Origin}}{{if .Catalogue.GeneratedAt}} · generated {{.Catalogue.GeneratedAt}}{{end}}</div>
+  <div class="sub">{{.Catalogue.Origin}}{{if .Catalogue.GeneratedAt}} · generated {{.Catalogue.GeneratedAt}}{{end}}{{if .Catalogue.CoverageMode}} · coverage: <code>{{.Catalogue.CoverageMode}}</code>{{end}}</div>
 </header>
 <main>
 

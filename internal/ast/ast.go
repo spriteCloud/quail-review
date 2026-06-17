@@ -149,6 +149,24 @@ type Interaction struct {
 	Line int
 }
 
+// FormSpec describes a <form> element's submission contract. Drives the
+// API-contract test template (pw_api.tmpl): each FormSpec becomes one
+// sibling spec that hits the form's action endpoint directly with
+// happy / negative bodies, decoupling the API contract from the UI flow.
+//
+// EncType drives the Playwright request fixture's `form` vs `multipart`
+// vs `data` selection. Inputs is the same shape used elsewhere — the
+// API template renders deterministic test values per input type, just
+// like the happy-flow template does for fill().
+type FormSpec struct {
+	Action  string      // form action attribute, resolved to the page URL when relative
+	Method  string      // lowercased HTTP method; "" defaults to "get"
+	EncType string      // application/x-www-form-urlencoded | multipart/form-data | application/json
+	Inputs  []FormInput // fields the form posts
+	File    string
+	Line    int
+}
+
 // FormInput describes a single form field detected in a component or page.
 // Drives deterministic fill values in the Playwright happy-flow template.
 type FormInput struct {

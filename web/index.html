@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>reviewqa — by spriteCloud</title>
-  <meta name="description" content="A GitHub Action that watches a PR, opens a follow-up PR with generated tests for the new code, and heals broken Playwright locators.">
+  <meta name="description" content="A Go binary + GitHub Action that watches a PR (or any URL) and opens a follow-up PR with a runnable Playwright suite, API contract tests, journey-priority tags, a stakeholder catalogue, a work-summary deck, a bug-discovery ledger, and self-healing locators.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
@@ -261,9 +261,10 @@
         Tests <em>write themselves.</em>
       </h1>
       <p class="lead">
-        A single Go binary plus a GitHub Action that watches a PR,
-        opens a follow-up PR with generated tests for the new code,
-        and heals broken Playwright locators when they drift.
+        Give it a PR or a URL. Get back a runnable Playwright suite, API
+        contract tests, journey-priority tags, a stakeholder catalogue,
+        a work-summary deck, a bug-discovery ledger — and locator
+        self-heal when the DOM drifts. One Go binary. v0.20.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/marketplace/actions/reviewqa" data-testid="cta-install">Add to your repo</a>
@@ -289,19 +290,55 @@
         <div class="card">
           <div class="num">01</div>
           <h3>AST‑first scaffolding</h3>
-          <p>Regex and heuristic extractors derive test scaffolds from the diff deterministically — no LLM hallucination at the structural layer.</p>
+          <p>Regex and heuristic extractors derive test scaffolds from the diff or live URL deterministically — no LLM hallucination at the structural layer.</p>
         </div>
         <div class="card copper">
           <div class="num">02</div>
-          <h3>LLM only humanizes</h3>
-          <p>The model rewrites titles and step comments only. We diff the rewrite against the original; any structural drift falls back to the deterministic file.</p>
+          <h3>Journeys, priorities, tags</h3>
+          <p>Every test name carries <code>@journey:&lt;kind&gt;</code> and <code>@priority:&lt;level&gt;</code>. Run <code>--grep @priority:critical</code> on every PR; standard nightly; nice-to-have weekly.</p>
         </div>
         <div class="card">
           <div class="num">03</div>
+          <h3>API contracts + UI flows</h3>
+          <p>Every form on the site gets a sibling <code>*.api.spec.ts</code> — happy, missing-required, malformed-email, oversized, wrong-method — decoupled from the UI happy-flow.</p>
+        </div>
+        <div class="card">
+          <div class="num">04</div>
+          <h3>Stakeholder docs included</h3>
+          <p>Each run drops <code>tests/e2e/docs/test-catalogue.md</code> (every page, every journey, every priority) and a branded <code>summary.html</code> with a priority-mix bar. Reviewers don't need to read code.</p>
+        </div>
+        <div class="card copper">
+          <div class="num">05</div>
+          <h3>Bug-discovery ledger</h3>
+          <p>Failed tests don't die in CI logs — <code>reviewqa ledger update</code> merges them into <code>findings.md</code>, deduped by (spec, test), risk-weighted by priority, surviving across runs.</p>
+        </div>
+        <div class="card">
+          <div class="num">06</div>
           <h3>Self‑healing locators</h3>
           <p>Playwright locator failures get rewritten against the live DOM. Failed CI runs become passing CI runs without manual edits.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="features" id="stakeholder">
+    <div class="container">
+      <div class="section-head">
+        <span class="label">Coverage knobs</span>
+        <h2>Dial breadth vs. depth without forking the config.</h2>
+      </div>
+      <pre class="snippet" data-testid="coverage-snippet"><span class="c"># quick CI smoke (8 pages, 1 journey per kind, 3 fuzz specs)</span>
+reviewqa probe --url https://shop.example.com --coverage breadth
+
+<span class="c"># default — current behaviour (20 pages, 3 journeys per kind, 5 fuzz)</span>
+reviewqa probe --url https://shop.example.com
+
+<span class="c"># high-stakes audit (50 pages, 6 journeys per kind, 10 fuzz)</span>
+reviewqa probe --url https://shop.example.com --coverage depth
+
+<span class="c"># focused, prompt-driven, runs and bundles an evidence ZIP</span>
+reviewqa prompt "verify the checkout flow" \
+  --url https://shop.example.com --evidence</pre>
     </div>
   </section>
 

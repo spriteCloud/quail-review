@@ -110,6 +110,36 @@ async function collectPage(page, requestedURL) {
 
   // Form presence + named inputs.
   const hasForm = (await page.locator('form').count()) > 0
+
+  // Per-form submission contract: action, method, enctype, scoped inputs.
+  // Drives the API-contract test template; same-origin guard runs Go-side.
+  const forms = await page.evaluate(() => {
+    const out = []
+    for (const f of document.querySelectorAll('form')) {
+      const inputs = []
+      for (const el of f.querySelectorAll('input, select, textarea')) {
+        const tag = el.tagName.toLowerCase()
+        const t = el.getAttribute('type') || ''
+        if (tag === 'input' && (t === 'hidden' || t === 'submit' || t === 'button')) continue
+        inputs.push({
+          tag,
+          type: t,
+          name: el.getAttribute('name') || '',
+          testid: el.getAttribute('data-testid') || '',
+          aria: el.getAttribute('aria-label') || '',
+          placeholder: el.getAttribute('placeholder') || '',
+          required: el.hasAttribute('required'),
+        })
+      }
+      out.push({
+        action: f.getAttribute('action') || '',
+        method: (f.getAttribute('method') || '').toLowerCase(),
+        enctype: (f.getAttribute('enctype') || '').toLowerCase(),
+        inputs,
+      })
+    }
+    return out
+  })
   const inputHandles = await page.locator('input, select, textarea').elementHandles()
   const inputs = []
   for (const h of inputHandles.slice(0, 40)) {
@@ -174,6 +204,7 @@ async function collectPage(page, requestedURL) {
     inputs,
     interactions,
     domHTML,
+    forms,
   }
 }
 

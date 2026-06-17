@@ -55,7 +55,7 @@ func newRoot() *cobra.Command {
 		SilenceErrors: true,
 		Version:       version,
 	}
-	root.AddCommand(newGenerateCmd(), newHealCmd(), newScanCmd(), newProbeCmd(), newPromptCmd())
+	root.AddCommand(newGenerateCmd(), newHealCmd(), newScanCmd(), newProbeCmd(), newPromptCmd(), newLedgerCmd())
 	return root
 }
 
@@ -126,6 +126,7 @@ func newHealCmd() *cobra.Command {
 func newProbeCmd() *cobra.Command {
 	var urls []string
 	var dryRun bool
+	var coverage string
 	cmd := &cobra.Command{
 		Use:   "probe",
 		Short: "Fetch live URL(s), generate a Playwright happy-flow per URL, open a PR.",
@@ -140,11 +141,12 @@ func newProbeCmd() *cobra.Command {
 				return fmt.Errorf("probe: no urls provided (pass --url or set REVIEWQA_TARGET_URLS)")
 			}
 			cfg.DryRun = dryRun
-			return runProbe(cmd.Context(), cfg, urls)
+			return runProbe(cmd.Context(), cfg, urls, probe.ParseCoverage(coverage))
 		},
 	}
 	cmd.Flags().StringSliceVar(&urls, "url", nil, "URL to probe (repeatable; may also be set via REVIEWQA_TARGET_URLS env)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print rendered spec(s) instead of opening a PR")
+	cmd.Flags().StringVar(&coverage, "coverage", coverageDefault(), "Coverage mode: breadth | standard | depth (env: REVIEWQA_COVERAGE)")
 	return cmd
 }
 
@@ -152,6 +154,7 @@ func newPromptCmd() *cobra.Command {
 	var urls []string
 	var dryRun bool
 	var evidence bool
+	var coverage string
 	cmd := &cobra.Command{
 		Use:   "prompt [text]",
 		Short: "Generate Playwright tests for a focused area expressed as a natural-language prompt.",
@@ -187,16 +190,28 @@ Examples:
 			cfg.DryRun = dryRun
 			filter := prompt.Parse(text)
 			rlog.Info("prompt parsed", "summary", filter.Describe())
+			cov := probe.ParseCoverage(coverage)
 			if evidence {
-				return runPromptEvidence(cmd.Context(), cfg, urls, filter)
+				return runPromptEvidence(cmd.Context(), cfg, urls, filter, cov)
 			}
-			return runProbeWithFilter(cmd.Context(), cfg, urls, filter)
+			return runProbeWithFilter(cmd.Context(), cfg, urls, filter, cov)
 		},
 	}
 	cmd.Flags().StringSliceVar(&urls, "url", nil, "URL to probe (repeatable; may also be set via REVIEWQA_TARGET_URLS env)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print rendered spec(s) instead of opening a PR")
 	cmd.Flags().BoolVar(&evidence, "evidence", false, "Write specs to disk, run them, and bundle playwright-report/+test-results/ into a ZIP")
+	cmd.Flags().StringVar(&coverage, "coverage", coverageDefault(), "Coverage mode: breadth | standard | depth (env: REVIEWQA_COVERAGE)")
 	return cmd
+}
+
+// coverageDefault reads $REVIEWQA_COVERAGE, falling back to "standard"
+// when unset. Used as the cobra flag's Default so `--help` shows
+// whatever the environment has chosen.
+func coverageDefault() string {
+	if v := strings.TrimSpace(os.Getenv("REVIEWQA_COVERAGE")); v != "" {
+		return v
+	}
+	return string(probe.CoverageStandard)
 }
 
 func newScanCmd() *cobra.Command {
@@ -348,15 +363,15 @@ func siblingPath(p string) string {
 
 // runProbeWithFilter is the prompt-driven variant: same probe pipeline
 // as runProbe but with a journey-filter applied before generation.
-func runProbeWithFilter(ctx context.Context, cfg config.Config, urls []string, f prompt.Filter) error {
-	items, errs := probe.RunAllWithFilter(ctx, urls, f)
+func runProbeWithFilter(ctx context.Context, cfg config.Config, urls []string, f prompt.Filter, c probe.CoverageMode) error {
+	items, errs := probe.RunAllWithCoverage(ctx, urls, f, c)
 	return finishProbe(ctx, cfg, urls, items, errs)
 }
 
 // runProbe fetches each URL, renders a Playwright happy-flow per URL,
 // and either prints them (dry-run) or opens a PR with the new specs.
-func runProbe(ctx context.Context, cfg config.Config, urls []string) error {
-	items, errs := probe.RunAll(ctx, urls)
+func runProbe(ctx context.Context, cfg config.Config, urls []string, c probe.CoverageMode) error {
+	items, errs := probe.RunAllWithCoverage(ctx, urls, nil, c)
 	return finishProbe(ctx, cfg, urls, items, errs)
 }
 
@@ -448,6 +463,10 @@ func nonEmptyURLs(raw string) []string {
 // applyExistingFileMerge folds rendered scaffolds into the existing tree:
 // append-where-possible, sibling-when-merge-unsupported, fresh otherwise.
 // Mutates rendered[i].Content/Path when the file already exists.
+//
+// IfMissingOnly items short-circuit the merge: when the file already
+// exists, they're dropped from the output. Used by the bug-discovery
+// ledger so accumulated rows aren't clobbered by a re-probe.
 func applyExistingFileMerge(ctx context.Context, client *gh.Client, rendered []gen.Rendered, headSHA string) map[string][]byte {
 	out := map[string][]byte{}
 	for i, r := range rendered {
@@ -457,6 +476,10 @@ func applyExistingFileMerge(ctx context.Context, client *gh.Client, rendered []g
 		}
 		if !found {
 			out[r.Path] = r.Content
+			continue
+		}
+		if r.IfMissingOnly {
+			rlog.Info("skipping if-missing-only file (already present)", "path", r.Path)
 			continue
 		}
 		mergeOneOrSibling(&rendered[i], r, []byte(existing), out)

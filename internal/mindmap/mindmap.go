@@ -43,6 +43,10 @@ type Page struct {
 	// tests/e2e/_dom/<slug>.html so reviewers can diff what the browser
 	// actually rendered without re-running the probe.
 	DOMHTML string
+	// Forms carries the submission contract for each <form> on the page —
+	// action, method, enctype, fields. Drives the API-contract spec
+	// emitted as a sibling to the UI happy-flow.
+	Forms []ast.FormSpec
 }
 
 // Fetcher abstracts plan/probe's Fetch — injected so the mindmap package
@@ -135,6 +139,7 @@ func buildPage(u string, html []byte) *Page {
 	p.Meta = plan.ExtractMetaTags(html)
 	p.Title = plan.PageTitle(html)
 	p.HasForm = strings.Contains(strings.ToLower(string(html)), "<form")
+	p.Forms = plan.ExtractHTMLForms(u, html)
 	p.Tags = tagPage(p, html)
 	return p
 }

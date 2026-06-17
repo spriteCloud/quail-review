@@ -28,6 +28,8 @@ const (
 	TmplPlaywrightSteps     Template = "pw_steps"
 	TmplPlaywrightCatalogue Template = "pw_test_catalogue"
 	TmplPlaywrightSummary   Template = "pw_work_summary"
+	TmplPlaywrightAPI       Template = "pw_api"
+	TmplPlaywrightFindings  Template = "pw_findings"
 	TmplRaw                 Template = "raw" // sentinel: emit Item.RawContent verbatim
 	TmplPytestUnit          Template = "pytest_unit"
 	TmplPytestAPI           Template = "pytest_api"
@@ -57,6 +59,14 @@ type Item struct {
 	// gen.Render template path is bypassed. Used by the browser-mode DOM
 	// snapshot pipeline (Template = TmplRaw).
 	RawContent []byte
+	// Form, when non-nil, drives the API-contract spec template. The
+	// resolved absolute URL of the form's action sits in PageURL.
+	Form *ast.FormSpec
+	// IfMissingOnly tells the PR-write layer to skip this item when the
+	// target file already exists on disk / in the repo. Used by
+	// hand-editable companion files (findings.md ledger) so prior rows
+	// survive subsequent probe runs.
+	IfMissingOnly bool
 }
 
 // Catalogue is the suite-level data passed to the test-catalogue and
@@ -64,11 +74,12 @@ type Item struct {
 // identified, and where each spec landed — without re-reading the
 // mindmap from the template.
 type Catalogue struct {
-	Origin      string             // probed origin (scheme://host)
-	GeneratedAt string             // RFC3339 timestamp; empty when unknown
-	Pages       []CataloguePage    // every page the crawler visited
-	Journeys    []CatalogueJourney // every journey identified
-	Fuzz        []CatalogueFuzz    // per-page fuzz specs
+	Origin       string             // probed origin (scheme://host)
+	GeneratedAt  string             // RFC3339 timestamp; empty when unknown
+	Pages        []CataloguePage    // every page the crawler visited
+	Journeys     []CatalogueJourney // every journey identified
+	Fuzz         []CatalogueFuzz    // per-page fuzz specs
+	CoverageMode string             // breadth | standard | depth
 }
 
 type CataloguePage struct {

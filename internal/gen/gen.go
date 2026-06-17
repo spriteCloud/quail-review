@@ -33,6 +33,10 @@ type Rendered struct {
 	Content      []byte
 	Symbol       ast.Symbol
 	QualityNotes []string // one entry per weak / skipped locator found in this spec
+	// IfMissingOnly mirrors plan.Item.IfMissingOnly through to the
+	// PR-write layer — when true, the writer must NOT overwrite an
+	// existing file. Used by the bug-discovery ledger.
+	IfMissingOnly bool
 }
 
 func Render(items []plan.Item, workDir string) ([]Rendered, error) {
@@ -43,7 +47,7 @@ func Render(items []plan.Item, workDir string) ([]Rendered, error) {
 		// snapshot pipeline so probed HTML lands beside the specs without
 		// going through Go's text/template (which would escape it).
 		if it.Template == plan.TmplRaw {
-			out = append(out, Rendered{Path: it.OutPath, Content: it.RawContent, Symbol: it.Symbol})
+			out = append(out, Rendered{Path: it.OutPath, Content: it.RawContent, Symbol: it.Symbol, IfMissingOnly: it.IfMissingOnly})
 			log.Debug("emitted raw artifact", "path", it.OutPath, "bytes", len(it.RawContent))
 			continue
 		}
@@ -63,12 +67,12 @@ func Render(items []plan.Item, workDir string) ([]Rendered, error) {
 		var notes []string
 		switch it.Template {
 		case plan.TmplPlaywrightCatalogue, plan.TmplPlaywrightSummary,
-			plan.TmplPlaywrightSteps:
+			plan.TmplPlaywrightSteps, plan.TmplPlaywrightFindings:
 			content = buf.Bytes()
 		default:
 			content, notes = annotateQualityReport(buf.Bytes(), it.Symbol)
 		}
-		out = append(out, Rendered{Path: it.OutPath, Content: content, Symbol: it.Symbol, QualityNotes: notes})
+		out = append(out, Rendered{Path: it.OutPath, Content: content, Symbol: it.Symbol, QualityNotes: notes, IfMissingOnly: it.IfMissingOnly})
 		log.Debug("rendered scaffold", "template", it.Template, "symbol", it.Symbol.Name, "path", it.OutPath, "quality_notes", len(notes))
 	}
 	return out, nil
@@ -170,6 +174,10 @@ func templateLocation(t plan.Template) (string, string) {
 		return "ts", "pw_test_catalogue.tmpl"
 	case plan.TmplPlaywrightSummary:
 		return "ts", "pw_work_summary.tmpl"
+	case plan.TmplPlaywrightAPI:
+		return "ts", "pw_api.tmpl"
+	case plan.TmplPlaywrightFindings:
+		return "ts", "pw_findings.tmpl"
 	case plan.TmplPytestUnit:
 		return "py", "pytest_unit.tmpl"
 	case plan.TmplPytestAPI:
@@ -442,6 +450,57 @@ var funcs = template.FuncMap{
 			return 100
 		}
 		return p
+	},
+	// apiMethod normalises a form's method attribute to a Playwright
+	// request fixture verb. Empty / unknown methods fall back to "post"
+	// because that matches the dominant intent for forms with an action
+	// — GET-style forms are uncommon enough that defaulting them to
+	// POST surfaces the misconfiguration in the response.
+	"apiMethod": func(m string) string {
+		switch strings.ToLower(strings.TrimSpace(m)) {
+		case "get":
+			return "get"
+		case "put":
+			return "put"
+		case "patch":
+			return "patch"
+		case "delete":
+			return "delete"
+		case "":
+			return "post"
+		}
+		return "post"
+	},
+	// apiEncType returns a human-readable enctype label for the docstring.
+	"apiEncType": func(e string) string {
+		if e == "" {
+			return "application/x-www-form-urlencoded (default)"
+		}
+		return e
+	},
+	// apiBodyKey returns the Playwright request option key for a given
+	// enctype: `form` for url-encoded, `multipart` for file uploads,
+	// `data` for application/json. Matches @playwright/test's request
+	// fixture API.
+	"apiBodyKey": func(e string) string {
+		switch strings.ToLower(strings.TrimSpace(e)) {
+		case "multipart/form-data":
+			return "multipart"
+		case "application/json":
+			return "data"
+		}
+		return "form"
+	},
+	// isOversizable mirrors firstOversizableInput's predicate but for
+	// a single input. The API negative-payload test fills the longest
+	// text-shaped field with 50k chars; other fields keep their normal
+	// values so the body is still structurally valid.
+	"isOversizable": func(i ast.FormInput) bool {
+		switch i.Type {
+		case "textarea", "text", "email", "url", "tel":
+			return true
+		}
+		return false
 	},
 }
 
@@ -761,11 +820,14 @@ type renderData struct {
 	// Catalogue is the aggregated suite-level data the catalogue + summary
 	// templates render against. Nil for spec-shaped templates.
 	Catalogue *plan.Catalogue
+	// Form is the FormSpec the API-contract template renders against.
+	Form *ast.FormSpec
 }
 
 func buildData(it plan.Item, workDir string) renderData {
 	d := renderData{Symbol: it.Symbol}
 	d.Catalogue = it.Catalogue
+	d.Form = it.Form
 	d.Symbols = it.Symbols
 	if len(d.Symbols) == 0 {
 		d.Symbols = []ast.Symbol{it.Symbol}

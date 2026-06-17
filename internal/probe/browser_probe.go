@@ -32,6 +32,14 @@ type browserPage struct {
 	Inputs       []browserInput     `json:"inputs"`
 	Interactions []browserInteract  `json:"interactions"`
 	DOMHTML      string             `json:"domHTML"`
+	Forms        []browserForm      `json:"forms"`
+}
+
+type browserForm struct {
+	Action  string         `json:"action"`
+	Method  string         `json:"method"`
+	EncType string         `json:"enctype"`
+	Inputs  []browserInput `json:"inputs"`
 }
 
 type browserLink struct {
@@ -214,6 +222,26 @@ func browserPageToMindmap(bp browserPage) *mindmap.Page {
 		OGType:          bp.Meta.OGType,
 		OGDescription:   bp.Meta.OGDescription,
 		Canonical:       bp.Meta.Canonical,
+	}
+
+	for _, f := range bp.Forms {
+		spec := ast.FormSpec{
+			Action:  f.Action,
+			Method:  strings.ToLower(f.Method),
+			EncType: strings.ToLower(f.EncType),
+		}
+		for _, in := range f.Inputs {
+			spec.Inputs = append(spec.Inputs, ast.FormInput{
+				Tag:         in.Tag,
+				Type:        in.Type,
+				Name:        in.Name,
+				TestID:      in.TestID,
+				Aria:        in.Aria,
+				Placeholder: in.Placeholder,
+				Required:    in.Required,
+			})
+		}
+		p.Forms = append(p.Forms, spec)
 	}
 
 	// Tags: derive via the existing mindmap.TagPage path — but TagPage is

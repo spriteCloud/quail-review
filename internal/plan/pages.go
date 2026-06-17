@@ -429,6 +429,46 @@ var reInputValue = regexp.MustCompile(`value\s*=\s*['"]([^'"]+)['"]`)
 // reButtonText captures the text content of a single-line <button>...</button>.
 var reButtonText = regexp.MustCompile(`<\s*button\b[^>]*>([^<]+)</\s*button\s*>`)
 
+// reFormOpen matches a `<form ...>` opening tag and captures the attribute
+// string. Multi-form pages are walked left-to-right by line.
+var reFormOpen = regexp.MustCompile(`<\s*form\b([^>]*)>`)
+
+// reFormAttrAction / reFormAttrMethod / reFormAttrEnctype pluck individual
+// attributes out of a form's attribute string.
+var (
+	reFormAttrAction  = regexp.MustCompile(`\baction\s*=\s*['"]([^'"]*)['"]`)
+	reFormAttrMethod  = regexp.MustCompile(`\bmethod\s*=\s*['"]([^'"]*)['"]`)
+	reFormAttrEnctype = regexp.MustCompile(`\benctype\s*=\s*['"]([^'"]*)['"]`)
+)
+
+// ExtractHTMLForms returns one FormSpec per <form> element found in the
+// page. Inputs are NOT scoped per-form by the static path (regex-only,
+// no DOM tree) — each FormSpec carries the page's full input set so
+// the API template renders a meaningful body. The browser-probe path
+// overrides with properly scoped per-form fields.
+func ExtractHTMLForms(file string, content []byte) []ast.FormSpec {
+	allInputs := ExtractHTMLInputs(file, content)
+	lines := strings.Split(string(content), "\n")
+	var out []ast.FormSpec
+	for i, line := range lines {
+		for _, m := range reFormOpen.FindAllStringSubmatch(line, -1) {
+			attrs := m[1]
+			spec := ast.FormSpec{File: file, Line: i + 1, Inputs: allInputs}
+			if am := reFormAttrAction.FindStringSubmatch(attrs); am != nil {
+				spec.Action = am[1]
+			}
+			if mm := reFormAttrMethod.FindStringSubmatch(attrs); mm != nil {
+				spec.Method = strings.ToLower(mm[1])
+			}
+			if em := reFormAttrEnctype.FindStringSubmatch(attrs); em != nil {
+				spec.EncType = strings.ToLower(em[1])
+			}
+			out = append(out, spec)
+		}
+	}
+	return out
+}
+
 // ExtractHTMLInputs collects form fields from a page's markup. Type/name/
 // required must appear inside the opening tag of the input. Placeholder and
 // label-for fallbacks are captured to support stable locators on inputs
