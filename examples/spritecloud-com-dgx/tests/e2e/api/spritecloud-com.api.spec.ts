@@ -16,9 +16,9 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — API contract test for https://www.spritecloud.com', () => {
+test.describe('WwwSpritecloudCom — API contract test for https://www.spritecloud.com endpoint', () => {
 
-  test('@kind:api @smoke: realistic form data returns success (2xx)', async ({ request }) => {
+  test('@kind:api @smoke: valid email in form returns 2xx response', async ({ request }) => {
     const response = await request.get('https://www.spritecloud.com', {
       form: {
         'email-2': 'test@example.com',
@@ -29,7 +29,7 @@ test.describe('WwwSpritecloudCom — API contract test for https://www.spriteclo
     expect(response.status()).toBeLessThan(400)
   })
 
-  test('@kind:api @negative: missing required fields returns client error (4xx)', async ({ request }) => {
+  test('@kind:api @negative: empty form returns 4xx error', async ({ request }) => {
     const response = await request.get('https://www.spritecloud.com', {
       form: {},
     })
@@ -39,7 +39,7 @@ test.describe('WwwSpritecloudCom — API contract test for https://www.spriteclo
     expect(response.status()).toBeLessThan(500)
   })
 
-  test('@kind:api @negative: malformed email returns client error (4xx) or includes validation message', async ({ request }) => {
+  test('@kind:api @negative: invalid email format returns 4xx or validation error', async ({ request }) => {
     const response = await request.get('https://www.spritecloud.com', {
       form: {
         'email-2': 'not-an-email',
@@ -56,7 +56,7 @@ test.describe('WwwSpritecloudCom — API contract test for https://www.spriteclo
     }
   })
 
-  test('@kind:api @negative: oversized payload does not trigger server error (5xx)', async ({ request }) => {
+  test('@kind:api @negative: large email value does not cause 5xx server error', async ({ request }) => {
     const huge = 'a'.repeat(50_000)
     const response = await request.get('https://www.spritecloud.com', {
       form: {

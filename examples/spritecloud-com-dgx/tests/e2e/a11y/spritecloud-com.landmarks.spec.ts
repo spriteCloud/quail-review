@@ -13,23 +13,23 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — accessibility landmark structure on https://www.spritecloud.com', () => {
-  test('@kind:a11y-landmarks @smoke verifies exactly one main, one h1, and at least one nav', async ({ page }) => {
+test.describe('WwwSpritecloudCom — accessibility landmarks @ https://www.spritecloud.com', () => {
+  test('@kind:a11y-landmarks @smoke ensures one main, one h1, and one navigation region', async ({ page }) => {
     await page.goto('/')
 
     const mains = await page.locator('main, [role="main"]').count()
-    expect.soft(mains, `expected exactly one <main> element`).toBe(1)
+    expect.soft(mains, `expected exactly one <main> region`).toBe(1)
 
     const h1s = await page.locator('h1').count()
-    expect.soft(h1s, `expected exactly one <h1> heading`).toBe(1)
+    expect.soft(h1s, `expected exactly one <h1>`).toBe(1)
 
     const navs = await page.locator('nav, [role="navigation"]').count()
-    expect.soft(navs, `expected at least one <nav> element`).toBeGreaterThanOrEqual(1)
+    expect.soft(navs, `expected at least one <nav> region`).toBeGreaterThanOrEqual(1)
   })
 
   test('@kind:a11y-landmarks @negative ensures no focusable elements inside aria-hidden regions', async ({ page }) => {
     await page.goto('/')
     const hiddenFocusables = await page.locator('[aria-hidden="true"]').locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').count()
-    expect.soft(hiddenFocusables, `found ${hiddenFocusables} focusable elements inside aria-hidden — problematic for screen readers`).toBe(0)
+    expect.soft(hiddenFocusables, `${hiddenFocusables} focusable elements inside aria-hidden — confusing for screen readers`).toBe(0)
   })
 })

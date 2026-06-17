@@ -84,6 +84,7 @@ const (
 	TmplPlaywrightVisualStates      Template = "pw_visual_states"
 	TmplPlaywrightKeyboardNav       Template = "pw_keyboard_nav"
 	TmplPlaywrightA11yLandmarks     Template = "pw_a11y_landmarks"
+	TmplPlaywrightSentinel          Template = "pw_sentinel"
 	TmplRaw                 Template = "raw" // sentinel: emit Item.RawContent verbatim
 	TmplPytestUnit          Template = "pytest_unit"
 	TmplPytestAPI           Template = "pytest_api"

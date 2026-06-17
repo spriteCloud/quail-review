@@ -13,8 +13,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Spritecloud cybersecurity page accessibility landmark structure', () => {
-  test('contains exactly one main region, one h1, and one nav region', async ({ page }) => {
+test.describe('Spritecloud cybersecurity page accessibility landmark checks', () => {
+  test('Verify single main region, heading, and navigation are present', async ({ page }) => {
     await page.goto('/cybersecurity')
 
     const mains = await page.locator('main, [role="main"]').count()
@@ -27,7 +27,7 @@ test.describe('Spritecloud cybersecurity page accessibility landmark structure',
     expect.soft(navs, `expected at least one <nav> region`).toBeGreaterThanOrEqual(1)
   })
 
-  test('no focusable elements inside aria-hidden regions', async ({ page }) => {
+  test('Ensure no focusable elements are inside aria-hidden regions', async ({ page }) => {
     await page.goto('/cybersecurity')
     const hiddenFocusables = await page.locator('[aria-hidden="true"]').locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').count()
     expect.soft(hiddenFocusables, `${hiddenFocusables} focusable elements inside aria-hidden — confusing for screen readers`).toBe(0)

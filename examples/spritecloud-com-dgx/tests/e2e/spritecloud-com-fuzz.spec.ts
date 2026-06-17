@@ -16,12 +16,12 @@
 import { test, expect } from './_fixtures'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — fuzz test with negative edge cases', () => {
+test.describe('WwwSpritecloudCom — fuzz testing for edge-case and invalid inputs', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
   })
 
-  test('@fuzz @negative email field accepts and safely handles edge values', async ({ page }) => {
+  test('@fuzz @negative email input field accepts and handles edge-case inputs', async ({ page }) => {
     const field = page.getByPlaceholder('Your email address').first()
     // Empty value: should be accepted by the field itself (validation
     // surfaces only on submit).

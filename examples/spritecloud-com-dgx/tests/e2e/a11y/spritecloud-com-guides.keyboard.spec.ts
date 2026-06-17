@@ -13,8 +13,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — keyboard navigation on /guides', () => {
-  test('tab through the first 10 focusable elements', async ({ page }) => {
+test.describe('WwwSpritecloudCom — Keyboard navigation on https://www.spritecloud.com/guides', () => {
+  test('Tabs through the first 10 focusable elements', async ({ page }) => {
     await page.goto('/guides')
 
     const focusables = await page.locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').all()
@@ -32,7 +32,7 @@ test.describe('WwwSpritecloudCom — keyboard navigation on /guides', () => {
     expect.soft(reached, `tab reached only ${reached} of ${max} focusables`).toBeGreaterThanOrEqual(Math.floor(max * 0.7))
   })
 
-  test('first tab-focused element has a visible focus indicator', async ({ page }) => {
+  test('@kind:keyboard @smoke First tab-focused element has a visible focus indicator', async ({ page }) => {
     await page.goto('/guides')
     await page.keyboard.press('Tab')
 

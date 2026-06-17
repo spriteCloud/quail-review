@@ -13,7 +13,7 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Website keyboard navigation on cybersecurity page', () => {
+test.describe('WwwSpritecloudCom keyboard navigation on /cybersecurity', () => {
   test('tabs through the first 10 focusable elements', async ({ page }) => {
     await page.goto('/cybersecurity')
 
@@ -29,10 +29,10 @@ test.describe('Website keyboard navigation on cybersecurity page', () => {
       }
     }
 
-    expect.soft(reached, `tabbed through only ${reached} of ${max} focusables`).toBeGreaterThanOrEqual(Math.floor(max * 0.7))
+    expect.soft(reached, `tab reached only ${reached} of ${max} focusables`).toBeGreaterThanOrEqual(Math.floor(max * 0.7))
   })
 
-  test('first focused element has a visible focus indicator', async ({ page }) => {
+  test('first tab-focused element has a visible focus indicator', async ({ page }) => {
     await page.goto('/cybersecurity')
     await page.keyboard.press('Tab')
 
@@ -42,6 +42,6 @@ test.describe('Website keyboard navigation on cybersecurity page', () => {
       const cs = getComputedStyle(el)
       return cs.outlineStyle !== 'none' || cs.boxShadow !== 'none'
     })
-    expect.soft(hasIndicator, 'first tabbed-to element lacks a visible focus indicator').toBe(true)
+    expect.soft(hasIndicator, 'first tab-focused element has no visible focus indicator').toBe(true)
   })
 })

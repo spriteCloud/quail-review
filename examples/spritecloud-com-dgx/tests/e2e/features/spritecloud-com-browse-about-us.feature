@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — browse journey
   So that the page delivers on its user goal
 
   @journey:browse @priority:standard @smoke
-  Scenario: browse journey ends on the destination page
+  Scenario: browse journey reaches its final page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -28,20 +28,48 @@ Feature: WwwSpritecloudCom — browse journey
     And the page title contains "About Us"
 
   @journey:browse @priority:standard @kind:resume
-  Scenario: browse — opening the destination page directly shows correct content
+  Scenario: browse — deep-link to the final page renders correctly
     Given I open the page "/about-us"
     Then I see the heading "Testing is in our DNA."
 
   @journey:browse @priority:standard @kind:back-button
-  Scenario: browse — using back button after navigation returns to the landing page
+  Scenario: browse — back button after navigation returns to the landing page
     Given I open the landing page
     When I click the link to "/about-us"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
 
   @journey:browse @priority:standard @kind:cross-journey
-  Scenario: navigate to home, switch back, and confirm no errors appear
+  Scenario: browse — switching to landing and back leaves no broken state
     Given I open the landing page
     When I navigate directly to "/"
     And I go back in the browser history
     Then no error message is shown in the form region
+
+  # ───────────────────────────────────────────────────────────────
+  # LLM-composed scenarios (model: qwen3-coder-next:latest)
+  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
+  # ───────────────────────────────────────────────────────────────
+
+  @journey:browse @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Verify top navigation links are present
+    Given I open the landing page
+    Then I see the heading "Test your software, not your reputation."
+    When I open the menu
+    Then I see the heading "/contact"
+    When I close the menu
+    Then the page has at least 10 items
+
+  @journey:browse @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Verify navigation to the test-automation page
+    Given I am on the landing page
+    When I click the link to "/test-automation"
+    Then the URL contains "/test-automation"
+    Then the page title contains "Test Automation"
+
+  @journey:browse @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Verify landing page loads without error
+    Given I open the landing page
+    Then the response status is 200
+    Then no error message is shown in the form region
+    Then no success message is shown

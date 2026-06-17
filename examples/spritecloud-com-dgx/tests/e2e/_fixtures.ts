@@ -5,19 +5,15 @@
 // without re-declaring them.
 import { test as base, expect } from '@playwright/test'
 
-// errorTrackedPage is a custom fixture wrapping the standard `page`
-// fixture. It installs a `pageerror` listener at the start of each
-// test and asserts the captured list is empty at the end.
+// `pageErrors` is a custom fixture that wraps the standard `page` fixture. It installs a `pageerror` listener at the start of each test and ensures no uncaught errors remain at the end.
 //
-// `expect.soft` is used for the final assertion so an uncaught JS
-// error is reported but doesn't cascade-fail any other soft assertions
-// emitted earlier in the test body.
+// `expect.soft` is used for the final assertion, so uncaught JavaScript errors are reported without failing earlier assertions.
 type Fixtures = {
   pageErrors: string[]
 }
 
 export const test = base.extend<Fixtures>({
-  // `auto: true` ensures the listener and final assertion run for every
+  // `auto: true` so the listener and the final assertion run for every
   // test in this suite without the spec having to declare `pageErrors`
   // in its function-parameter destructuring.
   pageErrors: [async ({ page }, use) => {

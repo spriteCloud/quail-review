@@ -18,13 +18,13 @@ import { test, expect } from '@playwright/test'
 const STATES = ['default', 'hover', 'focus'] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — Interaction-state visual checks @ https://www.spritecloud.com/on-demand', () => {
-  test('@kind:visual-state @smoke Primary CTA—default, hover, and focus states', async ({ page }) => {
+test.describe('WwwSpritecloudCom — interaction-state visuals for https://www.spritecloud.com/on-demand', () => {
+  test('@kind:visual-state @smoke primary CTA across default, hover, and focus states', async ({ page }) => {
     await page.goto('/on-demand')
     await page.waitForLoadState('networkidle').catch(() => {})
     const target = page.getByRole('link').first()
     if (await target.count() === 0) {
-      test.skip(true, 'No primary call-to-action link found on the page')
+      test.skip(true, 'no primary CTA detected on this page')
       return
     }
 
@@ -37,7 +37,7 @@ test.describe('WwwSpritecloudCom — Interaction-state visual checks @ https://w
           await target.focus().catch(() => {})
           break
         default:
-          // Default state (no interaction)
+          // default state — no interaction
           break
       }
       await expect(target).toHaveScreenshot(`wwwspritecloudcom-cta-${state}.png`, {

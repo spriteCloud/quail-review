@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — explore journey
   So that the page delivers on its user goal
 
   @journey:explore @priority:nice-to-have @smoke
-  Scenario: explore journey completes on the terminal page
+  Scenario: explore journey reaches its terminal page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,19 +26,19 @@ Feature: WwwSpritecloudCom — explore journey
     And the page title contains "spriteCloud - Penetration Testing"
 
   @journey:explore @priority:nice-to-have @kind:resume
-  Scenario: explore — deep-linking to the terminal page shows the correct content
+  Scenario: deep-link to the terminal page renders correctly
     Given I open the page "/cybersecurity"
     Then I see the heading "Fully Tailored Cybersecurity."
 
   @journey:explore @priority:nice-to-have @kind:back-button
-  Scenario: explore — using the back button after navigation returns to the landing page
+  Scenario: back button after navigation returns to landing
     Given I open the landing page
     When I click the link to "/cybersecurity"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
 
   @journey:explore @priority:nice-to-have @kind:cross-journey
-  Scenario: explore — navigating to landing and back leaves the page intact
+  Scenario: switching to landing and back leaves no broken state
     Given I open the landing page
     When I navigate directly to "/"
     And I go back in the browser history
@@ -50,19 +50,19 @@ Feature: WwwSpritecloudCom — explore journey
   # ───────────────────────────────────────────────────────────────
 
   @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: explore — guides section accessible
+  Scenario: explore contact page from landing
+    Given I open the landing page
+    When I click the link to "/contact"
+    Then the page title contains "Contact Us"
+
+  @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: functional testing link leads to correct page
+    Given I am on the landing page
+    When I click the link to "/functional-testing"
+    Then the URL contains "/functional-testing"
+
+  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: guides section is accessible
     Given I open the landing page
     When I click the link to "/guides"
     Then the page title contains "Guides"
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: explore — case studies page loads
-    Given I am on the landing page
-    When I click the link to "/case-studies"
-    Then the page title contains "Case Studies"
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: explore — scrolling to bottom shows expected content
-    Given I open the landing page
-    When I scroll to the bottom of the page
-    Then the main heading reads "Test your software, not your reputation."

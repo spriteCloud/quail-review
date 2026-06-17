@@ -13,8 +13,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Keyboard navigation on /on-demand (spritecloud.com)', () => {
-  test('Tabs through first 10 focusable elements', async ({ page }) => {
+test.describe('WwwSpritecloudCom — keyboard navigation on the on-demand page', () => {
+  test('tabs through the first 10 interactive elements', async ({ page }) => {
     await page.goto('/on-demand')
 
     const focusables = await page.locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').all()
@@ -29,10 +29,10 @@ test.describe('Keyboard navigation on /on-demand (spritecloud.com)', () => {
       }
     }
 
-    expect.soft(reached, `Only ${reached} of ${max} focusable elements received focus`).toBeGreaterThanOrEqual(Math.floor(max * 0.7))
+    expect.soft(reached, `accessible focus only reached ${reached} of ${max} interactive elements`).toBeGreaterThanOrEqual(Math.floor(max * 0.7))
   })
 
-  test('First tab-focused element has visible focus indicator', async ({ page }) => {
+  test('first element focused via tab has a visible focus indicator', async ({ page }) => {
     await page.goto('/on-demand')
     await page.keyboard.press('Tab')
 
@@ -42,6 +42,6 @@ test.describe('Keyboard navigation on /on-demand (spritecloud.com)', () => {
       const cs = getComputedStyle(el)
       return cs.outlineStyle !== 'none' || cs.boxShadow !== 'none'
     })
-    expect.soft(hasIndicator, 'First tab-focused element lacks visible focus indicator').toBe(true)
+    expect.soft(hasIndicator, 'no visible focus indicator on first tab-focused element').toBe(true)
   })
 })

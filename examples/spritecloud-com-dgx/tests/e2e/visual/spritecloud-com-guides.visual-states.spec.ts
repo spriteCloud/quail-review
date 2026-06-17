@@ -18,8 +18,8 @@ import { test, expect } from '@playwright/test'
 const STATES = ['default', 'hover', 'focus'] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Spritecloud Guides — visual state checks for primary CTA', () => {
-  test('Smoke test: primary CTA in default, hover, and focus states', async ({ page }) => {
+test.describe('WwwSpritecloudCom visual state checks for primary CTA on /guides', () => {
+  test('verifies visual states (default, hover, focus) of primary call-to-action', async ({ page }) => {
     await page.goto('/guides')
     await page.waitForLoadState('networkidle').catch(() => {})
     const target = page.getByRole('link').first()

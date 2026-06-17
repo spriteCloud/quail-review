@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — explore journey
   So that the page delivers on its user goal
 
   @journey:explore @priority:nice-to-have @smoke
-  Scenario: explore journey reaches the final page
+  Scenario: explore journey reaches the expected final page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,19 +26,19 @@ Feature: WwwSpritecloudCom — explore journey
     And the page title contains "spriteCloud - Performance Testing"
 
   @journey:explore @priority:nice-to-have @kind:resume
-  Scenario: deep-link to the final page renders correctly
+  Scenario: deep link to the final page loads and displays correctly
     Given I open the page "/performance-testing"
     Then I see the heading "Your Software Put Through its Paces."
 
   @journey:explore @priority:nice-to-have @kind:back-button
-  Scenario: back button returns to landing after navigation
+  Scenario: using the back button after navigation returns to the landing page
     Given I open the landing page
     When I click the link to "/performance-testing"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
 
   @journey:explore @priority:nice-to-have @kind:cross-journey
-  Scenario: switching to landing and back leaves no broken state
+  Scenario: switching to the landing page and back preserves a valid state
     Given I open the landing page
     When I navigate directly to "/"
     And I go back in the browser history
@@ -49,25 +49,8 @@ Feature: WwwSpritecloudCom — explore journey
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
-  @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: go to contact page from landing
-    Given I am on the landing page
-    When I click the link to "/contact"
-    Then the URL contains "/contact"
-    Then the main heading reads "Contact Us"
-
   @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: navigate to blog via the guides link
-    Given I am on the landing page
-    When I click the link to "/guides"
-    Then the URL contains "/guides"
-    Then I see the heading "Webinar Series"
-    When I click the link to "/blog"
-    Then the URL contains "/blog"
-
-  @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: load case studies page via direct URL
-    Given I open the page "/case-studies"
-    Then the page title contains "Case Studies"
-    Then the main heading reads "Real-World Success Stories"
-    Then the page has at least 3 items
+  Scenario: scrolling down shows all service offerings
+    Given I open the landing page
+    When I scroll to the bottom of the page
+    Then I see the heading "Test your software, not your reputation."

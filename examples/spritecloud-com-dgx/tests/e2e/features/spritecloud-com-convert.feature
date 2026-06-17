@@ -84,9 +84,9 @@ Feature: WwwSpritecloudCom — convert journey
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
-  @journey:convert @priority:critical @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Submit form with empty required fields
-    Given I open the landing page
+  @journey:convert @priority:critical @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Submit form without filling required field
+    Given I am on the landing page
     When I submit the form without filling any required field
     Then no success message is shown
-    Then no error message is shown in the form region
+    Then I remain on the same page
