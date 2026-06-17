@@ -69,3 +69,10 @@ func TestParse_Swagger2xStillFlattens(t *testing.T) {
 		t.Errorf("expected single GET /v1/users endpoint; got %+v", eps)
 	}
 }
+func TestParse(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		if err := Parse(nil); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}

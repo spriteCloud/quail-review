@@ -1,6 +1,10 @@
 package plan
 
-import "testing"
+import (
+	"testing"
+
+	"reflect"
+)
 
 func TestExtractImages_KeepsAlt(t *testing.T) {
 	html := []byte(`<html><body>
