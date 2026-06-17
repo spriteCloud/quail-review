@@ -156,6 +156,12 @@ func ProposeWithFeedback(ctx context.Context, llm Client, j Journey, n int, fb F
 		}
 	}
 	scenarios = Validate(scenarios)
+	// v0.62 — destination-DOM-aware drop. Scenarios that assert against
+	// a heading or title not matching the known destination metadata
+	// from j.Pages are dropped here. This addresses the F-1 finding
+	// from the v0.61 spritecloud run: ~5% of composed scenarios
+	// asserted H1 text the destination page does not render.
+	scenarios = ValidateAgainst(scenarios, j)
 	if len(scenarios) > n {
 		scenarios = scenarios[:n]
 	}
@@ -394,6 +400,106 @@ func Validate(in []ExtraScenario) []ExtraScenario {
 		out = append(out, s)
 	}
 	return out
+}
+
+// ValidateAgainst drops scenarios whose page-text assertions reference
+// a heading or title that does not match the known destination
+// metadata for that page. v0.62 — addresses the F-1 finding from the
+// v0.61 spritecloud run, where the composer occasionally asserted
+// destination H1 text the page does not render.
+//
+// Algorithm: walk each step in order, tracking the "current page" as
+// the journey progresses through link clicks and direct navigations.
+// On each assertion step that references heading or title text,
+// require a loose case-insensitive match against the current page's
+// recorded H1 or Title. Pages with no recorded metadata pass through
+// (we have no signal to refute), so the validator is strictly
+// additive — it only ever drops scenarios it can prove wrong.
+func ValidateAgainst(in []ExtraScenario, j Journey) []ExtraScenario {
+	pageByHref := map[string]PageContext{}
+	for _, p := range j.Pages {
+		pageByHref[p.Href] = p
+	}
+	landing := PageContext{Href: j.URL, Title: j.Title, H1: j.H1}
+	var out []ExtraScenario
+	for _, s := range in {
+		current := landing
+		ok := true
+		for _, st := range s.Steps {
+			text := strings.TrimSpace(st.Text)
+			if href, ok2 := extractNavTarget(text); ok2 {
+				if pc, found := pageByHref[href]; found {
+					current = pc
+				} else {
+					current = PageContext{Href: href}
+				}
+				continue
+			}
+			if asserted, kind, ok2 := extractTextAssertion(text); ok2 {
+				if !pageAssertionMatches(current, kind, asserted) {
+					ok = false
+					break
+				}
+			}
+		}
+		if ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+var (
+	reClickLink     = regexp.MustCompile(`^I click the link to "([^"]+)"$`)
+	reNavigateDirect = regexp.MustCompile(`^I navigate directly to "([^"]+)"$`)
+	reOpenPage      = regexp.MustCompile(`^I open the page "([^"]+)"$`)
+	reAssertHeading = regexp.MustCompile(`^the main heading reads "([^"]+)"$`)
+	reAssertSeeHead = regexp.MustCompile(`^I see the heading "([^"]+)"$`)
+	reAssertTitle   = regexp.MustCompile(`^the page title contains "([^"]+)"$`)
+)
+
+func extractNavTarget(text string) (string, bool) {
+	for _, re := range []*regexp.Regexp{reClickLink, reNavigateDirect, reOpenPage} {
+		if m := re.FindStringSubmatch(text); m != nil {
+			return m[1], true
+		}
+	}
+	return "", false
+}
+
+func extractTextAssertion(text string) (string, string, bool) {
+	if m := reAssertHeading.FindStringSubmatch(text); m != nil {
+		return m[1], "h1", true
+	}
+	if m := reAssertSeeHead.FindStringSubmatch(text); m != nil {
+		return m[1], "h1", true
+	}
+	if m := reAssertTitle.FindStringSubmatch(text); m != nil {
+		return m[1], "title", true
+	}
+	return "", "", false
+}
+
+// pageAssertionMatches returns true when the asserted text plausibly
+// matches the page's recorded H1 or Title. The match is loose:
+// case-insensitive substring either direction, since real assertions
+// often differ by a word or two from the registered heading.
+// Unknown pages (no metadata recorded) match permissively — we cannot
+// disprove them, so we keep the scenario.
+func pageAssertionMatches(p PageContext, kind, asserted string) bool {
+	known := p.H1
+	if kind == "title" {
+		known = p.Title
+	}
+	if strings.TrimSpace(known) == "" {
+		return true
+	}
+	a := strings.ToLower(strings.TrimSpace(asserted))
+	k := strings.ToLower(strings.TrimSpace(known))
+	if a == "" {
+		return true
+	}
+	return strings.Contains(k, a) || strings.Contains(a, k)
 }
 
 // allStepsRegistered returns true when every step in the scenario
