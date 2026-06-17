@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/reviewqa/reviewqa/internal/ast"
+	"github.com/reviewqa/reviewqa/internal/plan/patterns"
 )
 
 // reImgOpen matches an <img …> tag. Multiline attribute lists are fine.
@@ -46,6 +47,12 @@ func ExtractImages(file string, content []byte) []ast.ImageRef {
 			break
 		}
 		attrs := str[m[2]:m[3]]
+		// Pattern registry: drop aria-hidden / sr-only / Bootstrap-hidden
+		// images — they're in DOM but never visible. Asserting alt-text
+		// visibility on those produces false negatives.
+		if patterns.Decide(patterns.Context{Tag: "img", Attrs: attrs}) == patterns.ActionDrop {
+			continue
+		}
 		altMatch := reImgAlt.FindStringSubmatch(attrs)
 		if altMatch == nil {
 			continue

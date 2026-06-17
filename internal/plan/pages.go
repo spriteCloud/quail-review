@@ -14,6 +14,7 @@ import (
 
 	"github.com/reviewqa/reviewqa/internal/ast"
 	"github.com/reviewqa/reviewqa/internal/diff"
+	"github.com/reviewqa/reviewqa/internal/plan/patterns"
 	"github.com/reviewqa/reviewqa/internal/log"
 )
 
@@ -350,6 +351,13 @@ func ExtractHTMLAnchors(file string, content []byte) []ast.LocatorAnchor {
 		if m := rePageHTMLTag.FindStringSubmatch(line); m != nil {
 			tag = strings.ToLower(m[1])
 		}
+		// Pattern registry: drop anchors on intentionally-hidden / tracker
+		// markup. Catches skip-link aria-labels, sr-only spans, Bootstrap
+		// d-none, inline display:none, etc. — markup that's in the DOM
+		// but never visible to sighted users.
+		if patterns.Decide(patterns.Context{Tag: tag, Attrs: line}) == patterns.ActionDrop {
+			continue
+		}
 		if m := rePageHTMLTestID.FindStringSubmatch(line); m != nil {
 			anchors = append(anchors, ast.LocatorAnchor{TestID: m[1], File: file, Line: i + 1, Tag: tag})
 		}
@@ -365,6 +373,11 @@ func ExtractHTMLAnchors(file string, content []byte) []ast.LocatorAnchor {
 		// aria-label, then accessible name from value=/button-text).
 		for _, m := range reSubmitElementOpen.FindAllStringSubmatch(line, -1) {
 			attrs := m[2]
+			// Skip hidden submit buttons (some sites ship a hidden "real"
+			// submit alongside a visible JS-driven one).
+			if patterns.Decide(patterns.Context{Tag: strings.ToLower(m[1]), Attrs: attrs}) == patterns.ActionDrop {
+				continue
+			}
 			anchor := ast.LocatorAnchor{File: file, Line: i + 1, Tag: "submit"}
 			switch {
 			case rePageHTMLTestID.MatchString(attrs):
@@ -428,6 +441,12 @@ func ExtractHTMLInputs(file string, content []byte) []ast.FormInput {
 		for _, m := range reFormElementOpen.FindAllStringSubmatch(line, -1) {
 			tag := strings.ToLower(m[1])
 			attrs := m[2]
+			// Pattern registry: drop type="hidden" inputs (form_hidden
+			// pattern) plus any input/select/textarea inside a
+			// sr-only / aria-hidden wrapper.
+			if patterns.Decide(patterns.Context{Tag: tag, Attrs: attrs}) == patterns.ActionDrop {
+				continue
+			}
 			fi := ast.FormInput{File: file, Line: i + 1, Tag: tag}
 			if tag == "input" {
 				if im := rePageHTMLInputType.FindStringSubmatch(attrs); im != nil {
@@ -487,6 +506,12 @@ func ExtractHTMLLinks(file string, content []byte) []ast.LocatorAnchor {
 	for i, line := range lines {
 		for _, m := range reLinkOpen.FindAllStringSubmatch(line, -1) {
 			attrs := m[1]
+			// Pattern registry: drop skip-to-content / sr-only / aria-hidden
+			// links — they exist in the DOM but are never visible to
+			// sighted users, so we can't reliably click them.
+			if patterns.Decide(patterns.Context{Tag: "a", Attrs: attrs}) == patterns.ActionDrop {
+				continue
+			}
 			h := rePageHTMLHref.FindStringSubmatch(attrs)
 			if h == nil {
 				continue
