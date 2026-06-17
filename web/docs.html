@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>reviewqa — reference docs · by spriteCloud</title>
+  <meta name="description" content="Dense reference docs for reviewqa: subcommands, environment variables, the 10-layer test taxonomy, coverage modes, workflow recipes, and FAQ.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --deep-water: #1B365D;
+      --clear-blue: #4B8BBE;
+      --copper:     #C0805A;
+      --ink:        #0F1117;
+      --charcoal:   #1A1D26;
+      --graphite:   #2D3748;
+      --warm-white: #FAFAF7;
+      --mist:       #8899AA;
+      --border-warm:#E8E6E1;
+      --white:      #FFFFFF;
+      --wm-blue:    #0090D0;
+      --wm-gray:    #9DA5AE;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--graphite);
+      background: var(--warm-white);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--clear-blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+    .wm { font-family: 'Inter', sans-serif; font-weight: 900; letter-spacing: -0.05em; }
+    .wm .s { color: var(--wm-blue); }
+    .wm .c { color: var(--wm-gray); }
+    .label {
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--copper);
+    }
+    code, kbd {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.9em;
+      background: rgba(75,139,190,0.08);
+      color: var(--deep-water);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* NAV — same as index */
+    nav.top {
+      background: var(--ink);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 32px; max-width: 1120px; margin: 0 auto;
+    }
+    .nav-inner .wm { font-size: 20px; }
+    .nav-links { display: flex; gap: 28px; align-items: center; }
+    .nav-links a {
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.78);
+    }
+    .nav-links a:hover { color: var(--white); text-decoration: none; }
+    .nav-links a.active { color: var(--white); }
+    .nav-cta {
+      font-family: 'Fira Code', monospace;
+      font-size: 12px; font-weight: 500; letter-spacing: 0.10em; text-transform: uppercase;
+      background: var(--copper); color: var(--white) !important;
+      padding: 10px 18px; border-radius: 6px;
+    }
+    .nav-cta:hover { background: #a96d4a; text-decoration: none; }
+
+    /* HERO — leaner than index */
+    header.hero {
+      padding: 72px 0 40px;
+      border-bottom: 1px solid var(--border-warm);
+    }
+    header.hero .label { margin-bottom: 20px; display: inline-block; }
+    header.hero h1 {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: clamp(36px, 5vw, 56px);
+      line-height: 1.05;
+      letter-spacing: -0.035em;
+      color: var(--deep-water);
+      margin-bottom: 16px;
+    }
+    header.hero h1 em { font-style: normal; color: var(--clear-blue); }
+    header.hero p.lead {
+      font-size: 17px; line-height: 1.7; color: var(--graphite);
+      max-width: 720px;
+    }
+    .pixel-bar {
+      display: flex; align-items: flex-end; gap: 4px;
+      height: 48px; padding: 0; margin: 24px 0 0;
+    }
+    .pixel-bar span { display: block; width: 18px; background: var(--deep-water); }
+    .pb-1 { height: 10px; opacity: .25; }
+    .pb-2 { height: 16px; opacity: .35; }
+    .pb-3 { height: 12px; opacity: .30; }
+    .pb-4 { height: 22px; opacity: .45; }
+    .pb-5 { height: 18px; opacity: .40; }
+    .pb-6 { height: 28px; opacity: .55; }
+    .pb-7 { height: 24px; opacity: .50; }
+    .pb-8 { height: 34px; opacity: .70; }
+    .pb-9 { height: 46px; opacity: 1; background: var(--copper) !important; }
+    .pb-10 { height: 30px; opacity: .65; }
+    .pb-11 { height: 24px; opacity: .55; }
+    .pb-12 { height: 18px; opacity: .45; }
+    .pb-13 { height: 14px; opacity: .35; }
+    .pb-14 { height: 12px; opacity: .30; }
+    .pb-15 { height: 8px; opacity: .25; }
+
+    /* TOC */
+    .toc {
+      background: var(--white);
+      border: 1px solid var(--border-warm);
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin: 32px 0 56px;
+    }
+    .toc .label { margin-bottom: 16px; display: inline-block; }
+    .toc ol {
+      list-style: none;
+      counter-reset: toc;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px 32px;
+    }
+    .toc ol li { counter-increment: toc; font-size: 14px; color: var(--graphite); }
+    .toc ol li::before {
+      content: counter(toc, decimal-leading-zero);
+      font-family: 'Fira Code', monospace;
+      font-size: 11px; color: var(--copper);
+      margin-right: 12px; letter-spacing: 0.05em;
+    }
+    .toc ol li a { color: var(--deep-water); font-weight: 500; }
+
+    /* SECTIONS */
+    section.docs { padding: 24px 0 56px; }
+    section.docs > .container > h2 {
+      font-family: 'Sora', sans-serif; font-weight: 700;
+      font-size: clamp(24px, 3vw, 32px);
+      line-height: 1.15; letter-spacing: -0.025em;
+      color: var(--deep-water);
+      padding-top: 24px;
+      margin-bottom: 8px;
+    }
+    section.docs > .container > h2 .num {
+      font-family: 'Fira Code', monospace; font-size: 14px; font-weight: 500;
+      color: var(--copper); letter-spacing: 0.08em; margin-right: 14px;
+      vertical-align: middle;
+    }
+    section.docs > .container > p.lede {
+      font-size: 15px; color: var(--graphite);
+      max-width: 720px;
+      margin-bottom: 24px;
+    }
+    section.docs h3 {
+      font-family: 'Sora', sans-serif; font-weight: 600;
+      font-size: 18px; color: var(--deep-water);
+      margin: 32px 0 12px;
+      letter-spacing: -0.015em;
+    }
+
+    /* TABLES */
+    table.dense {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--white);
+      border: 1px solid var(--border-warm);
+      border-radius: 12px;
+      overflow: hidden;
+      font-size: 14px;
+      margin: 16px 0 24px;
+    }
+    table.dense th {
+      text-align: left;
+      font-family: 'Sora', sans-serif; font-weight: 600;
+      color: var(--deep-water);
+      background: rgba(75,139,190,0.06);
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-warm);
+      font-size: 13px;
+      letter-spacing: -0.01em;
+    }
+    table.dense td {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border-warm);
+      vertical-align: top;
+      line-height: 1.55;
+    }
+    table.dense tr:last-child td { border-bottom: none; }
+    table.dense td code { font-size: 12.5px; }
+
+    /* CODE BLOCK */
+    pre.snippet {
+      font-family: 'Fira Code', monospace; font-size: 13px; line-height: 1.7;
+      background: var(--charcoal); color: rgba(255,255,255,0.92);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 20px 22px; overflow-x: auto;
+      margin: 12px 0 24px;
+    }
+    pre.snippet .c { color: var(--mist); }
+    pre.snippet .k { color: var(--clear-blue); }
+    pre.snippet .v { color: var(--copper); }
+
+    /* FAQ */
+    details.faq-item {
+      background: var(--white);
+      border: 1px solid var(--border-warm);
+      border-radius: 12px;
+      padding: 18px 24px;
+      margin-bottom: 14px;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    details.faq-item[open] {
+      border-color: var(--clear-blue);
+      box-shadow: 0 8px 24px rgba(75,139,190,0.08);
+    }
+    details.faq-item > summary {
+      list-style: none; cursor: pointer;
+      font-family: 'Sora', sans-serif; font-weight: 600;
+      font-size: 16px; color: var(--deep-water);
+      letter-spacing: -0.01em;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    details.faq-item > summary::-webkit-details-marker { display: none; }
+    details.faq-item > summary::after {
+      content: '+'; font-family: 'Fira Code', monospace; font-weight: 500;
+      font-size: 20px; color: var(--copper); line-height: 1;
+      transition: transform .15s ease;
+    }
+    details.faq-item[open] > summary::after { content: '−'; }
+    details.faq-item > p, details.faq-item > pre {
+      margin-top: 12px; font-size: 14px; line-height: 1.7;
+      color: var(--graphite); max-width: 760px;
+    }
+
+    /* CALLOUT */
+    .callout {
+      background: rgba(192,128,90,0.08);
+      border-left: 3px solid var(--copper);
+      padding: 14px 20px;
+      border-radius: 6px;
+      margin: 16px 0;
+      font-size: 14px;
+      color: var(--graphite);
+    }
+    .callout strong { color: var(--deep-water); font-weight: 600; }
+
+    /* FOOTER */
+    footer.bottom {
+      background: var(--ink); color: rgba(255,255,255,0.65);
+      padding: 40px 0 36px; border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .foot-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 16px;
+    }
+    .foot-inner .wm { font-size: 18px; }
+    .foot-links { display: flex; gap: 22px; font-family: 'Fira Code', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .foot-links a { color: rgba(255,255,255,0.65); }
+
+    /* RESPONSIVE */
+    @media (max-width: 860px) {
+      .nav-links a:not(.nav-cta) { display: none; }
+      .toc ol { grid-template-columns: 1fr; }
+      table.dense { font-size: 12.5px; }
+      table.dense th, table.dense td { padding: 10px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="top">
+    <div class="nav-inner">
+      <a href="index.html" style="text-decoration:none;"><span class="wm" data-testid="wordmark"><span class="s">sprite</span><span class="c">Cloud</span></span></a>
+      <div class="nav-links">
+        <a href="index.html#features">Features</a>
+        <a href="index.html#examples">Examples</a>
+        <a href="docs.html" class="active">Docs</a>
+        <a href="index.html#faq">FAQ</a>
+        <a href="https://github.com/spriteCloud/reviewqa">GitHub</a>
+        <a class="nav-cta" href="https://github.com/marketplace/actions/reviewqa" data-testid="nav-cta">Install action</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="container">
+      <span class="label">reviewqa · reference</span>
+      <h1>The complete <em>reviewqa</em> reference.</h1>
+      <p class="lead">
+        Every subcommand, every environment variable, every taxonomy layer.
+        Dense and direct — bookmark a heading and link back when you need to.
+      </p>
+      <div class="pixel-bar" aria-hidden="true">
+        <span class="pb-1"></span><span class="pb-2"></span><span class="pb-3"></span>
+        <span class="pb-4"></span><span class="pb-5"></span><span class="pb-6"></span>
+        <span class="pb-7"></span><span class="pb-8"></span><span class="pb-9"></span>
+        <span class="pb-10"></span><span class="pb-11"></span><span class="pb-12"></span>
+        <span class="pb-13"></span><span class="pb-14"></span><span class="pb-15"></span>
+      </div>
+    </div>
+  </header>
+
+  <section class="docs" id="toc-section">
+    <div class="container">
+      <nav class="toc" aria-label="Table of contents">
+        <span class="label">On this page</span>
+        <ol>
+          <li><a href="#commands">Commands</a></li>
+          <li><a href="#taxonomy">The 10-layer taxonomy</a></li>
+          <li><a href="#env">Environment variables</a></li>
+          <li><a href="#coverage">Coverage modes</a></li>
+          <li><a href="#examples">Flagship examples</a></li>
+          <li><a href="#recipes">Workflow recipes</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ol>
+      </nav>
+    </div>
+  </section>
+
+  <section class="docs" id="commands">
+    <div class="container">
+      <h2><span class="num">01</span>Commands</h2>
+      <p class="lede">
+        One Go binary, eight subcommands. Each is a verb the operator runs
+        explicitly — nothing happens implicitly in the background.
+      </p>
+      <table class="dense">
+        <thead><tr><th>Command</th><th>What it does</th><th>Key flags</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>probe</code></td>
+            <td>Fetch a live URL, crawl its mindmap, emit a full Playwright + Gherkin suite. The most common starting point for any new site.</td>
+            <td><code>--url</code>, <code>--coverage</code> (breadth&nbsp;|&nbsp;standard&nbsp;|&nbsp;depth&nbsp;|&nbsp;max), <code>--llm &lt;url&gt;</code>, <code>--ignore-robots</code>, <code>--dry-run</code></td>
+          </tr>
+          <tr>
+            <td><code>prompt "&lt;text&gt;"</code></td>
+            <td>Probe a URL but scope to the journey kinds the prompt describes (e.g. "test the checkout flow"). Use <code>--evidence</code> to also run the suite and bundle the report.</td>
+            <td><code>--url</code>, <code>--coverage</code>, <code>--llm</code>, <code>--evidence</code></td>
+          </tr>
+          <tr>
+            <td><code>generate</code></td>
+            <td>Scan a PR's diff, fan source-code symbols out into per-aspect test scaffolds (unit + property + validator + jobs + email + i18n + integration), open a follow-up PR.</td>
+            <td><code>--pr &lt;N&gt;</code></td>
+          </tr>
+          <tr>
+            <td><code>scan</code></td>
+            <td>Dry-run for <code>generate</code> — print every spec it would emit without opening the PR. Use before pushing.</td>
+            <td><code>--pr &lt;N&gt;</code></td>
+          </tr>
+          <tr>
+            <td><code>heal</code></td>
+            <td>Repair broken Playwright locators. On-failure healing reads a Playwright report and proposes resilient selectors; proactive healing scans the whole suite.</td>
+            <td><code>--pr &lt;N&gt;</code>, <code>--report &lt;file&gt;</code></td>
+          </tr>
+          <tr>
+            <td><code>ledger update</code></td>
+            <td>Merge fresh Playwright failures into <code>tests/e2e/docs/findings.md</code>. Re-occurring rows bump LastSeen; resolved rows persist across runs.</td>
+            <td><code>--report &lt;file&gt;</code>, <code>--out &lt;path&gt;</code></td>
+          </tr>
+          <tr>
+            <td><code>run-once</code></td>
+            <td>Run the generated suite locally via <code>npx playwright test --reporter=json</code>. With <code>--record</code>, parses the report and updates the ledger so the next <code>generate</code> emits sentinel specs.</td>
+            <td><code>--workdir</code>, <code>--record</code>, <code>--report</code>, <code>--grep</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <strong>Tip.</strong> <code>probe</code> generates from a live URL; <code>generate</code> generates from a PR diff. Both can be augmented by the LLM composer via <code>--llm</code>. The composer is strictly opt-in and additive.
+      </div>
+    </div>
+  </section>
+
+  <section class="docs" id="taxonomy">
+    <div class="container">
+      <h2><span class="num">02</span>The 10-layer taxonomy</h2>
+      <p class="lede">
+        Every test reviewqa emits maps to one of ten layers, modeled after
+        the standard test pyramid expanded for modern web/API surfaces.
+        Layers 1, 2, 6, 9 trigger on PR-diff source code; the other six
+        emit on any live-URL probe.
+      </p>
+      <table class="dense">
+        <thead><tr><th>#</th><th>Layer</th><th>Triggers when</th><th>Template family</th><th>Demonstrated in</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Unit</td><td>PR diff adds a function/method</td><td><code>jest_unit</code> · <code>pytest_unit</code> · <code>gotest_unit</code> · <code>junit5_unit</code></td><td><code>generate</code> against any PR</td></tr>
+          <tr><td>2</td><td>Component</td><td>PR diff touches a Kind=Component symbol</td><td><code>pw_e2e</code></td><td><code>generate</code> against a UI PR</td></tr>
+          <tr><td>3</td><td>API</td><td>HTML form OR OpenAPI endpoint discovered</td><td><code>pw_api</code> (9 negatives) · <code>jest_api</code> · <code>pytest_api</code> · <code>gotest_httptest</code></td><td>both example projects</td></tr>
+          <tr><td>4</td><td>Contract</td><td>OpenAPI / GraphQL / Webhook discovered, OR always-attempt stubs (v0.49+)</td><td><code>pw_contract</code> · <code>openapi_compat</code> · <code>pw_graphql_stub</code> · <code>pw_webhook_stub</code></td><td><strong>petstore-swagger-io-dgx: 12 specs</strong></td></tr>
+          <tr><td>5</td><td>Integration</td><td>Always-on scaffold; real Testcontainers specs when <code>reviewqa.yml</code> declares resources</td><td><code>pw_integration_api_stub</code> · <code>integration_db</code> · <code>integration_broker</code> · …</td><td>both example projects</td></tr>
+          <tr><td>6</td><td>Backend</td><td>PR diff touches gRPC source</td><td><code>grpc_unary</code> · <code>grpc_server_stream</code> · <code>grpc_client_stream</code> · <code>grpc_bidi</code></td><td><code>generate</code> against a gRPC PR</td></tr>
+          <tr><td>7</td><td>UI</td><td>Every probed page</td><td>a11y · landmarks · keyboard · responsive · perf · visual · visual-states · security · health · observability · i18n</td><td>both example projects</td></tr>
+          <tr><td>8</td><td>Mobile</td><td>Every probed page (iPhone 13 emulation)</td><td><code>pw_mobile</code> · <code>pw_deeplink</code></td><td>both example projects</td></tr>
+          <tr><td>9</td><td>Data</td><td>PR diff touches dbt / pandera / Great-Expectations files</td><td><code>dbt_schema</code> · <code>pandera_conformance</code> · <code>great_expectations</code></td><td><code>generate</code> against a data PR</td></tr>
+          <tr><td>10</td><td>Non-functional</td><td>Every probed page</td><td>network · race · storage · zoom · a11y-prefs · print · clipboard · http-chains · file-upload · iframe · date-edges · pwa · history-depth · touch · dragdrop · auth-expiry · locale-switch · sentinels</td><td>both example projects</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="docs" id="env">
+    <div class="container">
+      <h2><span class="num">03</span>Environment variables</h2>
+      <p class="lede">
+        Every behavior change can be made via an environment variable or
+        a CLI flag — flags win when both are set. Defaults are tuned for
+        the public-cloud LLM case; local-LLM operators bump <code>REVIEWQA_LLM_TIMEOUT</code>
+        and set <code>REVIEWQA_HUMANIZE=0</code> for tight wall-clock budgets.
+      </p>
+      <table class="dense">
+        <thead><tr><th>Variable</th><th>Default</th><th>Effect</th></tr></thead>
+        <tbody>
+          <tr><td><code>REVIEWQA_LLM</code></td><td>(empty)</td><td>OpenAI-compatible endpoint. When set, the composer adds up to 5 <code>@llm-composed</code> Scenarios per journey. Strictly local-only — DGX is on Netbird.</td></tr>
+          <tr><td><code>REVIEWQA_MODEL</code></td><td><code>gpt-4o-mini</code></td><td>Model id used by the composer. Auto-set to <code>qwen3-coder-next:latest</code> when <code>--llm</code> points at the DGX.</td></tr>
+          <tr><td><code>REVIEWQA_LLM_LADDER</code></td><td>(empty)</td><td>Comma-separated model fallbacks. First to return parseable JSON wins; the chosen model is embedded as <code>@model:&lt;id&gt;</code> on each emitted Scenario.</td></tr>
+          <tr><td><code>REVIEWQA_LLM_TIMEOUT</code></td><td><code>60s</code></td><td>Per-call timeout. Bumped from 20s in v0.48 because the DGX takes 20-25s/call. Slower hardware: try <code>120s</code>+.</td></tr>
+          <tr><td><code>REVIEWQA_LLM_TOKEN_CAP</code></td><td><code>600</code></td><td>Max output tokens per LLM call.</td></tr>
+          <tr><td><code>REVIEWQA_HUMANIZE</code></td><td>(unset)</td><td>Set to <code>0</code> to skip the per-file humanization pass while keeping the composer active. Useful when generating hundreds of specs against a slow LLM.</td></tr>
+          <tr><td><code>REVIEWQA_ALLOW_DIFF_TO_LLM</code></td><td><code>0</code></td><td>Set to <code>1</code> to send the PR diff to the LLM for richer scaffold suggestions. Off by default — diff often contains secrets.</td></tr>
+          <tr><td><code>REVIEWQA_BROWSER_PROBE</code></td><td>(unset)</td><td>Set to <code>1</code> to drive Chromium (via Playwright) instead of the static HTML crawler. Required for SPA targets whose HTML is mostly JavaScript.</td></tr>
+          <tr><td><code>REVIEWQA_IGNORE_ROBOTS</code></td><td>(unset)</td><td>Set to <code>1</code> to crawl paths a <code>robots.txt</code> Disallow excludes. Default OFF — only enable for QA of sites you own.</td></tr>
+          <tr><td><code>REVIEWQA_COVERAGE</code></td><td><code>standard</code></td><td>Spider depth: <code>breadth</code> · <code>standard</code> · <code>depth</code> · <code>max</code>. See the next section.</td></tr>
+          <tr><td><code>REVIEWQA_TARGET_URLS</code></td><td>(empty)</td><td>Comma-separated URLs to probe — alternative to <code>--url</code>.</td></tr>
+          <tr><td><code>REVIEWQA_HEAL_MODE</code></td><td><code>on-failure</code></td><td><code>on-failure</code> · <code>proactive</code> · <code>off</code>. Controls when the locator-heal command runs.</td></tr>
+          <tr><td><code>REVIEWQA_GRAPHQL_ENDPOINT</code></td><td><code>/graphql</code></td><td>Override the GraphQL stub's introspection path.</td></tr>
+          <tr><td><code>REVIEWQA_WEBHOOK_ENDPOINT</code></td><td>(empty)</td><td>Set to the webhook receiver path to activate the signed-POST assertion in <code>pw_webhook_stub</code>.</td></tr>
+          <tr><td><code>REVIEWQA_WEBHOOK_SECRET</code></td><td>(empty)</td><td>HMAC signing secret used by <code>pw_webhook_stub</code>.</td></tr>
+          <tr><td><code>REVIEWQA_GITHUB_TOKEN</code></td><td>(empty)</td><td>GitHub token used to open the follow-up PR. Falls back to <code>GITHUB_TOKEN</code>.</td></tr>
+          <tr><td><code>REVIEWQA_BRANCH_PREFIX</code></td><td><code>reviewqa</code></td><td>Prefix for branches reviewqa pushes (e.g. <code>reviewqa/tests-pr-42-abc1234</code>).</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="docs" id="coverage">
+    <div class="container">
+      <h2><span class="num">04</span>Coverage modes</h2>
+      <p class="lede">
+        Four dials, all set in lockstep by one <code>--coverage</code> value.
+        <code>breadth</code> is for CI smoke; <code>standard</code> is the default;
+        <code>depth</code> is for high-stakes audits; <code>max</code> probes wide
+        product surfaces.
+      </p>
+      <table class="dense">
+        <thead><tr><th>Mode</th><th>Max pages</th><th>Max depth (BFS)</th><th>Journeys per kind</th><th>Fuzz cap</th></tr></thead>
+        <tbody>
+          <tr><td><code>breadth</code></td><td>8</td><td>2</td><td>1</td><td>3</td></tr>
+          <tr><td><code>standard</code> (default)</td><td>30</td><td>3</td><td>3</td><td>5</td></tr>
+          <tr><td><code>depth</code></td><td>75</td><td>5</td><td>6</td><td>10</td></tr>
+          <tr><td><code>max</code></td><td>120</td><td>5</td><td>6</td><td>10</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <strong>Local-LLM tip.</strong> Higher coverage means more journeys, which means more LLM calls. Combine <code>--coverage=depth</code> with <code>REVIEWQA_HUMANIZE=0</code> so per-file humanization doesn't dominate your wall-clock.
+      </div>
+    </div>
+  </section>
+
+  <section class="docs" id="examples">
+    <div class="container">
+      <h2><span class="num">05</span>Flagship examples</h2>
+      <p class="lede">
+        The two reference probes in the <code>examples/</code> directory of the
+        repo. They're complementary — the marketing site exercises layers
+        the API service can't, and vice versa.
+      </p>
+      <table class="dense">
+        <thead><tr><th></th><th><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/spritecloud-com-dgx">spritecloud-com-dgx</a></th><th><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/petstore-swagger-io-dgx">petstore-swagger-io-dgx</a></th></tr></thead>
+        <tbody>
+          <tr><td>Target shape</td><td>Marketing + lead-gen forms</td><td>API service with OpenAPI 3</td></tr>
+          <tr><td>Files emitted</td><td>118</td><td>41</td></tr>
+          <tr><td>Gherkin Scenarios</td><td>50 (14 <code>@llm-composed</code>)</td><td>0 (no UI journeys)</td></tr>
+          <tr><td>Contract layer</td><td>0 (no schema surface)</td><td><strong>12 contract specs</strong> from the OpenAPI 3 doc</td></tr>
+          <tr><td>API layer</td><td>1 form-based contract</td><td>4 endpoint-based contracts</td></tr>
+          <tr><td>Demonstrates</td><td>Per-page edge-case depth + composer-driven journey variants</td><td>Schema-driven test generation against a real OpenAPI 3 surface</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:8px;">Together they show all six probe-accessible taxonomy layers in action.</p>
+    </div>
+  </section>
+
+  <section class="docs" id="recipes">
+    <div class="container">
+      <h2><span class="num">06</span>Workflow recipes</h2>
+
+      <h3>Probe a live URL with the DGX</h3>
+<pre class="snippet"><span class="c"># Local-only — DGX is reachable via Netbird.</span>
+<span class="k">REVIEWQA_LLM</span>=http://100.82.34.115:11434 \
+  <span class="k">REVIEWQA_HUMANIZE</span>=0 \
+  reviewqa probe --url <span class="v">https://www.spritecloud.com</span> --coverage=standard</pre>
+
+      <h3>Probe an API-only target (lights up the Contract layer)</h3>
+<pre class="snippet">reviewqa probe --url <span class="v">https://petstore3.swagger.io</span> --coverage=standard
+<span class="c"># tests/e2e/contract/ → 12 OpenAPI-derived specs</span></pre>
+
+      <h3>Generate from a PR diff</h3>
+<pre class="snippet">reviewqa generate --pr <span class="v">42</span>
+<span class="c"># Scans the diff, emits per-aspect test scaffolds, opens a follow-up PR.</span></pre>
+
+      <h3>Bootstrap the sentinel layer</h3>
+<pre class="snippet"><span class="c"># 1) Probe + write the suite to disk</span>
+reviewqa probe --url <span class="v">https://example.com</span>
+
+<span class="c"># 2) Install + run it</span>
+cd e2e && npm i && npx playwright install
+
+<span class="c"># 3) Run once and record failures into findings.md</span>
+reviewqa run-once --record
+
+<span class="c"># 4) Re-probe — each failure now emits a tests/e2e/sentinels/&lt;slug&gt;.sentinel.spec.ts</span>
+reviewqa probe --url <span class="v">https://example.com</span></pre>
+
+      <h3>Run against your own LLM endpoint</h3>
+<pre class="snippet"><span class="k">REVIEWQA_LLM</span>=https://your-ollama.local:11434 \
+  <span class="k">REVIEWQA_MODEL</span>=llama3.1:70b \
+  <span class="k">REVIEWQA_LLM_TIMEOUT</span>=120s \
+  reviewqa probe --url <span class="v">https://your-site.example.com</span></pre>
+    </div>
+  </section>
+
+  <section class="docs" id="faq">
+    <div class="container">
+      <h2><span class="num">07</span>FAQ</h2>
+
+      <details class="faq-item">
+        <summary>My composer keeps failing with <code>unexpected end of JSON input</code>.</summary>
+        <p>Two fixes, both operational: (1) bump <code>REVIEWQA_LLM_TIMEOUT</code> to 120s+ so the model has time to finish its response; (2) set <code>REVIEWQA_HUMANIZE=0</code> to free LLM budget from the per-file humanization pass. v0.46 also added partial-array recovery — truncated responses contribute whatever Scenarios completed before the cliff.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>The probe says "no items produced" against my SPA.</summary>
+        <p>Static HTML crawl can't see JS-rendered content. Set <code>REVIEWQA_BROWSER_PROBE=1</code> to drive Chromium via Playwright — slower but sees the rendered DOM. Or, for API-only services, point the probe at the OpenAPI root: v0.52 fan-outs the contract + graphql + webhook layers even when no UI pages are discovered.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>Where do sentinels come from?</summary>
+        <p>They're emitted from the on-disk ledger at <code>tests/e2e/docs/findings.md</code>. Run <code>reviewqa run-once --record</code> after the first probe to populate it from real test failures; the next <code>generate</code> emits one <code>*.sentinel.spec.ts</code> per finding.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I use this in public CI without exposing the LLM?</summary>
+        <p>Yes — never set <code>REVIEWQA_LLM</code> in your CI. The generated <code>.feature</code> and <code>.spec.ts</code> files run on plain Playwright with zero LLM dependency. The composer only runs at generation time, locally.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do I activate the GraphQL or Webhook stub?</summary>
+        <p>The stub itself always emits per origin. Activate the live assertion by setting <code>REVIEWQA_GRAPHQL_ENDPOINT</code> (default <code>/graphql</code>) or <code>REVIEWQA_WEBHOOK_ENDPOINT</code> + <code>REVIEWQA_WEBHOOK_SECRET</code>. When unset, the test skips with a hint about how to wire it.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>What's the difference between <code>probe</code> and <code>generate</code>?</summary>
+        <p><code>probe</code> takes a live URL and emits the matrix-of-everything against the surface it crawls. <code>generate</code> takes a PR diff and fans the changed source-code symbols out into per-aspect test scaffolds. Both can be augmented by the LLM composer.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do I customize which taxonomy layers emit?</summary>
+        <p>Most quality companions are unconditional per page — they run cheap and the cost is paid once at generate time. To exclude a layer at runtime, use Playwright's <code>--grep-invert</code> with the tag (e.g. <code>--grep-invert @kind:perf</code>). To exclude a layer at emit time, fork the binary; the conditional gates live in <code>internal/probe/probe.go::qualityCompanions</code>.</p>
+      </details>
+    </div>
+  </section>
+
+  <footer class="bottom">
+    <div class="container foot-inner">
+      <span class="wm"><span class="s">sprite</span><span class="c">Cloud</span></span>
+      <div class="foot-links">
+        <a href="https://github.com/spriteCloud/reviewqa">Repo</a>
+        <a href="https://github.com/spriteCloud/reviewqa/issues">Issues</a>
+        <a href="https://github.com/spriteCloud/reviewqa/blob/main/LICENSE.md">License</a>
+        <a href="https://spritecloud.com">Commercial</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
