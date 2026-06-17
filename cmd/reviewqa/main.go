@@ -226,6 +226,7 @@ func newProbeCmd() *cobra.Command {
 	var dryRun bool
 	var coverage string
 	var llm string
+	var ignoreRobots bool
 	cmd := &cobra.Command{
 		Use:   "probe",
 		Short: "Fetch live URL(s), generate a Playwright happy-flow per URL, open a PR.",
@@ -254,14 +255,25 @@ LLM scenario composer (OPTIONAL):
 			}
 			cfg.DryRun = dryRun
 			applyLLMOverride(&cfg, llm)
+			applyIgnoreRobots(ignoreRobots)
 			return runProbe(cmd.Context(), cfg, urls, probe.ParseCoverage(coverage))
 		},
 	}
 	cmd.Flags().StringSliceVar(&urls, "url", nil, "URL to probe (repeatable; may also be set via REVIEWQA_TARGET_URLS env)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print rendered spec(s) instead of opening a PR")
-	cmd.Flags().StringVar(&coverage, "coverage", coverageDefault(), "Coverage mode: breadth | standard | depth (env: REVIEWQA_COVERAGE)")
+	cmd.Flags().StringVar(&coverage, "coverage", coverageDefault(), "Coverage mode: breadth | standard | depth | max (env: REVIEWQA_COVERAGE)")
 	cmd.Flags().StringVar(&llm, "llm", llmDefault(), "LLM scenario composer endpoint (e.g. http://100.82.34.115:11434). Local-only; never set in CI. (env: REVIEWQA_LLM)")
+	cmd.Flags().BoolVar(&ignoreRobots, "ignore-robots", false, "Crawl pages disallowed by robots.txt. Default OFF — only enable for QA of sites you own.")
 	return cmd
+}
+
+// applyIgnoreRobots forwards the CLI flag into the env var the probe
+// layer consults at crawl time. Keeps the probe package decoupled from
+// cobra. v0.41b.
+func applyIgnoreRobots(ignore bool) {
+	if ignore {
+		os.Setenv("REVIEWQA_IGNORE_ROBOTS", "1")
+	}
 }
 
 // applyLLMOverride enables the composer when --llm is provided. Sets
@@ -295,6 +307,7 @@ func newPromptCmd() *cobra.Command {
 	var evidence bool
 	var coverage string
 	var llm string
+	var ignoreRobots bool
 	cmd := &cobra.Command{
 		Use:   "prompt [text]",
 		Short: "Generate Playwright tests for a focused area expressed as a natural-language prompt.",
@@ -329,6 +342,7 @@ Examples:
 			}
 			cfg.DryRun = dryRun
 			applyLLMOverride(&cfg, llm)
+			applyIgnoreRobots(ignoreRobots)
 			filter := prompt.Parse(text)
 			rlog.Info("prompt parsed", "summary", filter.Describe())
 			cov := probe.ParseCoverage(coverage)
@@ -341,8 +355,9 @@ Examples:
 	cmd.Flags().StringSliceVar(&urls, "url", nil, "URL to probe (repeatable; may also be set via REVIEWQA_TARGET_URLS env)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print rendered spec(s) instead of opening a PR")
 	cmd.Flags().BoolVar(&evidence, "evidence", false, "Write specs to disk, run them, and bundle playwright-report/+test-results/ into a ZIP")
-	cmd.Flags().StringVar(&coverage, "coverage", coverageDefault(), "Coverage mode: breadth | standard | depth (env: REVIEWQA_COVERAGE)")
+	cmd.Flags().StringVar(&coverage, "coverage", coverageDefault(), "Coverage mode: breadth | standard | depth | max (env: REVIEWQA_COVERAGE)")
 	cmd.Flags().StringVar(&llm, "llm", llmDefault(), "LLM scenario composer endpoint (local-only; never set in CI). (env: REVIEWQA_LLM)")
+	cmd.Flags().BoolVar(&ignoreRobots, "ignore-robots", false, "Crawl pages disallowed by robots.txt. Default OFF — only enable for QA of sites you own.")
 	return cmd
 }
 

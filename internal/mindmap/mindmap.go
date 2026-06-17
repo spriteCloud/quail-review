@@ -55,13 +55,19 @@ type Fetcher func(ctx context.Context, url string) ([]byte, string, error)
 
 // Options control the crawl bounds.
 type Options struct {
-	MaxPages int // hard cap on pages crawled (default 10)
-	MaxDepth int // BFS depth from origin (default 2)
+	MaxPages int // hard cap on pages crawled (default 30)
+	MaxDepth int // BFS depth from origin (default 3)
+	// IgnoreRobots disables honoring robots.txt Disallow rules. The
+	// default (false) honors the rules — set true only when the
+	// operator explicitly asks via --ignore-robots (e.g. for an
+	// internal QA crawl of their own site that excludes /admin/ from
+	// public indexing but does want test coverage). v0.41b.
+	IgnoreRobots bool
 }
 
 func (o Options) withDefaults() Options {
 	if o.MaxPages <= 0 {
-		o.MaxPages = 20
+		o.MaxPages = 30
 	}
 	if o.MaxDepth <= 0 {
 		o.MaxDepth = 3
@@ -81,6 +87,13 @@ func Crawl(ctx context.Context, origin string, fetch Fetcher, opts Options) (*Ma
 		Origin: originURL.Scheme + "://" + originURL.Host,
 		Pages:  map[string]*Page{},
 	}
+	// Load and consult robots.txt Disallow rules unless the operator
+	// asked for them to be ignored. v0.41b.
+	var rules RobotsRules
+	if !opts.IgnoreRobots {
+		rules = LoadRobotsRules(ctx, out.Origin, fetch)
+	}
+	allowed := func(u string) bool { return rules.AllowPath(u) }
 	type queued struct {
 		url   string
 		depth int
@@ -90,6 +103,9 @@ func Crawl(ctx context.Context, origin string, fetch Fetcher, opts Options) (*Ma
 	// are the site's own declaration of "pages that matter" — much higher
 	// signal than third-level link discoveries the homepage didn't link to.
 	for _, u := range discoverSitemapURLs(ctx, out.Origin, fetch) {
+		if !allowed(u) {
+			continue
+		}
 		queue = append(queue, queued{url: u, depth: 1})
 	}
 	var errs []error
@@ -120,6 +136,9 @@ func Crawl(ctx context.Context, origin string, fetch Fetcher, opts Options) (*Ma
 				continue
 			}
 			if _, seen := out.Pages[abs]; seen {
+				continue
+			}
+			if !allowed(abs) {
 				continue
 			}
 			queue = append(queue, queued{url: abs, depth: head.depth + 1})

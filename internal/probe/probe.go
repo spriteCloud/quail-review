@@ -291,6 +291,10 @@ const (
 	CoverageBreadth  CoverageMode = "breadth"
 	CoverageStandard CoverageMode = "standard"
 	CoverageDepth    CoverageMode = "depth"
+	// CoverageMax pushes the spider as wide and deep as the in-process
+	// budget reasonably allows. Use when probing a real product surface
+	// — a marketing site rarely needs it. Added in v0.41b.
+	CoverageMax CoverageMode = "max"
 )
 
 // ParseCoverage maps a string to a CoverageMode, returning CoverageStandard
@@ -301,6 +305,8 @@ func ParseCoverage(raw string) CoverageMode {
 		return CoverageBreadth
 	case string(CoverageDepth):
 		return CoverageDepth
+	case string(CoverageMax):
+		return CoverageMax
 	case "", string(CoverageStandard):
 		return CoverageStandard
 	}
@@ -308,14 +314,20 @@ func ParseCoverage(raw string) CoverageMode {
 }
 
 // crawlOpts returns the mindmap.Options for this coverage mode.
+//
+// v0.41b — bumped MaxPages on standard (20→30) and depth (50→75) to
+// match the depth-closing arc's promise of probing real product
+// surfaces, not just landing pages. Max mode is new.
 func (c CoverageMode) crawlOpts() mindmap.Options {
 	switch c {
 	case CoverageBreadth:
 		return mindmap.Options{MaxPages: 8, MaxDepth: 2}
 	case CoverageDepth:
-		return mindmap.Options{MaxPages: 50, MaxDepth: 4}
+		return mindmap.Options{MaxPages: 75, MaxDepth: 5}
+	case CoverageMax:
+		return mindmap.Options{MaxPages: 120, MaxDepth: 5}
 	}
-	return mindmap.Options{MaxPages: 20, MaxDepth: 3}
+	return mindmap.Options{MaxPages: 30, MaxDepth: 3}
 }
 
 // JourneysPerKind returns the cap on journeys emitted per journey kind.
@@ -361,7 +373,15 @@ func runAllImpl(ctx context.Context, urls []string, filter JourneyFilter, covera
 // keep cyclomatic complexity in check. Orchestrates crawl → journey
 // identification → filter → fan-out across the spec families.
 func probeOneOrigin(ctx context.Context, u string, coverage CoverageMode, filter JourneyFilter, fetcher mindmap.Fetcher, useBrowser bool) ([]plan.Item, []error) {
-	m, crawlErrs := crawlOriginWithFallback(ctx, u, fetcher, coverage.crawlOpts(), useBrowser)
+	opts := coverage.crawlOpts()
+	// v0.41b — REVIEWQA_IGNORE_ROBOTS=1 lets the operator disable
+	// robots.txt Disallow honoring (eg. for an internal QA crawl of
+	// their own site whose /admin/ is excluded from public indexing
+	// but is in scope for test generation). Default is to honor.
+	if os.Getenv("REVIEWQA_IGNORE_ROBOTS") == "1" {
+		opts.IgnoreRobots = true
+	}
+	m, crawlErrs := crawlOriginWithFallback(ctx, u, fetcher, opts, useBrowser)
 	if m == nil || len(m.Pages) == 0 {
 		return nil, crawlErrs
 	}
