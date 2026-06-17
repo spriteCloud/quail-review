@@ -63,6 +63,12 @@ type Symbol struct {
 	// extractor (search boxes, accordions, dialogs, tabs, …). The exercise
 	// journey emits one Playwright test block per Interaction.
 	Interactions []Interaction
+	// Images are the page's <img> tags carrying non-empty alt text — drives
+	// accessibility-friendly visibility assertions in generated specs.
+	Images []ImageRef
+	// Meta is the page's <meta> + <link rel=canonical> bag — drives SEO /
+	// social-share assertions on content-shaped journeys (read/research).
+	Meta MetaTags
 	// EnteredVia is the href the journey clicked to reach this page. Empty
 	// for the first symbol in a chain (the page is visited via direct goto).
 	EnteredVia string
@@ -82,6 +88,28 @@ type Symbol struct {
 type ContentAnchor struct {
 	Tag  string // "title" | "h1" | "h2" | "cta"
 	Text string // verbatim text content (trimmed)
+}
+
+// ImageRef describes a single <img> element from the page. We only keep
+// images with non-empty alt text — alt-less images carry no testable
+// semantic signal and emitting visibility assertions for them would just
+// be locator noise.
+type ImageRef struct {
+	Src  string
+	Alt  string
+	File string
+	Line int
+}
+
+// MetaTags is the page-level head metadata: SEO + social-share signals
+// that content-shaped journeys (read, research) assert against.
+type MetaTags struct {
+	OGTitle         string // <meta property="og:title">
+	OGType          string // <meta property="og:type">
+	OGDescription   string // <meta property="og:description">
+	Description     string // <meta name="description">
+	Canonical       string // <link rel="canonical" href="...">
+	ViewportContent string // <meta name="viewport"> — captured for SEO sanity, not currently asserted
 }
 
 // Interaction describes an in-page interactive component detected by the

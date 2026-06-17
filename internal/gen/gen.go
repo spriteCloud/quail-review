@@ -280,6 +280,29 @@ var funcs = template.FuncMap{
 		}
 		return ast.ContentAnchor{}
 	},
+	// firstH2s returns the first n h2 anchors in `cs`. Used per step so
+	// chained-step assertions include sub-heading visibility — h2 was
+	// previously emitted only as a fallback when no anchors existed.
+	"firstH2s": func(cs []ast.ContentAnchor, n int) []ast.ContentAnchor {
+		var out []ast.ContentAnchor
+		for _, c := range cs {
+			if c.Tag != "h2" {
+				continue
+			}
+			out = append(out, c)
+			if len(out) >= n {
+				break
+			}
+		}
+		return out
+	},
+	// topImages returns the first n images carrying non-empty alt text.
+	"topImages": func(imgs []ast.ImageRef, n int) []ast.ImageRef {
+		if len(imgs) > n {
+			return imgs[:n]
+		}
+		return imgs
+	},
 	"rankedNavTargetsExcluding": func(links []ast.LocatorAnchor, n int, exclude string) []ast.LocatorAnchor {
 		filtered := make([]ast.LocatorAnchor, 0, len(links))
 		for _, l := range links {
@@ -320,17 +343,26 @@ var funcs = template.FuncMap{
 }
 
 // contentLocator builds a Playwright locator for a content-text anchor —
-// h1/h2/CTA text. Falls back to a text= matcher when the tag isn't a
-// heading. Escaping is conservative (single quotes only).
+// h1/h2/CTA text.
+//
+// h1 uses getByRole (the accessibility-tree path) because h1 is expected
+// to be visible at the top of every page; if it isn't, the test should
+// fail. h2 uses a tag-based locator instead because some sites hide h2s
+// via CSS (display:none for SEO outline purposes) — those get filtered
+// out of the accessibility tree but DO exist in DOM, and we want
+// toBeAttached to still find them.
+//
+// The result embeds inside a regex literal, so apostrophes are not
+// pre-escaped (regex literals don't need them; pre-escaping would double
+// up against regexEscape's backslash handling).
 func contentLocator(c ast.ContentAnchor) string {
-	text := strings.ReplaceAll(c.Text, "'", "\\'")
 	switch c.Tag {
 	case "h1":
-		return fmt.Sprintf("getByRole('heading', { level: 1, name: /%s/i })", regexEscape(text))
+		return fmt.Sprintf("getByRole('heading', { level: 1, name: /%s/i })", regexEscape(c.Text))
 	case "h2":
-		return fmt.Sprintf("getByRole('heading', { level: 2, name: /%s/i })", regexEscape(text))
+		return fmt.Sprintf("locator('h2', { hasText: /%s/i })", regexEscape(c.Text))
 	}
-	return fmt.Sprintf("getByText(/%s/i)", regexEscape(text))
+	return fmt.Sprintf("getByText(/%s/i)", regexEscape(c.Text))
 }
 
 // escapeJSString conservatively escapes single quotes and backslashes so

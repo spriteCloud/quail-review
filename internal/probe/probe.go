@@ -338,6 +338,8 @@ func symbolFromPage(p *mindmap.Page) ast.Symbol {
 		Links:        p.Links,
 		Contents:     p.Contents,
 		Interactions: p.Interactions,
+		Images:       p.Images,
+		Meta:         p.Meta,
 		PageTitle:    p.Title,
 		HasForm:      p.HasForm,
 	}

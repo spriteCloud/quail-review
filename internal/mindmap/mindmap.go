@@ -34,6 +34,8 @@ type Page struct {
 	Links        []ast.LocatorAnchor
 	Contents     []ast.ContentAnchor
 	Interactions []ast.Interaction
+	Images       []ast.ImageRef
+	Meta         ast.MetaTags
 	HasForm      bool
 	Tags         []string // landing | form | list | detail | …
 }
@@ -124,6 +126,8 @@ func buildPage(u string, html []byte) *Page {
 	p.Links = ast.DedupLinks(plan.ExtractHTMLLinks(u, html))
 	p.Contents = plan.ExtractContentAnchors(html)
 	p.Interactions = plan.ExtractHTMLInteractions(u, html)
+	p.Images = plan.ExtractImages(u, html)
+	p.Meta = plan.ExtractMetaTags(html)
 	p.Title = plan.PageTitle(html)
 	p.HasForm = strings.Contains(strings.ToLower(string(html)), "<form")
 	p.Tags = tagPage(p, html)

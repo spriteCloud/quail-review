@@ -9,13 +9,25 @@ const TARGET = BASE + '{{.PageURL}}'
 {{- end }}
 
 test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{{else}} page happy flow{{end}}', () => {
+  // Shared setup: one navigation per test, and any uncaught JS error
+  // during the test is collected so afterEach can fail the test on it.
+  // This catches "the page silently broke" classes of bugs that no
+  // single assertion would otherwise notice.
+  let pageErrors: string[]
+  test.beforeEach(async ({ page }) => {
+    pageErrors = []
+    page.on('pageerror', (e) => pageErrors.push(String(e)))
+    await page.goto(TARGET)
+  })
+  test.afterEach(() => {
+    expect.soft(pageErrors, 'no uncaught JS errors during the test').toHaveLength(0)
+  })
 {{- if eq .JourneyKind "exercise" }}
 {{- range $i := .Symbol.Interactions }}
 {{- $loc := interactionLocator $i }}
 {{- if eq $i.Kind "search" }}
 
   test('exercise: search box accepts input and navigates', async ({ page }) => {
-    await page.goto(TARGET)
     const box = page.{{$loc}}.first()
     await box.fill('{{fillValueForInteraction $i}}')
     await box.press('Enter')
@@ -25,7 +37,6 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
 {{- else if eq $i.Kind "dialog" }}
 
   test('exercise: dialog opens and closes', async ({ page }) => {
-    await page.goto(TARGET)
     const dialog = page.{{$loc}}.first()
     // The dialog may already be open in HTML (popovertarget pattern) or
     // require a trigger click. We only assert open + escape-to-close.
@@ -34,7 +45,6 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
 {{- else if eq $i.Kind "details" }}
 
   test('exercise: details element expands and collapses{{if $i.Text}} ({{$i.Text}}){{end}}', async ({ page }) => {
-    await page.goto(TARGET)
     const d = page.{{$loc}}.first()
     await expect(d).toHaveJSProperty('open', false)
     await d.locator('summary').first().click()
@@ -45,7 +55,6 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
 {{- else if eq $i.Kind "collapse" }}
 
   test('exercise: collapse toggle flips aria-expanded{{if $i.Text}} ({{$i.Text}}){{end}}', async ({ page }) => {
-    await page.goto(TARGET)
     const trigger = page.{{$loc}}.first()
     const before = await trigger.getAttribute('aria-expanded')
     await trigger.click()
@@ -55,7 +64,6 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
 {{- else if eq $i.Kind "tab" }}
 
   test('exercise: tab activates{{if $i.Text}} ({{$i.Text}}){{end}}', async ({ page }) => {
-    await page.goto(TARGET)
     const tab = page.{{$loc}}.first()
     await tab.click()
     await expect(tab).toHaveAttribute('aria-selected', 'true')
@@ -63,7 +71,6 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
 {{- else if eq $i.Kind "date" }}
 
   test('exercise: {{$i.InputType}} input accepts a value', async ({ page }) => {
-    await page.goto(TARGET)
     const input = page.{{$loc}}.first()
     await input.fill('{{fillValueForInteraction $i}}')
     await expect(input).toHaveValue('{{fillValueForInteraction $i}}')
@@ -71,7 +78,6 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
 {{- else if eq $i.Kind "data-toggle" }}
 
   test('exercise: {{$i.Toggle}} toggle responds to click{{if $i.Text}} ({{$i.Text}}){{end}}', async ({ page }) => {
-    await page.goto(TARGET)
     const trigger = page.{{$loc}}.first()
     const before = await trigger.getAttribute('aria-expanded')
     await trigger.click()
@@ -85,7 +91,6 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
 {{- else if eq $i.Kind "popup" }}
 
   test('exercise: popup trigger reveals menu{{if $i.Text}} ({{$i.Text}}){{end}}', async ({ page }) => {
-    await page.goto(TARGET)
     const trigger = page.{{$loc}}.first()
     await trigger.click()
     // After clicking, an aria-expanded flip OR a visible menu/listbox.
@@ -100,8 +105,7 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
 {{- range $idx, $s := .Symbols }}
 {{- $intent := intentFor $s }}
 {{- if eq $idx 0 }}
-    // Step 1 — visit {{$.PageURL}} (intent: {{$intent}})
-    await page.goto(TARGET)
+    // Step 1 — visit {{$.PageURL}} (intent: {{$intent}}) — handled by beforeEach
 {{- else if $s.EnteredVia }}
 {{- if $s.DirectGoto }}
 
@@ -137,6 +141,31 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
 {{- $h1 := firstH1 $s.Contents }}
 {{- if $h1.Text }}
     await expect(page.{{contentLocator $h1}}.first()).toBeVisible()
+{{- end }}
+{{- /* Per-step h2 emit (capped at 2). Asserts the sub-heading is
+       attached to the DOM, not necessarily in the viewport — many sites
+       paint h2s in below-the-fold sections that haven't rendered when
+       Playwright checks. toBeAttached is the stable signal. Soft so a
+       renamed sub-heading doesn't cascade-fail the whole test. */ -}}
+{{- range $h2 := firstH2s $s.Contents 2 }}
+    await expect.soft(page.{{contentLocator $h2}}.first()).toBeAttached()
+{{- end }}
+{{- /* Landing-step image alt-text presence (capped at 2). Only on the
+       FIRST symbol — chained steps usually re-load global layout images. */ -}}
+{{- if eq $idx 0 }}
+{{- range $img := topImages $s.Images 2 }}
+    await expect.soft(page.getByAltText(/{{regexEscape $img.Alt}}/i).first()).toBeAttached()
+{{- end }}
+{{- /* Landing-step SEO assertions for content-shaped journeys. og:title
+       and meta-description are stable signals for read/research kinds. */ -}}
+{{- if or (eq $.JourneyKind "read") (eq $.JourneyKind "research") }}
+{{- if $s.Meta.Description }}
+    await expect.soft(page.locator('meta[name="description"]')).toHaveAttribute('content', /{{regexEscape $s.Meta.Description}}/i)
+{{- end }}
+{{- if $s.Meta.OGTitle }}
+    await expect.soft(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /{{regexEscape $s.Meta.OGTitle}}/i)
+{{- end }}
+{{- end }}
 {{- end }}
 {{- range $a := $s.Anchors }}
 {{- $loc := locatorFor $a }}
@@ -229,7 +258,6 @@ test.describe('{{.Symbol.Name}}{{if .JourneyKind}} — {{.JourneyKind}} journey{
 {{- if and $subloc $reqloc }}
 
   test('{{$.Symbol.Name}}: {{$s.Name}} blocks submit when required fields are empty', async ({ page }) => {
-    await page.goto(TARGET)
     await page.{{$subloc}}.first().click()
     await expect(page.{{$reqloc}}.first()).toBeVisible()
     await expect(page.locator('text=/success|welcome|signed in/i')).toHaveCount(0)
