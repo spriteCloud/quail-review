@@ -11,15 +11,16 @@ import (
 type JourneyKind string
 
 const (
-	JourneyConvert  JourneyKind = "convert"  // home → form → submit (newsletter / lead-gen)
-	JourneyExercise JourneyKind = "exercise" // single-page in-page component interactions
-	JourneyContact  JourneyKind = "contact"  // home → contact page → fill+submit
-	JourneyEvaluate JourneyKind = "evaluate" // home → pricing page (assert prices visible)
-	JourneyResearch JourneyKind = "research" // home → case-studies list → one case-study
-	JourneyBrowse   JourneyKind = "browse"   // home → list → detail
-	JourneyDiscover JourneyKind = "discover" // home → service page → CTA on that page
-	JourneyExplore  JourneyKind = "explore"  // home → top-nav link → sub-page
-	JourneyRead     JourneyKind = "read"     // home → article-shaped page
+	JourneyConvert      JourneyKind = "convert"      // home → form → submit (newsletter / lead-gen)
+	JourneyExercise     JourneyKind = "exercise"     // single-page in-page component interactions
+	JourneyContact      JourneyKind = "contact"      // home → contact page → fill+submit
+	JourneyAuthenticate JourneyKind = "authenticate" // home → /login → fill credentials → submit
+	JourneyEvaluate     JourneyKind = "evaluate"     // home → pricing page (assert prices visible)
+	JourneyResearch     JourneyKind = "research"     // home → case-studies list → one case-study
+	JourneyBrowse       JourneyKind = "browse"       // home → list → detail
+	JourneyDiscover     JourneyKind = "discover"     // home → service page → CTA on that page
+	JourneyExplore      JourneyKind = "explore"      // home → top-nav link → sub-page
+	JourneyRead         JourneyKind = "read"         // home → article-shaped page
 )
 
 // JourneyExercisesForm reports whether a journey kind's purpose is to
@@ -28,7 +29,7 @@ const (
 // submit the homepage email signup before navigating.
 func JourneyExercisesForm(k JourneyKind) bool {
 	switch k {
-	case JourneyConvert, JourneyContact:
+	case JourneyConvert, JourneyContact, JourneyAuthenticate:
 		return true
 	}
 	return false
@@ -37,15 +38,16 @@ func JourneyExercisesForm(k JourneyKind) bool {
 // journeyPriority orders kinds for dedup tie-breaking — higher priority
 // wins when two journeys terminate at the same page.
 var journeyPriority = map[JourneyKind]int{
-	JourneyConvert:  100,
-	JourneyExercise: 95,
-	JourneyContact:  90,
-	JourneyEvaluate: 80,
-	JourneyResearch: 70,
-	JourneyBrowse:   60,
-	JourneyDiscover: 50,
-	JourneyExplore:  40,
-	JourneyRead:     30,
+	JourneyConvert:      100,
+	JourneyExercise:     95,
+	JourneyContact:      90,
+	JourneyAuthenticate: 85,
+	JourneyEvaluate:     80,
+	JourneyResearch:     70,
+	JourneyBrowse:       60,
+	JourneyDiscover:     50,
+	JourneyExplore:      40,
+	JourneyRead:         30,
 }
 
 // Step is one leg of a journey. EnteredVia is empty for the first step
@@ -75,6 +77,7 @@ func IdentifyJourneys(m *Map, maxPerKind int) []Journey {
 	out = append(out, findConvertJourneys(m, maxPerKind)...)
 	out = append(out, findExerciseJourneys(m, maxPerKind)...)
 	out = append(out, findContactJourneys(m, maxPerKind)...)
+	out = append(out, findAuthJourneys(m, maxPerKind)...)
 	out = append(out, findEvaluateJourneys(m, maxPerKind)...)
 	out = append(out, findResearchJourneys(m, maxPerKind)...)
 	out = append(out, findBrowseJourneys(m, maxPerKind)...)
@@ -165,6 +168,38 @@ func findConvertJourneys(m *Map, max int) []Journey {
 			journey.Steps = []Step{
 				{Page: landing},
 				{Page: page, EnteredVia: via},
+			}
+		}
+		out = append(out, journey)
+		if len(out) >= max {
+			break
+		}
+	}
+	return out
+}
+
+// findAuthJourneys: landing → /login (or /signup) → fill credentials →
+// submit. Driven by the TagAuth page tag (login URL slug + password
+// input present). The template's auth branch uses the password-typed
+// input as the form-fill driver.
+func findAuthJourneys(m *Map, max int) []Journey {
+	landing := landingPage(m)
+	if landing == nil {
+		return nil
+	}
+	var out []Journey
+	for _, url := range m.Order {
+		page := m.Pages[url]
+		if !hasTag(page, TagAuth) {
+			continue
+		}
+		journey := Journey{Kind: JourneyAuthenticate}
+		if page.URL == landing.URL {
+			journey.Steps = []Step{{Page: page}}
+		} else {
+			journey.Steps = []Step{
+				{Page: landing},
+				{Page: page, EnteredVia: relativePath(page.URL)},
 			}
 		}
 		out = append(out, journey)

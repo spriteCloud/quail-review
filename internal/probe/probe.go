@@ -21,7 +21,10 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/publicsuffix"
+
 	"github.com/reviewqa/reviewqa/internal/ast"
+	"github.com/reviewqa/reviewqa/internal/log"
 	"github.com/reviewqa/reviewqa/internal/mindmap"
 	"github.com/reviewqa/reviewqa/internal/plan"
 )
@@ -121,6 +124,7 @@ func isPrivate(ip net.IP) bool {
 
 func buildClient(initialHost string) *http.Client {
 	hops := 0
+	initialBase := registrableDomain(initialHost)
 	return &http.Client{
 		Timeout: 10 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -128,8 +132,12 @@ func buildClient(initialHost string) *http.Client {
 			if hops > 3 {
 				return errors.New("too many redirects")
 			}
-			if req.URL.Host != initialHost {
-				return fmt.Errorf("cross-host redirect blocked: %s → %s", initialHost, req.URL.Host)
+			// Allow redirects within the same registrable domain (eTLD+1)
+			// so `www.example.com ↔ example.com`, `https://example.com →
+			// https://www.example.com`, etc. all follow correctly. SSRF
+			// safety still enforced by guardHost on the target.
+			if !sameRegistrableDomain(initialBase, req.URL.Host) {
+				return fmt.Errorf("cross-org redirect blocked: %s → %s", initialHost, req.URL.Host)
 			}
 			if err := guardHost(req.URL.Hostname()); err != nil {
 				return err
@@ -137,6 +145,30 @@ func buildClient(initialHost string) *http.Client {
 			return nil
 		},
 	}
+}
+
+// registrableDomain extracts the eTLD+1 from a host (e.g. "www.example.com"
+// → "example.com", "blog.example.co.uk" → "example.co.uk"). Returns the
+// raw host on any failure so the same-host special case still works.
+func registrableDomain(host string) string {
+	// Strip optional port.
+	if i := strings.IndexByte(host, ':'); i != -1 {
+		host = host[:i]
+	}
+	d, err := publicsuffix.EffectiveTLDPlusOne(host)
+	if err != nil {
+		return host
+	}
+	return d
+}
+
+// sameRegistrableDomain reports whether the host belongs to the same
+// registrable domain as the (already-parsed) base. Case-insensitive.
+func sameRegistrableDomain(base, host string) bool {
+	if base == "" {
+		return false
+	}
+	return strings.EqualFold(registrableDomain(host), base)
 }
 
 // BuildItem synthesises a plan.Item carrying the page's locator anchors,
@@ -217,12 +249,29 @@ func RunAll(ctx context.Context, urls []string) ([]plan.Item, []error) {
 	var items []plan.Item
 	var errs []error
 	fetcher := mindmapFetcher(ctx)
+	useBrowser := os.Getenv("REVIEWQA_BROWSER_PROBE") == "1"
 	for _, raw := range urls {
 		u := strings.TrimSpace(raw)
 		if u == "" {
 			continue
 		}
-		m, crawlErrs := mindmap.Crawl(ctx, u, fetcher, mindmap.Options{})
+		var m *mindmap.Map
+		var crawlErrs []error
+		if useBrowser {
+			m, crawlErrs = runBrowserCrawl(ctx, u)
+			if m == nil || len(m.Pages) == 0 {
+				// Fall back to static crawl on any failure (missing node,
+				// missing playwright, browser probe error). Static still
+				// produces SOMETHING for every reachable site.
+				for _, e := range crawlErrs {
+					log.Warn("browser probe failed; falling back to static", "err", e)
+				}
+				crawlErrs = nil
+				m, crawlErrs = mindmap.Crawl(ctx, u, fetcher, mindmap.Options{})
+			}
+		} else {
+			m, crawlErrs = mindmap.Crawl(ctx, u, fetcher, mindmap.Options{})
+		}
 		errs = append(errs, crawlErrs...)
 		if m == nil || len(m.Pages) == 0 {
 			continue

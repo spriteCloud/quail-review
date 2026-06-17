@@ -56,6 +56,13 @@ exercises our English-only nav vocabulary fallback.
 
 ## Known gaps surfaced by this workflow
 
+### New in v0.15.0
+
+- **Playwright-driven probe mode (opt-in)** via `REVIEWQA_BROWSER_PROBE=1`. The Go binary execs an embedded Node.js script that drives Chromium, dismisses cookie banners, expands `aria-haspopup` dropdowns, and emits rendered DOM JSON. Surfaces dropdown-only routes the static probe can't see, and uses real visibility checks instead of HTML class hints. Falls back to static crawl on any error (missing Node, missing @playwright/test, browser timeout).
+- **Cross-host redirects now respected when within the same registrable domain** (eTLD+1 via `golang.org/x/net/publicsuffix`). `www.example.com ↔ example.com`, `http://example.com → https://www.example.com` etc all follow now. SSRF guards still applied per-hop. Fixed: probing a www-stripping marketing site previously returned zero pages.
+- **`Sitemap:` directives in robots.txt** now feed the sitemap discovery pipeline. Sites that publish non-default sitemap paths (`/wp-sitemap.xml`, `/sitemap-posts.xml`) are now discovered.
+- **New `authenticate` journey**: landing → `/login` (auth-tagged page with password input) → fill credentials → submit. Single spec per detected auth page.
+
 ### New in v0.12.0
 
 - **In-page component interactions are now tested.** A new `exercise`

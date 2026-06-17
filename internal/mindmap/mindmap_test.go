@@ -258,6 +258,32 @@ func TestDiscoverSitemapURLs(t *testing.T) {
 	}
 }
 
+func TestFindAuthJourneys(t *testing.T) {
+	pages := fakeFetcher{
+		"https://x.test/": `<html><body><h1>Home</h1>
+<a href="/login">Sign in</a></body></html>`,
+		"https://x.test/login": `<html><body><h1>Login</h1>
+<form><input name="email" type="email"/>
+<input name="pw" type="password"/>
+<input type="submit"/></form></body></html>`,
+	}
+	m, _ := Crawl(context.Background(), "https://x.test/", pages.fetch, Options{MaxPages: 5, MaxDepth: 2})
+	js := IdentifyJourneys(m, 3)
+	var auth *Journey
+	for i := range js {
+		if js[i].Kind == JourneyAuthenticate {
+			auth = &js[i]
+			break
+		}
+	}
+	if auth == nil {
+		t.Fatalf("expected authenticate journey; got kinds %+v", js)
+	}
+	if len(auth.Steps) != 2 {
+		t.Errorf("expected 2-step journey (landing → /login); got %d", len(auth.Steps))
+	}
+}
+
 func TestIdentifyJourneys_ExerciseFromInteractivePage(t *testing.T) {
 	pages := fakeFetcher{
 		"https://x.test/": `<html><body><h1>Home</h1>

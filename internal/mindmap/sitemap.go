@@ -36,8 +36,20 @@ func discoverSitemapURLs(ctx context.Context, originRoot string, fetch Fetcher) 
 	const maxNestedSitemaps = 3
 	const maxURLs = 200
 
+	// Step 1: robots.txt-declared sitemap URLs. Many sites publish
+	// non-default sitemap paths (e.g. /wp-sitemap.xml, /sitemap-posts.xml,
+	// /sitemap-news.xml) and only announce them via robots.txt. Reading
+	// those first gives us the site's own opinion on what to crawl.
+	var urls []string
+	for _, u := range sitemapsFromRobotsTxt(ctx, originRoot, fetch) {
+		urls = append(urls, readSitemap(ctx, u, fetch)...)
+	}
+
+	// Step 2: default sitemap path.
 	primary := originRoot + "/sitemap.xml"
-	urls := readSitemap(ctx, primary, fetch)
+	if found := readSitemap(ctx, primary, fetch); len(found) > 0 {
+		urls = append(urls, found...)
+	}
 
 	if len(urls) == 0 {
 		// Some sites publish only sitemap_index.xml.

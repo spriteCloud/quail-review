@@ -19,6 +19,15 @@ const (
 	TagInteractive = "interactive" // ≥1 in-page interactive component detected
 )
 
+// TagsFromPage is the public entry point for tagging a page whose other
+// fields are already populated (used by the browser-driven probe, which
+// builds pages from rendered DOM JSON instead of raw HTML). Returns the
+// same shape as the internal tagPage path, just without the HTML
+// fallback for body-marker pricing detection.
+func TagsFromPage(p *Page) []string {
+	return tagPage(p, nil)
+}
+
 // tagPage applies heuristics. Multiple tags are allowed. The raw HTML is
 // only used by markers that need body text (e.g. pricing detection); pass
 // nil to skip body-based tags.
