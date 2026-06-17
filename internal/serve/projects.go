@@ -2,7 +2,6 @@ package serve
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -181,6 +180,3 @@ func itemFor(path string) ProjectListItem {
 	return ProjectListItem{Name: filepath.Base(path), Path: path}
 }
 
-// keep `errors` import live — used elsewhere in the package and we
-// reference it here so this file compiles standalone in tooling.
-var _ = errors.New

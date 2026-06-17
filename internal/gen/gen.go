@@ -19,6 +19,7 @@ import (
 	"github.com/reviewqa/reviewqa/internal/log"
 	"github.com/reviewqa/reviewqa/internal/mindmap"
 	"github.com/reviewqa/reviewqa/internal/plan"
+	"github.com/reviewqa/reviewqa/internal/probe"
 )
 
 //go:embed all:templates
@@ -529,27 +530,10 @@ var funcs = template.FuncMap{
 		}
 		return p
 	},
-	// brandFromOrigin turns "https://www.spritecloud.com" into
-	// "spritecloud.com" — strips the scheme and a leading "www.". Used
-	// by the work-summary cover so the headline reads as the brand,
-	// not as a URL ripped across multiple lines.
-	"brandFromOrigin": func(origin string) string {
-		s := strings.TrimSpace(origin)
-		for _, p := range []string{"https://", "http://"} {
-			if strings.HasPrefix(strings.ToLower(s), p) {
-				s = s[len(p):]
-				break
-			}
-		}
-		s = strings.TrimPrefix(s, "www.")
-		// Cut off path / query if present.
-		for _, c := range []string{"/", "?", "#"} {
-			if i := strings.Index(s, c); i != -1 {
-				s = s[:i]
-			}
-		}
-		return s
-	},
+	// brandFromOrigin turns "https://www.spritecloud.com" into the
+	// brand domain ("spritecloud"). Delegates to probe.BrandFromOrigin
+	// so the scheme / www / TLD-stripping rules stay in one place.
+	"brandFromOrigin": probe.BrandFromOrigin,
 	// countScaffoldOnlyLayers reports the test layers in scope for a
 	// probe-only run that are scaffold-only (Integration today, plus
 	// Contract when no schema was discovered). Drives the risk strip.

@@ -7,6 +7,65 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.79 — Scenario-card spacing fix + cleanup + docs refresh
+
+End-of-day wrap-up release. Five threads, single PR.
+
+### Scenario card empty-space bug
+v0.78 made `.scenario-head` `flex-direction: column`, but
+`.scenario-name-wrap` kept its old `flex: 1 1 260px` basis from
+v0.76 (when the head was a *row*). In a column-flex container that
+260 px is now the height basis — the wrap stretched to ~260 px
+tall even when content needed ~80 px, leaving a 200-px gap
+between the last-run pill and the action row. Fixed by switching
+`.scenario-name-wrap` to `flex: 0 0 auto` so it shrinks to
+content. Action row sits a clean 12 px under the pill now.
+
+### Dead code removal
+- Dropped the two `var _ = errors.New` sentinels (and their
+  `errors` imports) from `internal/serve/settings_endpoint.go`
+  and `internal/serve/projects.go` — leftovers from when those
+  files initially referenced `errors` and then stopped.
+
+### Duplicate consolidation
+- Added `internal/probe/origin.go` with one canonical
+  `BrandFromHost` / `BrandFromOrigin` helper. `probe.hostToName`
+  and the `gen.brandFromOrigin` template helper now both go
+  through it, so the scheme / `www.` / public-suffix stripping
+  rules live in one place instead of drifting between probe
+  symbol generation and stakeholder-summary rendering.
+
+### Complexity refactor: handlerForState
+- The serve mux registration was a 284-line monolith with 14
+  inline `mux.HandleFunc` closures. Each closure has been
+  extracted into a named handler function at file scope
+  (`handleProject`, `handleFeature`, `handleSteps`, `handleDoc`,
+  `handleScenarioCRUD`, `handleValidateScenario`, `handleProbeDOM`,
+  `handleComposeSteps`, `handleScenarioChat`, `handleRunPreflight`,
+  `handleRunScenario`, `handleLLMStatus`, `handleLocatorCandidates`,
+  `staticAssetsHandler`, `handleRoot`).
+- `handlerForState` shrinks to a ~30-line route table. Same
+  API contract, easier to grep / move / test.
+
+### Docs refresh
+- README: bumped "v0.65 binary" → "v0.79 binary" in the examples
+  callout.
+- README: rewrote the "Tailor the generated suite locally"
+  section to cover v0.71–v0.78 (Run + last-run pill, HOME view,
+  Settings page, project switcher, stakeholder summary history).
+- `web/index.html` hero bumped to v0.79.
+
+### Repo housekeeping (scripts/cleanup-branches.sh)
+- New committed script. After merge, deletes all merged remote
+  branches (26 `reviewqa/tests-pr-*` CI-generated leftovers),
+  cleans up local merged branches, and closes any open PRs >30 d
+  / issues >60 d (today both empty).
+
+### Tests
+574 still passing. No new tests added — refactor preserves
+behaviour and the existing endpoint tests cover the moved
+handlers.
+
 ## v0.78 — Settings polish + actions-left + Stakeholder Summary rewrite + history + project switcher
 
 Five UX threads from one v0.77 screenshot tour.

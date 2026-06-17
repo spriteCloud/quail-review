@@ -18,7 +18,7 @@ broken locators when they drift.
 
 ## See it on real sites
 
-Live output from the **v0.65 binary** is committed under [`examples/`](./examples/).
+Live output from the **v0.79 binary** is committed under [`examples/`](./examples/).
 Six reference probes covering a spread of site shapes; each is a complete,
 runnable Playwright + Gherkin project. Re-emit on every release via
 [`scripts/refresh-examples.sh`](./scripts/refresh-examples.sh).
@@ -34,13 +34,29 @@ Playwright locators against your hint. v0.68 wires an **AI compose**
 button into the editor: type free Gherkin, set a destination URL, and
 the LLM returns a Scenario whose steps match the registered patterns and
 whose assertions reference the real DOM. v0.69 ports the public site's
-full design system (wordmark, pixel-bar, Sora display, copper Fira Code
-labels) so the local UI looks native next to GH Pages. v0.70 ships a
-**💬 Chat** button per Scenario — a non-technical reviewer can talk to
-the LLM about that specific Scenario ("add a step asserting the success
-toast"; "change the form to contact, not login") and Apply the
-assistant's proposed update with one click. History persists per
-Scenario in `localStorage`.
+full design system. v0.70 ships a **💬 Chat** button per Scenario — a
+non-technical reviewer can talk to the LLM about that specific Scenario
+and Apply the assistant's proposed update with one click.
+
+**What's new since v0.70:**
+
+- **v0.71 / v0.75** — ▶ Run button per Scenario streams Playwright
+  output as Server-Sent Events; per-step verdicts post-parsed from
+  the JSON reporter; last-run pill persists across reloads.
+- **v0.76 — HOME view + probe from the UI.** Sidebar opens on a HOME
+  panel with a Probe form that shells out to `reviewqa probe --local`
+  (no GitHub token needed) and streams stdout into a terminal panel.
+  Project list auto-refreshes on success.
+- **v0.77 — Settings page.** Edits persist to
+  `~/.config/reviewqa/serve.json` (mode 0600) and take effect on the
+  next API call. Toggle LLM on/off, set endpoint / model / API key /
+  timeout (with a Test-connection button), set probe + run defaults.
+- **v0.78 — Project switcher + Stakeholder Summary rewrite + history.**
+  The header pill is now a dropdown that lists sibling reviewqa
+  projects auto-discovered in the parent dir, plus a recents list and
+  a free-form "Open path" input. Each probe writes timestamped copies
+  to `tests/e2e/docs/history/`; the sidebar surfaces them in a "Past
+  summaries · findings" group.
 
 ```bash
 reviewqa serve --workdir ./my-generated-suite

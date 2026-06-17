@@ -927,10 +927,10 @@ code, pre { font-family: 'Fira Code', ui-monospace, monospace; }
  * Beside-the-name floated awkwardly at narrow widths because the
  * title wrapped over 2-4 lines while the pill stayed inline. */
 .scenario-name-wrap {
-  /* flex-basis 260px gives the title room before .scenario-actions
-   * decides whether to wrap below. min-width: 0 prevents long words
-   * from blowing out the container. */
-  flex: 1 1 260px;
+  /* No flex sizing — .scenario-head is column-flex now, so the basis
+   * would apply to height (it stretched the wrap to 260 px and left
+   * a huge empty gap before the action row). Let content drive size. */
+  flex: 0 0 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;

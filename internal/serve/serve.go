@@ -105,26 +105,62 @@ func Handler(workdir string) http.Handler {
 	return handlerForState(state)
 }
 
+// handlerForState wires every /api/* route to its named handler. The
+// table-of-routes shape replaced an earlier 284-line monolith where each
+// closure lived inline; the named handlers below are easier to grep,
+// move, and test. Each takes either nothing, or the workdirState (when
+// it needs to read the current workdir), or both.
 func handlerForState(state *workdirState) http.Handler {
 	mux := http.NewServeMux()
+	mux.Handle("/assets/", staticAssetsHandler())
+	mux.Handle("/", http.HandlerFunc(handleRoot))
 
+	mux.HandleFunc("/api/project", handleProject(state))
+	mux.HandleFunc("/api/feature", handleFeature(state))
+	mux.HandleFunc("/api/steps", handleSteps(state))
+	mux.HandleFunc("/api/doc", handleDoc(state))
+	mux.HandleFunc("/api/scenario", handleScenarioCRUD(state))
+	mux.HandleFunc("/api/validate-scenario", handleValidateScenario)
+	mux.HandleFunc("/api/probe-dom", handleProbeDOM)
+	mux.HandleFunc("/api/compose-steps", handleComposeSteps)
+	mux.HandleFunc("/api/scenario-chat", handleScenarioChat)
+	mux.HandleFunc("/api/run-preflight", handleRunPreflight(state))
+	mux.HandleFunc("/api/probe", handleProbeWithState(state))
+	mux.HandleFunc("/api/projects", handleProjects(state))
+	mux.HandleFunc("/api/switch-project", handleSwitchProject(state))
+	mux.HandleFunc("/api/settings", handleSettings)
+	mux.HandleFunc("/api/llm-test", handleLLMTest)
+	mux.HandleFunc("/api/run-scenario", handleRunScenario(state))
+	mux.HandleFunc("/api/llm-status", handleLLMStatus)
+	mux.HandleFunc("/api/locator-candidates", handleLocatorCandidates)
+
+	return localOnly(mux)
+}
+
+func staticAssetsHandler() http.Handler {
 	assets, err := fs.Sub(webFS, "web")
 	if err != nil {
 		panic(fmt.Sprintf("serve: embed sub-fs: %v", err))
 	}
-	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets))))
-	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-		serveStatic(w, "web/index.html", "text/html; charset=utf-8")
-	}))
+	return http.StripPrefix("/assets/", http.FileServer(http.FS(assets)))
+}
 
-	mux.HandleFunc("/api/project", func(w http.ResponseWriter, r *http.Request) {
+func handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	serveStatic(w, "web/index.html", "text/html; charset=utf-8")
+}
+
+func handleProject(state *workdirState) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, loadProject(state.get()))
-	})
-	mux.HandleFunc("/api/feature", func(w http.ResponseWriter, r *http.Request) {
+	}
+}
+
+func handleFeature(state *workdirState) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		workdir := state.get()
 		rel := r.URL.Query().Get("path")
 		path, ok := safeJoin(workdir, rel)
@@ -139,7 +175,6 @@ func handlerForState(state *workdirState) http.Handler {
 		}
 		raw, _ := os.ReadFile(path)
 		feat.Path = rel
-		// Join in the last-run verdict (if any) per Scenario.
 		idx := LoadLastRunIndex(workdir)
 		for i := range feat.Scenarios {
 			if rec, ok := idx[feat.Scenarios[i].Name]; ok {
@@ -147,15 +182,18 @@ func handlerForState(state *workdirState) http.Handler {
 				feat.Scenarios[i].LastRun = &rec
 			}
 		}
-		writeJSON(w, map[string]any{
-			"feature": feat,
-			"gherkin": string(raw),
-		})
-	})
-	mux.HandleFunc("/api/steps", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"feature": feat, "gherkin": string(raw)})
+	}
+}
+
+func handleSteps(state *workdirState) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, loadSteps(state.get()))
-	})
-	mux.HandleFunc("/api/doc", func(w http.ResponseWriter, r *http.Request) {
+	}
+}
+
+func handleDoc(state *workdirState) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		workdir := state.get()
 		rel := r.URL.Query().Get("path")
 		path, ok := safeJoin(workdir, rel)
@@ -173,9 +211,11 @@ func handlerForState(state *workdirState) http.Handler {
 			payload["html"] = renderMarkdown(b)
 		}
 		writeJSON(w, payload)
-	})
+	}
+}
 
-	mux.HandleFunc("/api/scenario", func(w http.ResponseWriter, r *http.Request) {
+func handleScenarioCRUD(state *workdirState) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		workdir := state.get()
 		rel := r.URL.Query().Get("feature")
 		name := r.URL.Query().Get("name")
@@ -228,101 +268,98 @@ func handlerForState(state *workdirState) http.Handler {
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
-	})
+	}
+}
 
-	mux.HandleFunc("/api/validate-scenario", func(w http.ResponseWriter, r *http.Request) {
-		body, err := readJSONBody(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		if err := validateScenarioBlock(body.Gherkin); err != nil {
-			writeJSON(w, map[string]any{"valid": false, "error": err.Error()})
-			return
-		}
-		writeJSON(w, map[string]any{"valid": true})
-	})
+func handleValidateScenario(w http.ResponseWriter, r *http.Request) {
+	body, err := readJSONBody(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validateScenarioBlock(body.Gherkin); err != nil {
+		writeJSON(w, map[string]any{"valid": false, "error": err.Error()})
+		return
+	}
+	writeJSON(w, map[string]any{"valid": true})
+}
 
-	mux.HandleFunc("/api/probe-dom", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		var body struct {
-			URL  string `json:"url"`
-			Base string `json:"base,omitempty"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		target, err := resolveTarget(body.URL, body.Base)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
-		defer cancel()
-		lm, err := FetchAndParseDOM(ctx, target)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
-		}
-		writeJSON(w, lm)
-	})
+func handleProbeDOM(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		URL  string `json:"url"`
+		Base string `json:"base,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	target, err := resolveTarget(body.URL, body.Base)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+	lm, err := FetchAndParseDOM(ctx, target)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	writeJSON(w, lm)
+}
 
-	mux.HandleFunc("/api/compose-steps", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		var in ComposeInput
-		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
-		defer cancel()
-		res, err := ComposeSteps(ctx, in)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		writeJSON(w, res)
-	})
+func handleComposeSteps(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var in ComposeInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	res, err := ComposeSteps(ctx, in)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, res)
+}
 
-	mux.HandleFunc("/api/scenario-chat", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		var in ChatInput
-		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
-		defer cancel()
-		res, err := Chat(ctx, in)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		writeJSON(w, res)
-	})
+func handleScenarioChat(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var in ChatInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	res, err := Chat(ctx, in)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, res)
+}
 
-	mux.HandleFunc("/api/run-preflight", func(w http.ResponseWriter, r *http.Request) {
+func handleRunPreflight(state *workdirState) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, Preflight(state.get()))
-	})
+	}
+}
 
-	mux.HandleFunc("/api/probe", handleProbeWithState(state))
-	mux.HandleFunc("/api/projects", handleProjects(state))
-	mux.HandleFunc("/api/switch-project", handleSwitchProject(state))
-
-	mux.HandleFunc("/api/settings", handleSettings)
-	mux.HandleFunc("/api/llm-test", handleLLMTest)
-
-	mux.HandleFunc("/api/run-scenario", func(w http.ResponseWriter, r *http.Request) {
+func handleRunScenario(state *workdirState) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -340,54 +377,50 @@ func handlerForState(state *workdirState) http.Handler {
 			// as a JSON 400. After the stream has started, errors
 			// arrive as the final "done" event.
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
 		}
-	})
+	}
+}
 
-	mux.HandleFunc("/api/llm-status", func(w http.ResponseWriter, r *http.Request) {
-		cfg := llmConfigFromEnv()
-		enabled := cfg.OpenAIAPIKey != "" && cfg.Model != ""
-		writeJSON(w, map[string]any{
-			"enabled":  enabled,
-			"endpoint": cfg.OpenAIBaseURL,
-			"model":    cfg.Model,
-		})
+func handleLLMStatus(w http.ResponseWriter, _ *http.Request) {
+	cfg := llmConfigFromEnv()
+	writeJSON(w, map[string]any{
+		"enabled":  cfg.OpenAIAPIKey != "" && cfg.Model != "",
+		"endpoint": cfg.OpenAIBaseURL,
+		"model":    cfg.Model,
 	})
+}
 
-	mux.HandleFunc("/api/locator-candidates", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		var body struct {
-			URL  string `json:"url"`
-			Base string `json:"base,omitempty"`
-			Kind string `json:"kind"`
-			Hint string `json:"hint"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		target, err := resolveTarget(body.URL, body.Base)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
-		defer cancel()
-		lm, err := FetchAndParseDOM(ctx, target)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
-		}
-		writeJSON(w, map[string]any{
-			"url":        lm.URL,
-			"candidates": RankLocators(lm, body.Kind, body.Hint),
-		})
+func handleLocatorCandidates(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		URL  string `json:"url"`
+		Base string `json:"base,omitempty"`
+		Kind string `json:"kind"`
+		Hint string `json:"hint"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	target, err := resolveTarget(body.URL, body.Base)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+	lm, err := FetchAndParseDOM(ctx, target)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	writeJSON(w, map[string]any{
+		"url":        lm.URL,
+		"candidates": RankLocators(lm, body.Kind, body.Hint),
 	})
-
-	return localOnly(mux)
 }
 
 type scenarioRequest struct {

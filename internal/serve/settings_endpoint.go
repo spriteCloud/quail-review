@@ -3,7 +3,6 @@ package serve
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -114,7 +113,3 @@ func truncate(s string, n int) string {
 	return s[:n] + "…"
 }
 
-// silence unused-import linter when client.Enabled returns false and
-// we never use errors.New. Kept so the file compiles even if the LLM
-// client interface evolves.
-var _ = errors.New
