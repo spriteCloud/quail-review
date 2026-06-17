@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — research journey
   So that the page delivers on its user goal
 
   @journey:research @priority:standard @smoke
-  Scenario: visitor completes research flow and lands on case study
+  Scenario: research journey completes on the case study page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,12 +26,12 @@ Feature: WwwSpritecloudCom — research journey
     And the page title contains "Case Study - eCommerce Platform"
 
   @journey:research @priority:standard @kind:resume
-  Scenario: deep-link to case study page loads and displays correctly
+  Scenario: research — direct link to case study page loads properly
     Given I open the page "/case-study-ecomm-platform"
     Then I see the heading "Performance Testing for an eCommerce Platform"
 
   @journey:research @priority:standard @kind:back-button
-  Scenario: back button navigation from case study returns to landing page
+  Scenario: research — using back button returns to the landing page
     Given I open the landing page
     When I click the link to "/case-study-ecomm-platform"
     When I go back in the browser history
@@ -42,22 +42,15 @@ Feature: WwwSpritecloudCom — research journey
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
-  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: contact link navigates to contact page
-    Given I am on the landing page
-    When I click the link to "/contact"
-    Then the URL contains "/contact"
-    Then the main heading reads "Contact us"
-
   @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: direct navigation to guides page works
-    Given I open the page "/guides"
-    Then the page title contains "Guides"
-    Then I see the heading "Software Testing Guides"
-
-  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: case studies section loads and visible at page bottom
+  Scenario: User scrolls down to see the case studies section
     Given I am on the landing page
     When I scroll to the bottom of the page
-    Then I scroll into view of the "Case Studies" element
-    Then the page has at least 3 items
+    Then I see the heading "Case Studies"
+
+  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: User opens then closes the navigation menu
+    Given I am on the landing page
+    When I open the menu
+    And I close the menu
+    Then I remain on the same page

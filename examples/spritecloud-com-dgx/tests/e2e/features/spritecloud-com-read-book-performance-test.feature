@@ -11,13 +11,13 @@
 #   npx playwright test --grep @journey:read
 #   npx playwright test --grep @smoke
 
-Feature: WwwSpritecloudCom — read journey
+Feature: SpriteCloud read journey
   As a visitor of https://www.spritecloud.com
   I want to complete the read flow
   So that the page delivers on its user goal
 
   @journey:read @priority:nice-to-have @smoke
-  Scenario: read journey ends on the correct page
+  Scenario: Visitor completes the read flow and lands on the correct page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,39 +26,20 @@ Feature: WwwSpritecloudCom — read journey
     And the page title contains "Book - Performance Test"
 
   @journey:read @priority:nice-to-have @kind:resume
-  Scenario: read — deep-linking to the terminal page loads it properly
+  Scenario: Reader navigates directly to the terminal page and sees correct content
     Given I open the page "/book-performance-test"
     Then I see the heading "Performance Test"
 
   @journey:read @priority:nice-to-have @kind:back-button
-  Scenario: read — using the back button after navigation returns to the landing page
+  Scenario: Reader uses browser back to return from terminal to landing page
     Given I open the landing page
     When I click the link to "/book-performance-test"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
 
   @journey:read @priority:nice-to-have @kind:cross-journey
-  Scenario: read — navigating to landing and back doesn’t break the page state
+  Scenario: Reader navigates between landing and terminal pages without errors
     Given I open the landing page
     When I navigate directly to "/"
     And I go back in the browser history
     Then no error message is shown in the form region
-
-  # ───────────────────────────────────────────────────────────────
-  # LLM-composed scenarios (model: qwen3-coder-next:latest)
-  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
-  # ───────────────────────────────────────────────────────────────
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: user navigates from the landing page to the case studies page
-    Given I open the landing page
-    When I click the link to "/case-studies"
-    Then the URL contains "/case-studies"
-    Then the main heading reads "Case Studies"
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: user opens the guides page via the footer navigation
-    Given I open the landing page
-    When I click the link to "/guides"
-    Then the URL contains "/guides"
-    Then the page has at least 5 items

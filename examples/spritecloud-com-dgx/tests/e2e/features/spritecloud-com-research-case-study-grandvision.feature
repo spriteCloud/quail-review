@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — research journey
   So that the page delivers on its user goal
 
   @journey:research @priority:standard @smoke
-  Scenario: research journey ends on the correct page
+  Scenario: research journey reaches the final page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,13 +26,41 @@ Feature: WwwSpritecloudCom — research journey
     And the page title contains "Case Study - GrandVision"
 
   @journey:research @priority:standard @kind:resume
-  Scenario: research — direct link to the case study page loads correctly
+  Scenario: deep-link to the final page renders correctly
     Given I open the page "/case-study-grandvision"
     Then I see the heading "GrandVision"
 
   @journey:research @priority:standard @kind:back-button
-  Scenario: research — using browser back returns to the landing page
+  Scenario: back button after navigation returns to the landing page
     Given I open the landing page
     When I click the link to "/case-study-grandvision"
     When I go back in the browser history
+    Then the main heading reads "Test your software, not your reputation."
+
+  # ───────────────────────────────────────────────────────────────
+  # LLM-composed scenarios (model: qwen3-coder-next:latest)
+  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
+  # ───────────────────────────────────────────────────────────────
+
+  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: top navigation links are accessible
+    Given I open the landing page
+    When I click the link to "/test-automation"
+    Then the page title contains "Test Automation Services"
+    When I click the link to "/cybersecurity"
+    Then the main heading reads "Cybersecurity Testing Services"
+
+  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: scrolling to the bottom shows the contact section
+    Given I open the landing page
+    When I scroll to the bottom of the page
+    Then I see the heading "Contact Us"
+    Then the URL contains "/"
+
+  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: menu expands and collapses correctly
+    Given I am on the landing page
+    When I open the menu
+    Then I see the heading "Services"
+    When I close the menu
     Then the main heading reads "Test your software, not your reputation."

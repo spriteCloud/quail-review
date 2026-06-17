@@ -13,8 +13,8 @@
 import { test, expect } from '@playwright/test'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Website accessibility: landmarks on the on-demand page', () => {
-  test('Page contains required accessibility landmarks: one main, one h1, and at least one nav', async ({ page }) => {
+test.describe('Accessibility landmark structure for spritecloud.com/on-demand', () => {
+  test('Ensures one <main>, one <h1>, and at least one <nav>', async ({ page }) => {
     await page.goto('/on-demand')
 
     const mains = await page.locator('main, [role="main"]').count()
@@ -27,7 +27,7 @@ test.describe('Website accessibility: landmarks on the on-demand page', () => {
     expect.soft(navs, `expected at least one <nav> region`).toBeGreaterThanOrEqual(1)
   })
 
-  test('No interactive elements should be hidden with aria-hidden', async ({ page }) => {
+  test('Verifies no focusable elements are inside hidden regions', async ({ page }) => {
     await page.goto('/on-demand')
     const hiddenFocusables = await page.locator('[aria-hidden="true"]').locator('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])').count()
     expect.soft(hiddenFocusables, `${hiddenFocusables} focusable elements inside aria-hidden — confusing for screen readers`).toBe(0)

@@ -28,6 +28,7 @@ import (
 	"github.com/reviewqa/reviewqa/internal/gh"
 	"github.com/reviewqa/reviewqa/internal/heal"
 	"github.com/reviewqa/reviewqa/internal/integration"
+	"github.com/reviewqa/reviewqa/internal/ledger"
 	"github.com/reviewqa/reviewqa/internal/llm"
 	rlog "github.com/reviewqa/reviewqa/internal/log"
 	"github.com/reviewqa/reviewqa/internal/merge"
@@ -35,6 +36,53 @@ import (
 	"github.com/reviewqa/reviewqa/internal/probe"
 	"github.com/reviewqa/reviewqa/internal/prompt"
 )
+
+// loadSentinelItems reads the bug-discovery ledger and emits one
+// sentinel `test.fail()` spec per open finding. v0.40 closes the
+// "Achilles bug-sentinel" gap from the plan.
+func loadSentinelItems(workDir string) []plan.Item {
+	body, err := os.ReadFile(filepath.Join(workDir, "tests/e2e/docs/findings.md"))
+	if err != nil {
+		return nil
+	}
+	findings := parseLedger(body)
+	if len(findings) == 0 {
+		return nil
+	}
+	items := ledger.EmitSentinels(findings)
+	rlog.Info("ledger: emitting sentinel specs", "count", len(items))
+	return items
+}
+
+// parseLedger is a tiny wrapper around ledger.parseLedger (which is
+// package-private) — we re-implement the minimum here so cmd/reviewqa
+// doesn't depend on internal symbols.
+func parseLedger(body []byte) []ledger.Finding {
+	var out []ledger.Finding
+	for _, line := range strings.Split(string(body), "\n") {
+		t := strings.TrimSpace(line)
+		if !strings.HasPrefix(t, "|") || !strings.HasSuffix(t, "|") {
+			continue
+		}
+		if strings.HasPrefix(t, "|---") || strings.Contains(t, "| Spec |") || strings.Contains(t, "|---|") {
+			continue
+		}
+		parts := strings.Split(strings.Trim(t, "|"), "|")
+		if len(parts) != 7 {
+			continue
+		}
+		out = append(out, ledger.Finding{
+			Spec:      strings.Trim(strings.TrimSpace(parts[0]), "`"),
+			Test:      strings.TrimSpace(parts[1]),
+			Symptom:   strings.TrimSpace(parts[2]),
+			FirstSeen: strings.TrimSpace(parts[3]),
+			LastSeen:  strings.TrimSpace(parts[4]),
+			Severity:  strings.TrimSpace(parts[5]),
+			Status:    strings.TrimSpace(parts[6]),
+		})
+	}
+	return out
+}
 
 // loadIntegrationItems reads reviewqa.yml from the work directory and
 // returns integration-test plan.Items. Empty when the config is
@@ -346,6 +394,9 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 	items = append(items, plan.BuildCompat(files, compareSchema)...)
 	// v0.27: when reviewqa.yml is present, emit integration items.
 	items = append(items, loadIntegrationItems(cfg.WorkDir)...)
+	// v0.40: every open finding in the bug-discovery ledger becomes a
+	// sentinel test.fail() spec. Resolved findings are skipped.
+	items = append(items, loadSentinelItems(cfg.WorkDir)...)
 	if probeURLs := nonEmptyURLs(os.Getenv("REVIEWQA_TARGET_URLS")); len(probeURLs) > 0 {
 		probeItems, probeErrs := probe.RunAll(ctx, probeURLs)
 		for _, e := range probeErrs {

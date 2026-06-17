@@ -223,6 +223,7 @@ var templateRegistry = map[plan.Template]templateLoc{
 	plan.TmplPlaywrightVisualStates:     {"ts", "pw_visual_states.tmpl"},
 	plan.TmplPlaywrightKeyboardNav:      {"ts", "pw_keyboard_nav.tmpl"},
 	plan.TmplPlaywrightA11yLandmarks:    {"ts", "pw_a11y_landmarks.tmpl"},
+	plan.TmplPlaywrightSentinel:         {"ts", "pw_sentinel.tmpl"},
 	plan.TmplPytestUnit:                 {"py", "pytest_unit.tmpl"},
 	plan.TmplPytestAPI:                  {"py", "pytest_api.tmpl"},
 	plan.TmplGoUnit:                     {"go", "gotest_unit.tmpl"},

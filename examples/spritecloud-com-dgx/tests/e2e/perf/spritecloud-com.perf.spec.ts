@@ -12,8 +12,8 @@ import { test, expect } from '@playwright/test'
 const SLO_MS = Number(process.env.PERF_SLO_MS ?? 3000)
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom: performance baseline for https://www.spritecloud.com', () => {
-  test(`loads under ${SLO_MS}ms (@kind:perf, @smoke)`, async ({ page }) => {
+test.describe('WwwSpritecloudCom — performance @ https://www.spritecloud.com', () => {
+  test(`@kind:perf @smoke loads under ${SLO_MS} ms`, async ({ page }) => {
     const start = Date.now()
     await page.goto('/', { waitUntil: 'load' })
     const elapsed = Date.now() - start

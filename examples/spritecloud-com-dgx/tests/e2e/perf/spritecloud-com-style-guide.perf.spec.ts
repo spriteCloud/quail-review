@@ -12,7 +12,7 @@ import { test, expect } from '@playwright/test'
 const SLO_MS = Number(process.env.PERF_SLO_MS ?? 3000)
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — performance for style-guide page', () => {
+test.describe('WwwSpritecloudCom — performance test for https://www.spritecloud.com/style-guide', () => {
   test(`@kind:perf @smoke loads under ${SLO_MS}ms`, async ({ page }) => {
     const start = Date.now()
     await page.goto('/style-guide', { waitUntil: 'load' })

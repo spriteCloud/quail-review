@@ -18,8 +18,8 @@ import { test, expect } from '@playwright/test'
 const STATES = ['default', 'hover', 'focus'] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Spritecloud cybersecurity page interaction visual states', () => {
-  test('primary call-to-action button in default, hover, and focus states', async ({ page }) => {
+test.describe('WwwSpritecloudCom — Interaction-state visual regression test for cybersecurity page', () => {
+  test('Smoke test: primary call-to-action in default, hover, and focus states', async ({ page }) => {
     await page.goto('/cybersecurity')
     await page.waitForLoadState('networkidle').catch(() => {})
     const target = page.getByRole('link').first()

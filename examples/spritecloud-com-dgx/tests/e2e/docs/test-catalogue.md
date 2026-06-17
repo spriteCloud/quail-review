@@ -13,20 +13,20 @@ suite covers — anything missing here is a coverage gap.
 
 | URL | Title | Tags |
 |---|---|---|
-| `https://www.spritecloud.com` | spriteCloud - Test your software, not your reputation! | `landing`, `form` |
-| `https://www.spritecloud.com/guides` | spriteCloud - Your Software Testing and QA partner | `list` |
-| `https://www.spritecloud.com/style-guide` | Style Guide - Healix Webflow website HTML template | `detail` |
+| `https://www.spritecloud.com` | spriteCloud — Test your software, not your reputation | `landing`, `form` |
+| `https://www.spritecloud.com/guides` | spriteCloud — Your software testing and QA partner | `list` |
+| `https://www.spritecloud.com/style-guide` | Style Guide — Healix Webflow website HTML template | `detail` |
 | `https://www.spritecloud.com/on-demand` | On-Demand Software Testing |  |
-| `https://www.spritecloud.com/cybersecurity` | spriteCloud - Penetration Testing |  |
-| `https://www.spritecloud.com/performance-testing` | spriteCloud - Performance Testing |  |
-| `https://www.spritecloud.com/vciso` | spriteCloud - vCISO |  |
-| `https://www.spritecloud.com/contact` | spriteCloud — Meeting Booking Form | `detail` |
+| `https://www.spritecloud.com/cybersecurity` | spriteCloud — Penetration testing |  |
+| `https://www.spritecloud.com/performance-testing` | spriteCloud — Performance testing |  |
+| `https://www.spritecloud.com/vciso` | spriteCloud — vCISO |  |
+| `https://www.spritecloud.com/contact` | spriteCloud — Meeting booking form | `detail` |
 | `https://www.spritecloud.com/msa` | MSA |  |
-| `https://www.spritecloud.com/case-study-grandvision` | Case Study - GrandVision | `detail`, `case-study` |
-| `https://www.spritecloud.com/case-study-ecomm-platform` | Case Study - eCommerce Platform | `case-study` |
-| `https://www.spritecloud.com/book-performance-test` | Book - Performance Test | `detail` |
-| `https://www.spritecloud.com/book-pentest` | Book - PenTest | `detail` |
-| `https://www.spritecloud.com/book-free-scan` | Book-Free Scan | `detail` |
+| `https://www.spritecloud.com/case-study-grandvision` | Case study — GrandVision | `detail`, `case-study` |
+| `https://www.spritecloud.com/case-study-ecomm-platform` | Case study — e-commerce platform | `case-study` |
+| `https://www.spritecloud.com/book-performance-test` | Book — Performance test | `detail` |
+| `https://www.spritecloud.com/book-pentest` | Book — Penetration test | `detail` |
+| `https://www.spritecloud.com/book-free-scan` | Book-Free scan | `detail` |
 | `https://www.spritecloud.com/blog` | Blog | `list` |
 | `https://www.spritecloud.com/typeform-test` | Typeform Test |  |
 | `https://www.spritecloud.com/test-choice` | Test Choice |  |
@@ -69,31 +69,31 @@ Filter examples:
 
 Priority: `critical`. 1 step(s).
 
-1. `https://www.spritecloud.com` — _spriteCloud - Test your software, not your reputation!_
+1. `https://www.spritecloud.com` — _spriteCloud — Test your software, not your reputation_
 
 
 #### `research` — `tests/e2e/features/spritecloud-com-research-case-study-grandvision.feature`
 
 Priority: `standard`. 2 step(s).
 
-1. `https://www.spritecloud.com` — _spriteCloud - Test your software, not your reputation!_
-2. clicked `/case-study-grandvision` → `https://www.spritecloud.com/case-study-grandvision` — _Case Study - GrandVision_
+1. `https://www.spritecloud.com` — _spriteCloud — Test your software, not your reputation_
+2. clicked `/case-study-grandvision` → `https://www.spritecloud.com/case-study-grandvision` — _Case study — GrandVision_
 
 
 #### `research` — `tests/e2e/features/spritecloud-com-research-case-study-ecomm-platform.feature`
 
 Priority: `standard`. 2 step(s).
 
-1. `https://www.spritecloud.com` — _spriteCloud - Test your software, not your reputation!_
-2. clicked `/case-study-ecomm-platform` → `https://www.spritecloud.com/case-study-ecomm-platform` — _Case Study - eCommerce Platform_
+1. `https://www.spritecloud.com` — _spriteCloud — Test your software, not your reputation_
+2. clicked `/case-study-ecomm-platform` → `https://www.spritecloud.com/case-study-ecomm-platform` — _Case study — e-commerce platform_
 
 
 #### `browse` — `tests/e2e/features/spritecloud-com-browse-about-us.feature`
 
 Priority: `standard`. 3 step(s).
 
-1. `https://www.spritecloud.com` — _spriteCloud - Test your software, not your reputation!_
-2. clicked `/guides` → `https://www.spritecloud.com/guides` — _spriteCloud - Your Software Testing and QA partner_
+1. `https://www.spritecloud.com` — _spriteCloud — Test your software, not your reputation_
+2. clicked `/guides` → `https://www.spritecloud.com/guides` — _spriteCloud — Your software testing and QA partner_
 3. clicked `/about-us` → `https://www.spritecloud.com/about-us` — _About Us_
 
 
@@ -101,40 +101,40 @@ Priority: `standard`. 3 step(s).
 
 Priority: `nice-to-have`. 2 step(s).
 
-1. `https://www.spritecloud.com` — _spriteCloud - Test your software, not your reputation!_
-2. clicked `/contact` → `https://www.spritecloud.com/contact` — _spriteCloud — Meeting Booking Form_
+1. `https://www.spritecloud.com` — _spriteCloud — Test your software, not your reputation_
+2. clicked `/contact` → `https://www.spritecloud.com/contact` — _spriteCloud — Meeting booking form_
 
 
 #### `explore` — `tests/e2e/features/spritecloud-com-explore-cybersecurity.feature`
 
 Priority: `nice-to-have`. 2 step(s).
 
-1. `https://www.spritecloud.com` — _spriteCloud - Test your software, not your reputation!_
-2. clicked `/cybersecurity` → `https://www.spritecloud.com/cybersecurity` — _spriteCloud - Penetration Testing_
+1. `https://www.spritecloud.com` — _spriteCloud — Test your software, not your reputation_
+2. clicked `/cybersecurity` → `https://www.spritecloud.com/cybersecurity` — _spriteCloud — Penetration testing_
 
 
 #### `explore` — `tests/e2e/features/spritecloud-com-explore-performance-testing.feature`
 
 Priority: `nice-to-have`. 2 step(s).
 
-1. `https://www.spritecloud.com` — _spriteCloud - Test your software, not your reputation!_
-2. clicked `/performance-testing` → `https://www.spritecloud.com/performance-testing` — _spriteCloud - Performance Testing_
+1. `https://www.spritecloud.com` — _spriteCloud — Test your software, not your reputation_
+2. clicked `/performance-testing` → `https://www.spritecloud.com/performance-testing` — _spriteCloud — Performance testing_
 
 
 #### `read` — `tests/e2e/features/spritecloud-com-read-style-guide.feature`
 
 Priority: `nice-to-have`. 2 step(s).
 
-1. `https://www.spritecloud.com` — _spriteCloud - Test your software, not your reputation!_
-2. clicked `/style-guide` → `https://www.spritecloud.com/style-guide` — _Style Guide - Healix Webflow website HTML template_
+1. `https://www.spritecloud.com` — _spriteCloud — Test your software, not your reputation_
+2. clicked `/style-guide` → `https://www.spritecloud.com/style-guide` — _Style Guide — Healix Webflow website HTML template_
 
 
 #### `read` — `tests/e2e/features/spritecloud-com-read-book-performance-test.feature`
 
 Priority: `nice-to-have`. 2 step(s).
 
-1. `https://www.spritecloud.com` — _spriteCloud - Test your software, not your reputation!_
-2. clicked `/book-performance-test` → `https://www.spritecloud.com/book-performance-test` — _Book - Performance Test_
+1. `https://www.spritecloud.com` — _spriteCloud — Test your software, not your reputation_
+2. clicked `/book-performance-test` → `https://www.spritecloud.com/book-performance-test` — _Book — Performance test_
 
 
 ## Fuzz coverage (1)
