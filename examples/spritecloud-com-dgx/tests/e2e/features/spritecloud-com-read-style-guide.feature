@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — read journey
   So that the page delivers on its user goal
 
   @journey:read @priority:nice-to-have @smoke
-  Scenario: read journey reaches the final page
+  Scenario: read journey completes on terminal page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,19 +26,19 @@ Feature: WwwSpritecloudCom — read journey
     And the page title contains "Style Guide - Healix Webflow website HTML template"
 
   @journey:read @priority:nice-to-have @kind:resume
-  Scenario: deep-link to the final page renders correctly
+  Scenario: read — deep-linking to the terminal page works
     Given I open the page "/style-guide"
     Then I see the heading "Aa"
 
   @journey:read @priority:nice-to-have @kind:back-button
-  Scenario: back button after navigation returns to the landing page
+  Scenario: read — navigating back from style guide returns to landing
     Given I open the landing page
     When I click the link to "/style-guide"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
 
   @journey:read @priority:nice-to-have @kind:cross-journey
-  Scenario: switching to landing and back leaves no broken state
+  Scenario: read — switching to landing and back maintains valid state
     Given I open the landing page
     When I navigate directly to "/"
     And I go back in the browser history
@@ -49,18 +49,9 @@ Feature: WwwSpritecloudCom — read journey
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
-  @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: verify H1 heading on the landing page
-    Given I open the landing page
-    Then the main heading reads "Test your software, not your reputation."
-
-  @journey:read @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: verify at least 6 service category links are present
-    Given I open the landing page
-    Then the page has at least 6 items
-
   @journey:read @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: scroll to the bottom and confirm footer elements are present
-    Given I open the landing page
+  Scenario: Open menu and scroll to bottom
+    Given I am on the landing page
+    When I open the menu
     When I scroll to the bottom of the page
-    Then I scroll into view of the "spriteCloud - Test your software, not your reputation." element
+    Then the page has at least 10 items

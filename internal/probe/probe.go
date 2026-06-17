@@ -529,18 +529,24 @@ func qualityCompanions(sourceURL string, m *mindmap.Map, coverage CoverageMode) 
 		for _, kind := range []struct {
 			tmpl   plan.Template
 			subdir string
+			suffix string // optional disambiguator when multiple kinds share a subdir
 		}{
-			{plan.TmplPlaywrightA11y, "a11y"},
-			{plan.TmplPlaywrightResponsive, "responsive"},
-			{plan.TmplPlaywrightPerf, "perf"},
-			{plan.TmplPlaywrightVisual, "visual"},
+			{plan.TmplPlaywrightA11y, "a11y", "a11y"},
+			{plan.TmplPlaywrightResponsive, "responsive", "responsive"},
+			{plan.TmplPlaywrightPerf, "perf", "perf"},
+			{plan.TmplPlaywrightVisual, "visual", "visual"},
+			// v0.39: deeper visual + a11y axes — interaction-state
+			// baselines, keyboard navigation, landmark structure.
+			{plan.TmplPlaywrightVisualStates, "visual", "visual-states"},
+			{plan.TmplPlaywrightKeyboardNav, "a11y", "keyboard"},
+			{plan.TmplPlaywrightA11yLandmarks, "a11y", "landmarks"},
 		} {
 			out = append(out, plan.Item{
 				Symbol:   pageStub,
 				Symbols:  []ast.Symbol{pageStub},
 				PageURL:  page.URL,
 				Template: kind.tmpl,
-				OutPath:  "tests/e2e/" + kind.subdir + "/" + stem + "." + kind.subdir + ".spec.ts",
+				OutPath:  "tests/e2e/" + kind.subdir + "/" + stem + "." + kind.suffix + ".spec.ts",
 			})
 		}
 		emitted++

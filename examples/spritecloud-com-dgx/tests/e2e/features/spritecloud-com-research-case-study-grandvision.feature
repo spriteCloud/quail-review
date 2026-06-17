@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — research journey
   So that the page delivers on its user goal
 
   @journey:research @priority:standard @smoke
-  Scenario: research journey reaches its final page
+  Scenario: research journey ends on the correct page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,26 +26,13 @@ Feature: WwwSpritecloudCom — research journey
     And the page title contains "Case Study - GrandVision"
 
   @journey:research @priority:standard @kind:resume
-  Scenario: research — deep-linking to the final page renders correctly
+  Scenario: research — direct link to the case study page loads correctly
     Given I open the page "/case-study-grandvision"
     Then I see the heading "GrandVision"
 
   @journey:research @priority:standard @kind:back-button
-  Scenario: research — using the back button after navigation returns to the landing page
+  Scenario: research — using browser back returns to the landing page
     Given I open the landing page
     When I click the link to "/case-study-grandvision"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
-
-  # ───────────────────────────────────────────────────────────────
-  # LLM-composed scenarios (model: qwen3-coder-next:latest)
-  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
-  # ───────────────────────────────────────────────────────────────
-
-  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: User opens and closes the navigation menu
-    Given I am on the landing page
-    When I open the menu
-    Then no error message is shown in the form region
-    When I close the menu
-    Then I remain on the same page

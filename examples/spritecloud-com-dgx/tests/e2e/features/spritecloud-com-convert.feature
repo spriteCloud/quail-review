@@ -85,22 +85,8 @@ Feature: WwwSpritecloudCom — convert journey
   # ───────────────────────────────────────────────────────────────
 
   @journey:convert @priority:critical @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: View contact form without submitting
-    Given I am on the landing page
-    Then the main heading reads "Test your software, not your reputation."
-    Then the URL contains "/"
-    Then no error message is shown in the form region
-
-  @journey:convert @priority:critical @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Submit form with missing required fields
-    Given I am on the landing page
+  Scenario: Submit form with empty required fields
+    Given I open the landing page
     When I submit the form without filling any required field
     Then no success message is shown
-    Then I remain on the same page
-
-  @journey:convert @priority:critical @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Navigate to contact link from landing page
-    Given I open the landing page
-    When I click the link to "/contact"
-    Then the URL contains "/contact"
-    Then the page title contains "Contact"
+    Then no error message is shown in the form region

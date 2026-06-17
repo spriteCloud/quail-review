@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — explore journey
   So that the page delivers on its user goal
 
   @journey:explore @priority:nice-to-have @smoke
-  Scenario: explore journey completes and lands on the contact page
+  Scenario: explore journey navigates to and verifies the contact page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -26,20 +26,46 @@ Feature: WwwSpritecloudCom — explore journey
     And the page title contains "spriteCloud — Meeting Booking Form"
 
   @journey:explore @priority:nice-to-have @kind:resume
-  Scenario: deep link to contact page loads successfully
+  Scenario: explore — deep-link to the contact page renders correctly
     Given I open the page "/contact"
     Then I see the heading "Let's Chat"
 
   @journey:explore @priority:nice-to-have @kind:back-button
-  Scenario: back button from contact page returns to landing page
+  Scenario: explore — pressing the browser back button returns to the landing page
     Given I open the landing page
     When I click the link to "/contact"
     When I go back in the browser history
     Then the main heading reads "Test your software, not your reputation."
 
   @journey:explore @priority:nice-to-have @kind:cross-journey
-  Scenario: navigating to home and returning preserves page integrity
+  Scenario: explore — switching between landing and/contact pages leaves no broken state
     Given I open the landing page
     When I navigate directly to "/"
     And I go back in the browser history
     Then no error message is shown in the form region
+
+  # ───────────────────────────────────────────────────────────────
+  # LLM-composed scenarios (model: qwen3-coder-next:latest)
+  # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
+  # ───────────────────────────────────────────────────────────────
+
+  @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Verify explore homepage top navigation links
+    Given I am on the landing page
+    When I click the link to "/test-automation"
+    Then the URL contains "/test-automation"
+    Then the main heading reads "Test your software, not your reputation."
+
+  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Navigate to the guides section via the navigation menu
+    Given I open the landing page
+    When I click the link to "/guides"
+    Then the URL contains "/guides"
+    Then the page title contains "guides"
+
+  @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Visit the case studies page and verify it has content
+    Given I am on the landing page
+    When I click the link to "/case-studies"
+    Then the URL contains "/case-studies"
+    Then the page has at least 1 items
