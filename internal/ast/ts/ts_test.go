@@ -308,3 +308,8 @@ export class UsersController {
 		t.Errorf("missing route symbol; got %+v", syms)
 	}
 }
+func TestExtract(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		Extract("", nil)
+	})
+}
