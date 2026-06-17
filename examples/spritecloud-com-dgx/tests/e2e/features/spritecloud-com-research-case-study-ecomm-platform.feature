@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — research journey
   So that the page delivers on its user goal
 
   @journey:research @priority:standard @smoke
-  Scenario: research journey ends on the expected case study page
+  Scenario: Research journey completes on the case study page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -25,13 +25,40 @@ Feature: WwwSpritecloudCom — research journey
     Then I see the heading "Performance Testing for an eCommerce Platform"
     And the page title contains "Case Study - eCommerce Platform"
 
+  @journey:research @priority:standard @kind:resume
+  Scenario: Direct link to case study page loads properly
+    Given I open the page "/case-study-ecomm-platform"
+    Then I see the heading "Performance Testing for an eCommerce Platform"
+
+  @journey:research @priority:standard @kind:back-button
+  Scenario: Using the back button returns to the homepage
+    Given I open the landing page
+    When I click the link to "/case-study-ecomm-platform"
+    When I go back in the browser history
+    Then the main heading reads "Test your software, not your reputation."
+
   # ───────────────────────────────────────────────────────────────
   # LLM-composed scenarios (model: qwen3-coder-next:latest)
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
-  @journey:research @priority:standard @llm-composed @kind:regression @model:qwen3-coder-next-latest
-  Scenario: landing page opens with correct title and main heading
+  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Visiting case studies from the homepage works
     Given I open the landing page
-    Then the page title contains "spriteCloud - Test your software, not your reputation!"
-    Then the main heading reads "Test your software, not your reputation."
+    When I click the link to "/case-studies"
+    Then the page title contains "Case Studies"
+    Then I see the heading "Case Studies"
+
+  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: Navigating to the blog page displays articles
+    Given I am on the landing page
+    When I click the link to "/blog"
+    Then the page title contains "Blog"
+    Then the page has at least 1 items
+
+  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: Visiting the contact page succeeds
+    Given I open the landing page
+    When I click the link to "/contact"
+    Then the URL contains "/contact"
+    Then the main heading reads "Contact Us"

@@ -17,9 +17,9 @@ const VIEWPORTS = [
 ] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Responsive smoke for https://www.spritecloud.com/on-demand', () => {
+test.describe('WwwSpritecloudCom: responsive smoke test for https://www.spritecloud.com/on-demand', () => {
   for (const vp of VIEWPORTS) {
-    test(`renders at ${vp.name} (${vp.width}×${vp.height})`, async ({ page }) => {
+    test(`@kind:responsive @smoke renders at ${vp.name} (${vp.width}×${vp.height})`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height })
       await page.goto('/on-demand')
       await expect(page.locator('h1').first()).toBeVisible()

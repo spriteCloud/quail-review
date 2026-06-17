@@ -608,6 +608,51 @@ var funcs = template.FuncMap{
 		}
 		return `"sample"`
 	},
+	// firstTextInput returns a single-element slice with the first
+	// text-like input. Used by the v0.36 boundary + tab-order scenarios.
+	"firstTextInput": func(inputs []ast.FormInput) []ast.FormInput {
+		for _, i := range inputs {
+			switch i.Type {
+			case "text", "email", "search", "url", "tel", "textarea":
+				return []ast.FormInput{i}
+			}
+		}
+		return nil
+	},
+	// boundaryValueFor produces a value at the upper boundary of what
+	// a typical input accepts. For text-like fields that's 200 chars;
+	// for email it's a 200-char local part respecting RFC max.
+	"boundaryValueFor": func(i ast.FormInput) string {
+		switch i.Type {
+		case "email":
+			return strings.Repeat("a", 60) + "@example.com"
+		case "url":
+			return "https://example.com/" + strings.Repeat("a", 180)
+		case "tel":
+			return "+15551234567" + strings.Repeat("0", 10)
+		case "textarea":
+			return strings.Repeat("lorem ipsum ", 80)
+		}
+		return strings.Repeat("a", 200)
+	},
+	// oversizedValueFor produces a deliberately huge value (5000 chars
+	// of one repeated character). For an oversized-input test.
+	"oversizedValueFor": func(i ast.FormInput) string {
+		return strings.Repeat("a", 5000)
+	},
+	// pageIsListLike reports whether the symbol's tags / content
+	// suggest a list / search shape that warrants an empty-state test.
+	"pageIsListLike": func(s ast.Symbol) bool {
+		// Heuristic: any content anchor with tag "h2" + page has
+		// links — implies a content list. Conservative.
+		h2s := 0
+		for _, c := range s.Contents {
+			if c.Tag == "h2" {
+				h2s++
+			}
+		}
+		return h2s >= 2 && len(s.Links) > 0
+	},
 	// dtoSampleValuePy is the Python sibling of dtoSampleValue.
 	"dtoSampleValuePy": func(t string) string {
 		switch strings.ToLower(strings.TrimSpace(t)) {

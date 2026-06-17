@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — explore journey
   So that the page delivers on its user goal
 
   @journey:explore @priority:nice-to-have @smoke
-  Scenario: Explore journey reaches its terminal page
+  Scenario: explore journey ends on the expected cybersecurity page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -25,21 +25,41 @@ Feature: WwwSpritecloudCom — explore journey
     Then I see the heading "Fully Tailored Cybersecurity."
     And the page title contains "spriteCloud - Penetration Testing"
 
+  @journey:explore @priority:nice-to-have @kind:resume
+  Scenario: deep-link to the cybersecurity page loads correctly
+    Given I open the page "/cybersecurity"
+    Then I see the heading "Fully Tailored Cybersecurity."
+
+  @journey:explore @priority:nice-to-have @kind:back-button
+  Scenario: browser back button returns to the landing page after visiting cybersecurity
+    Given I open the landing page
+    When I click the link to "/cybersecurity"
+    When I go back in the browser history
+    Then the main heading reads "Test your software, not your reputation."
+
   # ───────────────────────────────────────────────────────────────
   # LLM-composed scenarios (model: qwen3-coder-next:latest)
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
   @journey:explore @priority:nice-to-have @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: Explore guides section
+  Scenario: navigating to guides shows the guides landing page
     Given I open the landing page
     When I click the link to "/guides"
-    Then the URL contains "/guides"
-    Then the main heading reads "Guides"
+    Then the page title contains "Guides"
+    Then I see the heading "Guides"
 
   @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: Navigate directly to test automation page
-    Given I am on the landing page
-    When I navigate directly to "/test-automation"
-    Then the URL contains "/test-automation"
-    Then the main heading reads "Test Automation"
+  Scenario: clicking case studies in footer loads the case studies page
+    Given I open the landing page
+    When I scroll to the bottom of the page
+    When I click the link to "/case-studies"
+    Then the page title contains "Case Studies"
+    Then I see the heading "Case Studies"
+
+  @journey:explore @priority:nice-to-have @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: navigating to contact from the header shows the contact page
+    Given I open the landing page
+    When I click the link to "/contact"
+    Then the URL contains "/contact"
+    Then the page title contains "Contact"

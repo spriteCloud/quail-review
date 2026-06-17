@@ -17,7 +17,7 @@ Feature: WwwSpritecloudCom — research journey
   So that the page delivers on its user goal
 
   @journey:research @priority:standard @smoke
-  Scenario: research journey ends on the correct case study page
+  Scenario: research journey ends on the correct page
     Given I open the landing page
     And the page title contains "spriteCloud - Test your software, not your reputation!"
     And the main heading reads "Test your software, not your reputation."
@@ -25,24 +25,36 @@ Feature: WwwSpritecloudCom — research journey
     Then I see the heading "GrandVision"
     And the page title contains "Case Study - GrandVision"
 
+  @journey:research @priority:standard @kind:resume
+  Scenario: research — deep-linking to the case study page loads properly
+    Given I open the page "/case-study-grandvision"
+    Then I see the heading "GrandVision"
+
+  @journey:research @priority:standard @kind:back-button
+  Scenario: research — using the back button after navigation restores the landing page
+    Given I open the landing page
+    When I click the link to "/case-study-grandvision"
+    When I go back in the browser history
+    Then the main heading reads "Test your software, not your reputation."
+
   # ───────────────────────────────────────────────────────────────
   # LLM-composed scenarios (model: qwen3-coder-next:latest)
   # Filter out with `--grep-invert @llm-composed` for stricter CI runs.
   # ───────────────────────────────────────────────────────────────
 
   @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
-  Scenario: user can navigate to the contact page
+  Scenario: User can access the case studies page
     Given I am on the landing page
-    When I click the link to "/contact"
+    When I click the link to "/case-studies"
+    Then the URL contains "/case-studies"
+
+  @journey:research @priority:standard @llm-composed @kind:variant @model:qwen3-coder-next-latest
+  Scenario: User can navigate to the guides page from the menu
+    Given I am on the landing page
+    When I click the link to "/guides"
+    Then the URL contains "/guides"
+
+  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
+  Scenario: User can access the contact page directly
+    Given I open the page "/contact"
     Then the URL contains "/contact"
-
-  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: user sees the service offerings section at the bottom
-    Given I am on the landing page
-    When I scroll to the bottom of the page
-    Then I see the heading "Test your software, not your reputation."
-
-  @journey:research @priority:standard @llm-composed @kind:edge @model:qwen3-coder-next-latest
-  Scenario: service links count is at least 7
-    Given I am on the landing page
-    Then the page has at least 7 items

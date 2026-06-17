@@ -16,18 +16,18 @@
 import { test, expect } from './_fixtures'
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('WwwSpritecloudCom — fuzz / negative input', () => {
+test.describe('WwwSpritecloudCom — fuzz input handling for edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
   })
 
-  test('@fuzz @negative input "email-2" handles edge payloads', async ({ page }) => {
+  test('@fuzz input "email-2" handles edge payloads', async ({ page }) => {
     const field = page.getByPlaceholder('Your email address').first()
     // Empty value: should be accepted by the field itself (validation
     // surfaces only on submit).
     await field.fill('')
     await expect(field).toHaveValue('')
-    // Very long input (5000 chars): field should not crash or hang.
+    // Very long input (5000 chars): field remains stable.
     const long = 'x'.repeat(5000)
     await field.fill(long)
     const persisted = await field.inputValue()

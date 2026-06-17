@@ -21,7 +21,7 @@ const VIEWPORTS = [
 ] as const
 
 test.describe.configure({ mode: 'parallel' })
-test.describe('Visual regression test for www.spritecloud.com/guides pages', () => {
+test.describe('WwwSpritecloudCom — visual regression for https://www.spritecloud.com/guides', () => {
   for (const vp of VIEWPORTS) {
     test(`@kind:visual @smoke page matches baseline (${vp.name})`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height })
