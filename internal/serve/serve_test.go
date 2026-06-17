@@ -75,16 +75,12 @@ func TestHandler_FeatureEndpoint(t *testing.T) {
 	}
 	var body struct {
 		Feature Feature `json:"feature"`
-		Gherkin string  `json:"gherkin"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if body.Feature.Name == "" {
 		t.Errorf("feature name empty")
-	}
-	if !strings.Contains(body.Gherkin, "Feature: Example") {
-		t.Errorf("gherkin payload did not contain the source")
 	}
 }
 

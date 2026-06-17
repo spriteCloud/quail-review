@@ -7,6 +7,24 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.79.1 — Drop PRETTY/RAW toggle + UI copy trim
+
+Quick patch on top of v0.79.
+
+- **Dropped the PRETTY / RAW .feature toggle** from the feature
+  view. Pretty is the only view now. Less clutter, one fewer
+  unused code path. `renderFeature` no longer takes a `gherkin`
+  arg; `/api/feature` no longer returns the raw file body.
+- **UI copy sweep.** HOME hero, Probe card, capability shelf,
+  Settings page, run-preflight banner, sidebar nav, history group,
+  toasts, project switcher dropdown — every long sentence I
+  added in v0.76–v0.78 trimmed to a short, direct label. ELI5,
+  professional, no marketing prose.
+- The doc viewer's Rendered/Raw toggle stays — that one's
+  rendering a real format conversion, not a redundant view.
+
+574 tests still passing; `go vet` clean.
+
 ## v0.79 — Scenario-card spacing fix + cleanup + docs refresh
 
 End-of-day wrap-up release. Five threads, single PR.

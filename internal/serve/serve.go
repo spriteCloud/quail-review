@@ -173,7 +173,6 @@ func handleFeature(state *workdirState) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		raw, _ := os.ReadFile(path)
 		feat.Path = rel
 		idx := LoadLastRunIndex(workdir)
 		for i := range feat.Scenarios {
@@ -182,7 +181,7 @@ func handleFeature(state *workdirState) http.HandlerFunc {
 				feat.Scenarios[i].LastRun = &rec
 			}
 		}
-		writeJSON(w, map[string]any{"feature": feat, "gherkin": string(raw)})
+		writeJSON(w, map[string]any{"feature": feat})
 	}
 }
 

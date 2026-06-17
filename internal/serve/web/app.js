@@ -10,7 +10,6 @@ let activeFeature = null
 let activeDoc = null
 let activeHome = false
 let activeSettings = false
-let viewMode = 'pretty'
 let llmStatus = { enabled: false, model: '', endpoint: '' }
 let runStatus = { ready: false, message: '' }
 let runDrawerOpen = false
@@ -101,20 +100,20 @@ function renderRunPreflightBanner () {
   const cmd = workdir ? `cd ${workdir} && npm install && npx playwright install` : 'npm install && npx playwright install'
   const copyBtn = el('button', { class: 'btn-ghost', onclick: async () => {
     try { await navigator.clipboard.writeText(cmd); copyBtn.textContent = '✓ copied' }
-    catch (_) { copyBtn.textContent = 'select + copy manually' }
-  } }, 'Copy command')
+    catch (_) { copyBtn.textContent = 'copy manually' }
+  } }, 'Copy')
   return el('div', { class: 'run-banner' },
     el('div', { class: 'run-banner-icon' }, '⚠'),
     el('div', { class: 'run-banner-body' },
-      el('div', { class: 'run-banner-title' }, '▶ Run is disabled — Playwright isn\'t installed in this project.'),
+      el('div', { class: 'run-banner-title' }, 'Run is off — Playwright isn\'t installed.'),
       el('code', { class: 'run-banner-cmd' }, cmd),
-      el('div', { class: 'run-banner-hint meta' }, 'After installing, reload this page to enable the Run button.'),
+      el('div', { class: 'run-banner-hint meta' }, 'Install it, then reload.'),
     ),
     copyBtn,
   )
 }
 
-function renderFeature (feature, gherkin) {
+function renderFeature (feature) {
   $content.replaceChildren()
 
   const banner = renderRunPreflightBanner()
@@ -126,17 +125,7 @@ function renderFeature (feature, gherkin) {
     renderTags(feature.tags),
     feature.narrative ? el('div', { class: 'narrative' }, feature.narrative) : null,
   )
-  const tabs = el('div', { class: 'tab-row' },
-    el('button', { class: 'tab ' + (viewMode === 'pretty' ? 'active' : ''), onclick: () => { viewMode = 'pretty'; renderFeature(feature, gherkin) } }, 'Pretty'),
-    el('button', { class: 'tab ' + (viewMode === 'raw' ? 'active' : ''), onclick: () => { viewMode = 'raw'; renderFeature(feature, gherkin) } }, 'Raw .feature'),
-  )
   $content.appendChild(header)
-  $content.appendChild(tabs)
-
-  if (viewMode === 'raw') {
-    $content.appendChild(el('pre', { class: 'raw-block' }, gherkin))
-    return
-  }
 
   for (const sc of feature.scenarios) {
     const block = scenarioToGherkin(sc)
@@ -693,7 +682,7 @@ async function openFeature (path) {
   refreshSidebarSelection()
   try {
     const data = await fetchJSON('/api/feature?path=' + encodeURIComponent(path))
-    renderFeature(data.feature, data.gherkin)
+    renderFeature(data.feature)
     // Also refresh the sidebar scenario counts after edits.
     await refreshSidebarCounts()
   } catch (err) {
@@ -927,7 +916,7 @@ async function renderHome () {
               ? `Probe succeeded (exit ${payload.exitCode}) — refreshing project…`
               : `Probe failed (exit ${payload.exitCode})${payload.error ? ' — ' + payload.error : ''}`
             $verdict.className = 'home-probe-verdict ' + (ok ? 'pass' : 'fail')
-            toast(ok ? 'Probe finished' : 'Probe failed', ok ? 'ok' : 'fail')
+            toast(ok ? 'Done' : 'Probe failed', ok ? 'ok' : 'fail')
             if (ok) await reloadProject()
           }
         }
@@ -942,41 +931,29 @@ async function renderHome () {
   }
 
   const shelf = el('div', { class: 'home-shelf' },
-    shelfTile('▶', 'Run any scenario',
-      'Pick a feature, hit Run. Streams Playwright output and stores the verdict next to the scenario.',
-      () => focusFeatures()),
-    shelfTile('💬', 'Chat-edit a scenario',
-      'Non-technical maintenance — describe a change in plain English, the LLM emits valid Gherkin bound to registered steps.',
-      () => focusFeatures()),
-    shelfTile('🔍', 'Locator suggest',
-      'Steps with quoted args or <placeholders> get a 🔍 button — probes the destination DOM and ranks Playwright selectors.',
-      () => focusFeatures()),
-    shelfTile('📋', 'Stakeholder summary',
-      'Narrative report for non-engineers — what was tested, what wasn\'t, what to do next.',
-      () => openDocByKind('summary')),
-    shelfTile('🗂', 'Test catalogue',
-      'Auto-generated map of every spec, what it covers, and which layer it lives in.',
-      () => openDocByKind('catalogue')),
-    shelfTile('🐞', 'Bug-discovery ledger',
-      'Findings deduped by (spec, test) after a run — surfaces real failures discovered while exercising the site.',
-      () => openDocByKind('findings')),
+    shelfTile('▶', 'Run a scenario', 'Play any feature and watch it run.', () => focusFeatures()),
+    shelfTile('💬', 'Chat to edit', 'Ask in plain English, get valid steps back.', () => focusFeatures()),
+    shelfTile('🔍', 'Suggest locator', 'Pick the right selector from the live page.', () => focusFeatures()),
+    shelfTile('📋', 'Summary', 'What was tested, in plain words.', () => openDocByKind('summary')),
+    shelfTile('🗂', 'Catalogue', 'Every test, mapped by layer.', () => openDocByKind('catalogue')),
+    shelfTile('🐞', 'Findings', 'Real failures from the last run.', () => openDocByKind('findings')),
   )
 
   $content.replaceChildren(
     el('div', { class: 'home-cover' },
-      el('span', { class: 'label' }, 'reviewqa /home'),
-      el('h1', { class: 'home-title' }, 'Probe a URL. Or pick a feature.'),
-      el('p', { class: 'home-sub' }, 'A local control room for the generated suite. Re-probe the site, run any scenario, chat-edit Gherkin, jump to the stakeholder docs.'),
+      el('span', { class: 'label' }, 'home'),
+      el('h1', { class: 'home-title' }, 'Probe a URL or pick a feature.'),
+      el('p', { class: 'home-sub' }, 'Probe a site, run tests, edit with chat.'),
     ),
     el('section', { class: 'home-card home-probe-card' },
       el('h2', { class: 'home-card-title' }, 'Probe a URL'),
-      el('p', { class: 'home-card-sub' }, 'Runs the same `reviewqa probe` your CLI does. New / updated features appear in the sidebar once it finishes.'),
+      el('p', { class: 'home-card-sub' }, 'Tests appear in the sidebar when done.'),
       el('div', { class: 'home-probe-row' }, $urlInput, $coverage, $btn),
       $terminal,
       $verdict,
     ),
     el('section', { class: 'home-card' },
-      el('h2', { class: 'home-card-title' }, 'What you can do from here'),
+      el('h2', { class: 'home-card-title' }, 'What you can do'),
       shelf,
     ),
   )
@@ -1048,7 +1025,7 @@ function renderHistoryList (project) {
     return
   }
   $box.style.display = ''
-  $box.appendChild(el('summary', {}, `Past summaries · findings (${project.history.length})`))
+  $box.appendChild(el('summary', {}, `History (${project.history.length})`))
   const $ul = el('ul', {})
   for (const h of project.history) {
     $ul.appendChild(el('li', { 'data-path': h.path, onclick: () => openDoc(h.path, h.kind) }, h.title))
@@ -1148,7 +1125,7 @@ async function renderSettings () {
       if (!res.ok) throw new Error('HTTP ' + res.status)
       $status.textContent = 'Saved.'
       $status.className = 'home-probe-verdict pass'
-      toast('Settings saved')
+      toast('Saved')
       // Refresh LLM status so the run/chat affordances re-evaluate.
       llmStatus = await fetchJSON('/api/llm-status').catch(() => llmStatus)
     } catch (err) {
@@ -1168,31 +1145,31 @@ async function renderSettings () {
 
   $content.replaceChildren(
     el('div', { class: 'home-cover' },
-      el('span', { class: 'label' }, 'reviewqa /settings'),
+      el('span', { class: 'label' }, 'settings'),
       el('h1', { class: 'home-title' }, 'Settings'),
-      el('p', { class: 'home-sub' }, 'Persisted to ~/.config/reviewqa/serve.json. Takes effect on the next API call — no restart required.'),
+      el('p', { class: 'home-sub' }, 'Saved on your machine. Live on the next click — no restart.'),
     ),
     el('section', { class: 'home-card' },
-      el('h2', { class: 'home-card-title' }, 'LLM composer / chat'),
-      el('p', { class: 'home-card-sub' }, 'Wire up an OpenAI-compatible endpoint (a local Ollama, the DGX on Netbird, the real OpenAI API). Off by default — the suite still runs deterministically when disabled.'),
+      el('h2', { class: 'home-card-title' }, 'LLM'),
+      el('p', { class: 'home-card-sub' }, 'Powers Chat and AI compose. Off by default.'),
       el('div', { class: 'settings-toggle-row' },
-        el('label', { for: 'set-llm-on', class: 'settings-toggle-label' }, $enabled, el('span', {}, 'Enable LLM features (Chat, compose-steps)')),
+        el('label', { for: 'set-llm-on', class: 'settings-toggle-label' }, $enabled, el('span', {}, 'Turn LLM on')),
       ),
-      settingsRow('Endpoint', 'http(s) URL — `/v1` is appended automatically', $endpoint),
-      settingsRow('Model', 'e.g. qwen3-coder-next:latest, gpt-4o-mini', $model),
-      settingsRow('API key', 'Leave blank for a keyless local Ollama (auto-set to "ollama")', $apiKey),
-      settingsRow('Timeout (sec)', 'Bound on each LLM call; default 60', $timeout),
+      settingsRow('Endpoint', 'URL of an OpenAI-compatible API', $endpoint),
+      settingsRow('Model', 'The model name', $model),
+      settingsRow('API key', 'Blank is fine for local Ollama', $apiKey),
+      settingsRow('Timeout (sec)', 'Max wait per call', $timeout),
       el('div', { class: 'settings-button-row' }, $testBtn, $saveBtn),
     ),
     el('section', { class: 'home-card' },
-      el('h2', { class: 'home-card-title' }, 'Probe defaults'),
-      settingsRow('Default coverage', 'Used by the HOME Probe form when no coverage is picked', $coverage),
+      el('h2', { class: 'home-card-title' }, 'Probe'),
+      settingsRow('Default coverage', 'Used when none is picked', $coverage),
     ),
     el('section', { class: 'home-card' },
-      el('h2', { class: 'home-card-title' }, 'Run defaults'),
-      settingsRow('Run timeout (sec)', 'Soft cap on a single scenario run; 0 = no cap', $runTimeout),
+      el('h2', { class: 'home-card-title' }, 'Runs'),
+      settingsRow('Timeout (sec)', '0 means no limit', $runTimeout),
       el('div', { class: 'settings-toggle-row' },
-        el('label', { for: 'set-run-keep', class: 'settings-toggle-label' }, $keepReport, el('span', {}, 'Keep playwright-report/ after each run (useful for trace viewer)')),
+        el('label', { for: 'set-run-keep', class: 'settings-toggle-label' }, $keepReport, el('span', {}, 'Keep the report after each run')),
       ),
     ),
     $status,
@@ -1243,7 +1220,7 @@ async function openProjectMenu () {
   }
 
   if ((!data.siblings || !data.siblings.length) && (!data.recents || !data.recents.length)) {
-    menu.appendChild(el('div', { class: 'project-menu-empty' }, 'No sibling reviewqa projects found and no recents yet.'))
+    menu.appendChild(el('div', { class: 'project-menu-empty' }, 'No other projects yet.'))
   }
 
   const $open = el('input', { type: 'text', placeholder: '/absolute/path/to/workdir', autocomplete: 'off' })
