@@ -15,23 +15,26 @@ broken locators when they drift.
 
 ## See it on real sites
 
-Live output from the v0.22 binary against four reference sites is
+Live output from the v0.23 binary against four reference sites is
 committed under [`examples/`](./examples/). Each probe now produces a
-full quality-axis battery alongside the journey suite:
+full quality-axis battery — including visual regression baselines —
+alongside the journey suite:
 
-| Site | Files | .feature | a11y | responsive | perf | api | fuzz |
-|---|---|---|---|---|---|---|---|
-| [`playwright.dev`](./examples/playwright-dev/) | 34 | 3 | 5 | 5 | 5 | 1 | 1 |
-| [`gohugo.io`](./examples/gohugo-io/) | 37 | 3 | 5 | 5 | 5 | 0 | 5 |
-| [`books.toscrape.com`](./examples/books-toscrape-com/) | 32 | 3 | 5 | 5 | 5 | 0 | 0 |
-| [`es.wikipedia.org/wiki/Madrid`](./examples/es-wikipedia-org-madrid/) | 46 | 4 | 5 | 5 | 5 | 8 | 5 |
+| Site | Files | .feature | a11y | responsive | perf | visual | api | fuzz |
+|---|---|---|---|---|---|---|---|---|
+| [`playwright.dev`](./examples/playwright-dev/) | 39 | 3 | 5 | 5 | 5 | 5 | 1 | 1 |
+| [`gohugo.io`](./examples/gohugo-io/) | 42 | 3 | 5 | 5 | 5 | 5 | 0 | 5 |
+| [`books.toscrape.com`](./examples/books-toscrape-com/) | 37 | 3 | 5 | 5 | 5 | 5 | 0 | 0 |
+| [`es.wikipedia.org/wiki/Madrid`](./examples/es-wikipedia-org-madrid/) | 51 | 4 | 5 | 5 | 5 | 5 | 8 | 5 |
 
 Plus, every example carries one each of `security/`, `health/`, and
-`observability/` per origin (4 of each across the matrix). OpenAPI
-`contract/` and `i18n/` specs are conditional — they fire only when the
-site advertises `/openapi.json` or `<link rel="alternate" hreflang>`.
+`observability/` per origin. Conditional emissions — `contract/`
+(OpenAPI + GraphQL via introspection), `webhooks/`, `i18n/` — fire only
+when the site advertises a schema, webhook endpoint, or hreflang
+siblings. `tests/grpc/` emits in diff mode when a PR touches a
+`.proto` file.
 
-## What a `probe` run produces (v0.22)
+## What a `probe` run produces (v0.23)
 
 A single probe of a live URL emits a full, runnable suite plus stakeholder
 docs. Journeys ship as Gherkin `.feature` files; `playwright-bdd` compiles
@@ -51,8 +54,11 @@ definitions in `tests/e2e/steps/`.
 | `tests/e2e/security/*.security.spec.ts` | Per-origin baseline security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy). Tag `@kind:security`. |
 | `tests/e2e/health/*.health.spec.ts` | Per-origin probe of /health, /healthz, /ready, /status, /livez — asserts at least one responds 2xx. Tag `@kind:health`. |
 | `tests/e2e/observability/*.observability.spec.ts` | Per-origin check for x-request-id / server-timing / traceparent headers. Tag `@kind:observability`. |
-| `tests/e2e/contract/*.contract.spec.ts` | Per-endpoint contract test when the site exposes `/openapi.json` or `/swagger.json`. Tag `@kind:contract`. |
+| `tests/e2e/visual/*.visual.spec.ts` | Per-page Playwright `toHaveScreenshot()` baseline at mobile / tablet / desktop viewports. Update with `npm run test:visual-update`. Tag `@kind:visual`. |
+| `tests/e2e/contract/*.contract.spec.ts` | Per-endpoint contract test when the site exposes `/openapi.json` or a `/graphql` introspection endpoint. Tag `@kind:contract` / `@kind:graphql`. |
+| `tests/e2e/webhooks/*.webhook.spec.ts` | Per-webhook signed/unsigned tests when `/webhooks/*` paths are detected (OpenAPI or provider patterns). `WEBHOOK_SECRET` env enables the signed test. Tag `@kind:webhook`. |
 | `tests/e2e/i18n/*.i18n.spec.ts` | Per-locale render check when `<link rel="alternate" hreflang>` siblings detected. Tag `@kind:i18n`. |
+| `tests/grpc/<svc>.<rpc>.test.ts` | Per-RPC gRPC contract test when the diff touches a `*.proto` file. Streaming shape (unary/server/client/bidi) auto-detected. Tag `@kind:grpc`. |
 | `tests/e2e/_fixtures.ts` | Shared `test`/`expect` with auto page-error tracking. |
 | `tests/e2e/_dom/*.html` | Browser-mode DOM snapshots (when `REVIEWQA_BROWSER_PROBE=1`). |
 | `tests/e2e/docs/test-catalogue.md` | Stakeholder doc: every page crawled, every journey, every priority. |

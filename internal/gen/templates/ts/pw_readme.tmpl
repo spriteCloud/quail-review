@@ -19,6 +19,28 @@ npx playwright test
 | `docs/summary.html` | Branded HTML deck summarising the same coverage. Open in a browser. |
 | `../playwright.config.ts` (project root) | Default Chromium config. `BASE_URL` env var overrides the probed origin so the same suite runs against staging, PR previews, or localhost. |
 
+## Visual regression baselines
+
+The `tests/e2e/visual/` directory holds one spec per crawled page,
+asserting the rendered DOM matches a baseline PNG at mobile / tablet /
+desktop viewports. The baselines live under `__screenshots__/` and
+should be committed to your repo.
+
+```bash
+# capture baselines after an intentional UI change (or on first run)
+npm run test:visual-update
+
+# subsequent runs assert
+npm run test:visual
+
+# remember to commit the changed PNGs
+git add tests/e2e/__screenshots__/ && git commit -m "chore: refresh visual baselines"
+```
+
+`maxDiffPixelRatio: 0.01` absorbs anti-aliasing drift across CI / local
+renders without rubber-stamping real visual breakage. If the diff is
+larger, the spec fails and Playwright's report shows the side-by-side.
+
 ## Priority filtering
 
 Every generated test name carries a `@priority:<level>` tag — `critical`

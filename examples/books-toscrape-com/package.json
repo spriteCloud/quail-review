@@ -17,6 +17,10 @@
     "test:security": "playwright test --grep @kind:security",
     "test:health": "playwright test --grep @kind:health",
     "test:contract": "playwright test --grep @kind:contract",
+    "test:visual": "playwright test --grep @kind:visual",
+    "test:visual-update": "playwright test --grep @kind:visual --update-snapshots",
+    "test:graphql": "playwright test --grep @kind:graphql",
+    "test:webhook": "playwright test --grep @kind:webhook",
     "test:install-browser": "playwright install chromium firefox webkit"
   },
   "devDependencies": {

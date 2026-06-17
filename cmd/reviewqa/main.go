@@ -17,6 +17,7 @@ import (
 
 	_ "github.com/reviewqa/reviewqa/internal/ast/golang"
 	_ "github.com/reviewqa/reviewqa/internal/ast/java"
+	_ "github.com/reviewqa/reviewqa/internal/ast/proto"
 	_ "github.com/reviewqa/reviewqa/internal/ast/python"
 	_ "github.com/reviewqa/reviewqa/internal/ast/ts"
 

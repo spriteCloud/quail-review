@@ -209,6 +209,20 @@ func templateLocation(t plan.Template) (string, string) {
 		return "py", "pytest_serialization.tmpl"
 	case plan.TmplPytestValidatorPos:
 		return "py", "pytest_validator_positive.tmpl"
+	case plan.TmplPlaywrightVisual:
+		return "ts", "pw_visual.tmpl"
+	case plan.TmplPlaywrightGraphQL:
+		return "ts", "pw_graphql.tmpl"
+	case plan.TmplPlaywrightWebhook:
+		return "ts", "pw_webhook.tmpl"
+	case plan.TmplGRPCUnary:
+		return "ts", "grpc_unary.tmpl"
+	case plan.TmplGRPCServerStream:
+		return "ts", "grpc_server_stream.tmpl"
+	case plan.TmplGRPCClientStream:
+		return "ts", "grpc_client_stream.tmpl"
+	case plan.TmplGRPCBidi:
+		return "ts", "grpc_bidi.tmpl"
 	case plan.TmplPytestUnit:
 		return "py", "pytest_unit.tmpl"
 	case plan.TmplPytestAPI:

@@ -437,6 +437,12 @@ func runAllImpl(ctx context.Context, urls []string, filter JourneyFilter, covera
 		// OpenAPI / Swagger contract specs — only emitted when the
 		// origin actually exposes a schema document.
 		items = append(items, openAPIContractItems(ctx, u)...)
+		// GraphQL contract specs — only when /graphql responds to
+		// introspection. Capped at 16 operations per probe.
+		items = append(items, graphQLContractItems(ctx, u)...)
+		// Webhook specs — emitted when OpenAPI paths match /webhooks/*
+		// or known providers' well-known endpoints respond.
+		items = append(items, webhookContractItems(ctx, u)...)
 		// Browser-mode DOM snapshots: emit one tests/e2e/_dom/<slug>.html
 		// per crawled page that carries captured HTML. Static crawl pages
 		// don't populate DOMHTML, so this is a no-op outside browser mode.
@@ -521,6 +527,7 @@ func qualityCompanions(sourceURL string, m *mindmap.Map, coverage CoverageMode) 
 			{plan.TmplPlaywrightA11y, "a11y"},
 			{plan.TmplPlaywrightResponsive, "responsive"},
 			{plan.TmplPlaywrightPerf, "perf"},
+			{plan.TmplPlaywrightVisual, "visual"},
 		} {
 			out = append(out, plan.Item{
 				Symbol:   pageStub,

@@ -45,6 +45,13 @@ const (
 	TmplPytestProperty      Template = "pytest_property"
 	TmplPytestSerialization Template = "pytest_serialization"
 	TmplPytestValidatorPos  Template = "pytest_validator_positive"
+	TmplPlaywrightVisual    Template = "pw_visual"
+	TmplPlaywrightGraphQL   Template = "pw_graphql"
+	TmplPlaywrightWebhook   Template = "pw_webhook"
+	TmplGRPCUnary           Template = "grpc_unary"
+	TmplGRPCServerStream    Template = "grpc_server_stream"
+	TmplGRPCClientStream    Template = "grpc_client_stream"
+	TmplGRPCBidi            Template = "grpc_bidi"
 	TmplRaw                 Template = "raw" // sentinel: emit Item.RawContent verbatim
 	TmplPytestUnit          Template = "pytest_unit"
 	TmplPytestAPI           Template = "pytest_api"
@@ -217,6 +224,19 @@ func readNew(workDir, rel, fallback string) []byte {
 }
 
 func pickTemplate(s ast.Symbol, l Layout) Template {
+	// .proto symbols carry their streaming shape via FrameworkHint —
+	// route directly to the matching gRPC template before the
+	// language switch kicks in.
+	switch s.FrameworkHint {
+	case "grpc-unary":
+		return TmplGRPCUnary
+	case "grpc-server-stream":
+		return TmplGRPCServerStream
+	case "grpc-client-stream":
+		return TmplGRPCClientStream
+	case "grpc-bidi":
+		return TmplGRPCBidi
+	}
 	switch s.Language {
 	case "ts":
 		switch s.Kind {
@@ -247,6 +267,13 @@ func pickTemplate(s ast.Symbol, l Layout) Template {
 }
 
 func testPathFor(s ast.Symbol, t Template, l Layout) string {
+	// gRPC-shaped symbols land under tests/grpc/ regardless of source
+	// language (the templates emit TypeScript clients).
+	switch t {
+	case TmplGRPCUnary, TmplGRPCServerStream, TmplGRPCClientStream, TmplGRPCBidi:
+		return filepath.ToSlash(filepath.Join("tests", "grpc",
+			strings.ToLower(s.Receiver)+"."+strings.ToLower(s.Name)+".test.ts"))
+	}
 	dir, base := filepath.Split(s.File)
 	stem := strings.TrimSuffix(base, filepath.Ext(base))
 	switch s.Language {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>reviewqa — by spriteCloud</title>
-  <meta name="description" content="A Go binary + GitHub Action that watches a PR (or any URL) and opens a follow-up PR with Gherkin .feature files (executed via playwright-bdd), API contract tests, journey-priority tags, a stakeholder catalogue, a work-summary deck, a bug-discovery ledger, and self-healing locators.">
+  <meta name="description" content="A Go binary + GitHub Action that watches a PR (or any URL) and opens a follow-up PR with Gherkin features (via playwright-bdd), API contract / GraphQL / webhook tests, visual regression baselines, accessibility / responsive / performance / security / health / observability specs, gRPC contracts from .proto diffs, a stakeholder catalogue, a bug-discovery ledger, and self-healing locators.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
@@ -262,12 +262,12 @@
         Tests <em>write themselves.</em>
       </h1>
       <p class="lead">
-        Give it a PR or a URL. Get back Gherkin feature files that compile
-        to a runnable Playwright suite (via playwright-bdd), API contract
-        tests, accessibility / responsive / performance / security /
-        health / observability / OpenAPI / i18n specs, a stakeholder
-        catalogue + work-summary deck, a bug-discovery ledger, and locator
-        self-heal when the DOM drifts. One Go binary. v0.22.
+        Give it a PR or a URL. Get back Gherkin features (via playwright-bdd),
+        API + GraphQL + webhook contract tests, visual regression baselines,
+        accessibility / responsive / performance / security / health /
+        observability / i18n specs, gRPC tests from .proto diffs, a
+        stakeholder catalogue + work-summary deck, a bug-discovery ledger,
+        and locator self-heal when the DOM drifts. One Go binary. v0.23.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/marketplace/actions/reviewqa" data-testid="cta-install">Add to your repo</a>
@@ -323,7 +323,12 @@
         <div class="card copper">
           <div class="num">07</div>
           <h3>Quality battery on every probe</h3>
-          <p>Every probe emits accessibility (axe-core), responsive viewports, perf SLO, security headers, health probes, observability headers, and — when the site advertises them — OpenAPI contract + i18n locale specs.</p>
+          <p>Every probe emits accessibility (axe-core), responsive viewports, perf SLO, security headers, health probes, observability headers, visual baselines (toHaveScreenshot), and — when the site advertises them — OpenAPI / GraphQL contract + webhook + i18n specs.</p>
+        </div>
+        <div class="card">
+          <div class="num">08</div>
+          <h3>gRPC contracts from .proto diffs</h3>
+          <p>Drop a <code>.proto</code> file in your PR and reviewqa emits per-RPC contract tests classified by streaming shape (unary / server-stream / client-stream / bidi) using <code>@grpc/grpc-js</code>.</p>
         </div>
       </div>
     </div>
@@ -345,22 +350,22 @@
         <div class="card">
           <div class="num">01</div>
           <h3><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/playwright-dev">playwright.dev</a></h3>
-          <p>SaaS docs, JS-heavy. 34 files · 3 Gherkin journeys · 5 a11y · 5 responsive · 5 perf · 1 API spec.</p>
+          <p>SaaS docs, JS-heavy. 39 files · 3 Gherkin · 5 a11y · 5 resp · 5 perf · 5 visual · 1 API.</p>
         </div>
         <div class="card copper">
           <div class="num">02</div>
           <h3><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/gohugo-io">gohugo.io</a></h3>
-          <p>OSS marketing + content. 37 files · 3 Gherkin journeys · 5 a11y · 5 responsive · 5 perf · 5 fuzz.</p>
+          <p>OSS marketing + content. 42 files · 3 Gherkin · 5 a11y · 5 resp · 5 perf · 5 visual · 5 fuzz.</p>
         </div>
         <div class="card">
           <div class="num">03</div>
           <h3><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/books-toscrape-com">books.toscrape.com</a></h3>
-          <p>E-commerce list-and-detail. 32 files · 3 Gherkin journeys · 5 a11y · 5 responsive · 5 perf.</p>
+          <p>E-commerce list-and-detail. 37 files · 3 Gherkin · 5 a11y · 5 resp · 5 perf · 5 visual.</p>
         </div>
         <div class="card copper">
           <div class="num">04</div>
           <h3><a href="https://github.com/spriteCloud/reviewqa/tree/main/examples/es-wikipedia-org-madrid">es.wikipedia.org / Madrid</a></h3>
-          <p>Non-English content page. 46 files · 4 Gherkin journeys · 5 a11y · 5 responsive · 5 perf · 8 API · 5 fuzz.</p>
+          <p>Non-English content page. 51 files · 4 Gherkin · 5 a11y · 5 resp · 5 perf · 5 visual · 8 API · 5 fuzz.</p>
         </div>
       </div>
     </div>

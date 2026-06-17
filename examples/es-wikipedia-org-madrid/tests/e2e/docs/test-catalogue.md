@@ -19,7 +19,7 @@ suite covers — anything missing here is a coverage gap.
 | `https://es.wikipedia.org/wiki/Portal:Actualidad` | Portal:Actualidad - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Especial:CambiosRecientes` | Cambios recientes - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Especial:P%C3%A1ginasNuevas` | Páginas nuevas - Wikipedia, la enciclopedia libre | `list`, `interactive` |
-| `https://es.wikipedia.org/wiki/Petersberg_(Hesse)` | Petersberg (Hesse) - Wikipedia, la enciclopedia libre | `list`, `interactive` |
+| `https://es.wikipedia.org/wiki/Relaci%C3%B3n_del_descubrimiento_del_r%C3%ADo_Apure_hasta_su_ingreso_en_el_Orinoco` | Relación del descubrimiento del río Apure hasta su ingreso en el Orinoco - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Ayuda:Contenidos` | Ayuda:Contenidos - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Wikipedia:Informes_de_error` | Wikipedia:Informes de error - Wikipedia, la enciclopedia libre | `list`, `interactive` |
 | `https://es.wikipedia.org/wiki/Especial:P%C3%A1ginasEspeciales` | Páginas especiales - Wikipedia, la enciclopedia libre | `list`, `detail`, `interactive` |
