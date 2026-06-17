@@ -133,6 +133,12 @@ func templateLocation(t plan.Template) (string, string) {
 		return "ts", "pw_config.tmpl"
 	case plan.TmplPlaywrightReadme:
 		return "ts", "pw_readme.tmpl"
+	case plan.TmplPlaywrightPackage:
+		return "ts", "pw_package.tmpl"
+	case plan.TmplPlaywrightTsconfig:
+		return "ts", "pw_tsconfig.tmpl"
+	case plan.TmplPlaywrightCIFile:
+		return "ts", "pw_ci_workflow.tmpl"
 	case plan.TmplPytestUnit:
 		return "py", "pytest_unit.tmpl"
 	case plan.TmplPytestAPI:

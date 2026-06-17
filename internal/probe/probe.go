@@ -334,6 +334,27 @@ func companionItems(sourceURL string, m *mindmap.Map) []plan.Item {
 			Template: plan.TmplPlaywrightReadme,
 			OutPath:  "tests/e2e/README.md",
 		},
+		{
+			Symbol:   stub,
+			Symbols:  []ast.Symbol{stub},
+			PageURL:  originOnly,
+			Template: plan.TmplPlaywrightPackage,
+			OutPath:  "package.json",
+		},
+		{
+			Symbol:   stub,
+			Symbols:  []ast.Symbol{stub},
+			PageURL:  originOnly,
+			Template: plan.TmplPlaywrightTsconfig,
+			OutPath:  "tsconfig.json",
+		},
+		{
+			Symbol:   stub,
+			Symbols:  []ast.Symbol{stub},
+			PageURL:  originOnly,
+			Template: plan.TmplPlaywrightCIFile,
+			OutPath:  ".github/workflows/e2e.yml",
+		},
 	}
 }
 

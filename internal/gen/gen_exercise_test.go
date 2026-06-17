@@ -41,7 +41,7 @@ func renderExercise(t *testing.T, i ast.Interaction) string {
 
 func TestExerciseTemplate_Search(t *testing.T) {
 	out := renderExercise(t, ast.Interaction{Kind: "search", InputType: "search"})
-	mustContain(t, out, "test('exercise: search box accepts input and navigates'")
+	mustContain(t, out, "test('@journey:exercise @smoke exercise: search box accepts input and navigates'")
 	mustContain(t, out, "input[type=\"search\"]")
 	mustContain(t, out, ".fill('test')")
 	mustContain(t, out, "press('Enter')")
@@ -49,35 +49,35 @@ func TestExerciseTemplate_Search(t *testing.T) {
 
 func TestExerciseTemplate_Dialog(t *testing.T) {
 	out := renderExercise(t, ast.Interaction{Kind: "dialog"})
-	mustContain(t, out, "test('exercise: dialog opens and closes'")
+	mustContain(t, out, "test('@journey:exercise @smoke exercise: dialog opens and closes'")
 	mustContain(t, out, "locator('dialog')")
 	mustContain(t, out, "toBeAttached()")
 }
 
 func TestExerciseTemplate_Details(t *testing.T) {
 	out := renderExercise(t, ast.Interaction{Kind: "details", Text: "FAQ"})
-	mustContain(t, out, "test('exercise: details element expands and collapses (FAQ)'")
+	mustContain(t, out, "test('@journey:exercise @smoke exercise: details element expands and collapses (FAQ)'")
 	mustContain(t, out, "toHaveJSProperty('open', false)")
 	mustContain(t, out, "toHaveJSProperty('open', true)")
 }
 
 func TestExerciseTemplate_Collapse(t *testing.T) {
 	out := renderExercise(t, ast.Interaction{Kind: "collapse", Text: "Toggle", Controls: "p1"})
-	mustContain(t, out, "test('exercise: collapse toggle flips aria-expanded (Toggle)'")
+	mustContain(t, out, "test('@journey:exercise @smoke exercise: collapse toggle flips aria-expanded (Toggle)'")
 	mustContain(t, out, "getAttribute('aria-expanded')")
 	mustContain(t, out, "expect(after).not.toBe(before)")
 }
 
 func TestExerciseTemplate_Tab(t *testing.T) {
 	out := renderExercise(t, ast.Interaction{Kind: "tab", Text: "Reviews", Role: "tab"})
-	mustContain(t, out, "test('exercise: tab activates (Reviews)'")
+	mustContain(t, out, "test('@journey:exercise @smoke exercise: tab activates (Reviews)'")
 	mustContain(t, out, "getByRole('tab', { name: /Reviews/i })")
 	mustContain(t, out, "toHaveAttribute('aria-selected', 'true')")
 }
 
 func TestExerciseTemplate_Date(t *testing.T) {
 	out := renderExercise(t, ast.Interaction{Kind: "date", InputType: "date"})
-	mustContain(t, out, "test('exercise: date input accepts a value'")
+	mustContain(t, out, "test('@journey:exercise @smoke exercise: date input accepts a value'")
 	mustContain(t, out, "input[type=\"date\"]")
 	mustContain(t, out, ".fill('2026-06-17')")
 	mustContain(t, out, "toHaveValue('2026-06-17')")
@@ -85,13 +85,13 @@ func TestExerciseTemplate_Date(t *testing.T) {
 
 func TestExerciseTemplate_DataToggle(t *testing.T) {
 	out := renderExercise(t, ast.Interaction{Kind: "data-toggle", Toggle: "modal", Text: "Open"})
-	mustContain(t, out, "test('exercise: modal toggle responds to click (Open)'")
+	mustContain(t, out, "test('@journey:exercise @smoke exercise: modal toggle responds to click (Open)'")
 	mustContain(t, out, "[role=\"dialog\"]")
 }
 
 func TestExerciseTemplate_Popup(t *testing.T) {
 	out := renderExercise(t, ast.Interaction{Kind: "popup", Text: "More options"})
-	mustContain(t, out, "test('exercise: popup trigger reveals menu (More options)'")
+	mustContain(t, out, "test('@journey:exercise @smoke exercise: popup trigger reveals menu (More options)'")
 	mustContain(t, out, "[role=\"menu\"]")
 	mustContain(t, out, "[role=\"listbox\"]")
 }
@@ -184,6 +184,88 @@ func TestCompanionTemplates_ReadmeListsKindsAndFiles(t *testing.T) {
 	mustContain(t, body, "*-convert.spec.ts")
 	mustContain(t, body, "*-exercise.spec.ts")
 	mustContain(t, body, "BASE_URL")
+}
+
+func TestCompanionTemplates_PackageJSON(t *testing.T) {
+	sym := ast.Symbol{Name: "X", Kind: ast.KindComponent, File: "https://x.test", Language: "ts"}
+	it := plan.Item{
+		Symbol:   sym,
+		Symbols:  []ast.Symbol{sym},
+		PageURL:  "https://x.test",
+		Template: plan.TmplPlaywrightPackage,
+		OutPath:  "package.json",
+	}
+	out, err := Render([]plan.Item{it}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(out[0].Content)
+	mustContain(t, body, `"@playwright/test"`)
+	mustContain(t, body, `"test": "playwright test"`)
+	mustContain(t, body, `"test:smoke": "playwright test --grep @smoke"`)
+	mustContain(t, body, `"node": ">=18"`)
+}
+
+func TestCompanionTemplates_Tsconfig(t *testing.T) {
+	sym := ast.Symbol{Name: "X", Kind: ast.KindComponent, File: "https://x.test", Language: "ts"}
+	it := plan.Item{
+		Symbol:   sym,
+		Symbols:  []ast.Symbol{sym},
+		PageURL:  "https://x.test",
+		Template: plan.TmplPlaywrightTsconfig,
+		OutPath:  "tsconfig.json",
+	}
+	out, err := Render([]plan.Item{it}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(out[0].Content)
+	mustContain(t, body, `"strict": true`)
+	mustContain(t, body, `"target": "ES2022"`)
+	mustContain(t, body, `"@playwright/test"`)
+}
+
+func TestCompanionTemplates_CIWorkflow(t *testing.T) {
+	sym := ast.Symbol{Name: "X", Kind: ast.KindComponent, File: "https://x.test", Language: "ts"}
+	it := plan.Item{
+		Symbol:   sym,
+		Symbols:  []ast.Symbol{sym},
+		PageURL:  "https://x.test",
+		Template: plan.TmplPlaywrightCIFile,
+		OutPath:  ".github/workflows/e2e.yml",
+	}
+	out, err := Render([]plan.Item{it}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(out[0].Content)
+	mustContain(t, body, "name: e2e")
+	mustContain(t, body, "npx playwright install")
+	mustContain(t, body, "playwright-report/")
+	mustContain(t, body, "playwright-traces")
+}
+
+func TestHappyFlowTemplate_TagsAndConfigure(t *testing.T) {
+	// v0.16.0: each describe has test.describe.configure({ mode: 'parallel' })
+	// and each generated test name carries @journey:<kind> and @smoke tags
+	// so consumers can filter via --grep.
+	landing := ast.Symbol{Name: "X", Kind: ast.KindComponent, File: "https://x.test/", Language: "ts", PageTitle: "Home"}
+	it := plan.Item{
+		Symbol:      landing,
+		Symbols:     []ast.Symbol{landing},
+		PageURL:     "https://x.test/",
+		Template:    plan.TmplPlaywrightHappyFlow,
+		OutPath:     "tests/e2e/x.spec.ts",
+		JourneyKind: "browse",
+	}
+	out, err := Render([]plan.Item{it}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(out[0].Content)
+	mustContain(t, body, `test.describe.configure({ mode: 'parallel' })`)
+	mustContain(t, body, `@journey:browse @smoke browse:`)
+	mustContain(t, body, `* Filter to this kind with:`)
 }
 
 func TestHappyFlowTemplate_TestFailWhenDataWaitSubmit(t *testing.T) {
