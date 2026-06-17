@@ -110,6 +110,10 @@ type MetaTags struct {
 	Description     string // <meta name="description">
 	Canonical       string // <link rel="canonical" href="...">
 	ViewportContent string // <meta name="viewport"> — captured for SEO sanity, not currently asserted
+	// Hreflang is the lang → URL mapping built from
+	// <link rel="alternate" hreflang="..." href="..."> siblings. Drives
+	// the pw_i18n.tmpl emission when non-empty.
+	Hreflang map[string]string
 }
 
 // Interaction describes an in-page interactive component detected by the

@@ -5,8 +5,14 @@
 //
 // playwright-bdd is wired in: .feature files under tests/e2e/features/
 // become the executable contract via step definitions in
-// tests/e2e/steps/. Plain Playwright TS specs (api/*.api.spec.ts and
-// *-fuzz.spec.ts) still run alongside them as a second project.
+// tests/e2e/steps/. Plain Playwright TS specs (api/*.api.spec.ts,
+// *-fuzz.spec.ts, and the v0.22 quality specs under a11y/responsive/
+// perf/security/health/observability/contract/i18n) still run alongside
+// them as additional projects.
+//
+// REVIEWQA_BROWSERS env opts you in/out of cross-browser runs:
+//   chromium-only (default in CI)   → REVIEWQA_BROWSERS=chromium
+//   add firefox + webkit            → REVIEWQA_BROWSERS=chromium,firefox,webkit
 //
 // Edit freely — the next probe run will not overwrite this file.
 import { defineConfig, devices } from '@playwright/test'
@@ -14,10 +20,28 @@ import { defineBddConfig } from 'playwright-bdd'
 
 const BASE_URL = process.env.BASE_URL ?? 'https://gohugo.io'
 
+const BROWSERS = (process.env.REVIEWQA_BROWSERS ?? 'chromium')
+  .split(',')
+  .map(s => s.trim().toLowerCase())
+  .filter(Boolean)
+
 const bddTestDir = defineBddConfig({
   features: 'tests/e2e/features/*.feature',
   steps: 'tests/e2e/steps/*.ts',
 })
+
+const extrasTestMatch = /\.(api|fuzz|a11y|responsive|perf|security|health|observability|contract|i18n)\.spec\.ts$/
+
+function projectsForBrowser(browser: 'chromium' | 'firefox' | 'webkit') {
+  const deviceProfile =
+    browser === 'firefox' ? devices['Desktop Firefox'] :
+    browser === 'webkit'  ? devices['Desktop Safari']  :
+                            devices['Desktop Chrome']
+  return [
+    { name: `bdd-${browser}`,    testDir: bddTestDir, use: { ...deviceProfile } },
+    { name: `extras-${browser}`, testDir: './tests/e2e', testMatch: extrasTestMatch, use: { ...deviceProfile } },
+  ]
+}
 
 export default defineConfig({
   fullyParallel: true,
@@ -32,17 +56,8 @@ export default defineConfig({
     actionTimeout: 10_000,
     navigationTimeout: 20_000,
   },
-  projects: [
-    {
-      name: 'bdd',
-      testDir: bddTestDir,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'extras',
-      testDir: './tests/e2e',
-      testMatch: /\.(api|fuzz)\.spec\.ts$/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
+  projects: BROWSERS
+    .filter((b): b is 'chromium' | 'firefox' | 'webkit' =>
+      b === 'chromium' || b === 'firefox' || b === 'webkit')
+    .flatMap(projectsForBrowser),
 })

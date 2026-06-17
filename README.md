@@ -15,22 +15,23 @@ broken locators when they drift.
 
 ## See it on real sites
 
-Live output from the v0.21 binary against four reference sites is committed
-under [`examples/`](./examples/):
+Live output from the v0.22 binary against four reference sites is
+committed under [`examples/`](./examples/). Each probe now produces a
+full quality-axis battery alongside the journey suite:
 
-| Site | Files | Journeys (.feature) | API specs | Fuzz specs |
-|---|---|---|---|---|
-| [`playwright.dev`](./examples/playwright-dev/) | 16 | 3 | 1 | 1 |
-| [`gohugo.io`](./examples/gohugo-io/) | 19 | 3 | 0 | 5 |
-| [`books.toscrape.com`](./examples/books-toscrape-com/) | 14 | 3 | 0 | 0 |
-| [`es.wikipedia.org/wiki/Madrid`](./examples/es-wikipedia-org-madrid/) | 28 | 4 | 8 | 5 |
+| Site | Files | .feature | a11y | responsive | perf | api | fuzz |
+|---|---|---|---|---|---|---|---|
+| [`playwright.dev`](./examples/playwright-dev/) | 34 | 3 | 5 | 5 | 5 | 1 | 1 |
+| [`gohugo.io`](./examples/gohugo-io/) | 37 | 3 | 5 | 5 | 5 | 0 | 5 |
+| [`books.toscrape.com`](./examples/books-toscrape-com/) | 32 | 3 | 5 | 5 | 5 | 0 | 0 |
+| [`es.wikipedia.org/wiki/Madrid`](./examples/es-wikipedia-org-madrid/) | 46 | 4 | 5 | 5 | 5 | 8 | 5 |
 
-Open any of them to see a complete project: feature files, step
-definitions, Steps API, API contract specs, fuzz specs, catalogue,
-summary HTML, ledger seed, and the Playwright config that wires
-`playwright-bdd`.
+Plus, every example carries one each of `security/`, `health/`, and
+`observability/` per origin (4 of each across the matrix). OpenAPI
+`contract/` and `i18n/` specs are conditional — they fire only when the
+site advertises `/openapi.json` or `<link rel="alternate" hreflang>`.
 
-## What a `probe` run produces (v0.21)
+## What a `probe` run produces (v0.22)
 
 A single probe of a live URL emits a full, runnable suite plus stakeholder
 docs. Journeys ship as Gherkin `.feature` files; `playwright-bdd` compiles
@@ -44,6 +45,14 @@ definitions in `tests/e2e/steps/`.
 | `tests/e2e/lib/steps.ts` | Steps API helper module — `visit`, `fillForm`, `submit`, `convert`, `authenticate`, …. Step defs compose these. |
 | `tests/e2e/*-fuzz.spec.ts` | Per-page negative / keyboard / oversize-input checks. Plain Playwright TS. Capped per probe. |
 | `tests/e2e/api/*.api.spec.ts` | One API-contract spec per `<form action="...">` — happy + 4xx-on-missing + malformed-email + oversized + wrong-method. Plain Playwright TS. |
+| `tests/e2e/a11y/*.a11y.spec.ts` | Per-page accessibility scan via `@axe-core/playwright` — asserts no serious/critical violations. Tag `@kind:a11y`. |
+| `tests/e2e/responsive/*.responsive.spec.ts` | Per-page render check at mobile (375px), tablet (768px), desktop (1280px). Tag `@kind:responsive`. |
+| `tests/e2e/perf/*.perf.spec.ts` | Per-page load time under SLO (default 3000ms; `PERF_SLO_MS` env). Tag `@kind:perf`. |
+| `tests/e2e/security/*.security.spec.ts` | Per-origin baseline security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy). Tag `@kind:security`. |
+| `tests/e2e/health/*.health.spec.ts` | Per-origin probe of /health, /healthz, /ready, /status, /livez — asserts at least one responds 2xx. Tag `@kind:health`. |
+| `tests/e2e/observability/*.observability.spec.ts` | Per-origin check for x-request-id / server-timing / traceparent headers. Tag `@kind:observability`. |
+| `tests/e2e/contract/*.contract.spec.ts` | Per-endpoint contract test when the site exposes `/openapi.json` or `/swagger.json`. Tag `@kind:contract`. |
+| `tests/e2e/i18n/*.i18n.spec.ts` | Per-locale render check when `<link rel="alternate" hreflang>` siblings detected. Tag `@kind:i18n`. |
 | `tests/e2e/_fixtures.ts` | Shared `test`/`expect` with auto page-error tracking. |
 | `tests/e2e/_dom/*.html` | Browser-mode DOM snapshots (when `REVIEWQA_BROWSER_PROBE=1`). |
 | `tests/e2e/docs/test-catalogue.md` | Stakeholder doc: every page crawled, every journey, every priority. |

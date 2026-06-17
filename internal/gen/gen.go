@@ -181,6 +181,34 @@ func templateLocation(t plan.Template) (string, string) {
 		return "ts", "pw_findings.tmpl"
 	case plan.TmplPlaywrightStepsBDD:
 		return "ts", "pw_steps_bdd.tmpl"
+	case plan.TmplPlaywrightA11y:
+		return "ts", "pw_a11y.tmpl"
+	case plan.TmplPlaywrightResponsive:
+		return "ts", "pw_responsive.tmpl"
+	case plan.TmplPlaywrightPerf:
+		return "ts", "pw_perf.tmpl"
+	case plan.TmplPlaywrightSecurity:
+		return "ts", "pw_security.tmpl"
+	case plan.TmplPlaywrightHealth:
+		return "ts", "pw_health.tmpl"
+	case plan.TmplPlaywrightContract:
+		return "ts", "pw_contract.tmpl"
+	case plan.TmplPlaywrightObservability:
+		return "ts", "pw_observability.tmpl"
+	case plan.TmplPlaywrightI18n:
+		return "ts", "pw_i18n.tmpl"
+	case plan.TmplJestProperty:
+		return "ts", "jest_property.tmpl"
+	case plan.TmplJestSerialization:
+		return "ts", "jest_serialization.tmpl"
+	case plan.TmplJestValidatorPos:
+		return "ts", "jest_validator_positive.tmpl"
+	case plan.TmplPytestProperty:
+		return "py", "pytest_property.tmpl"
+	case plan.TmplPytestSerialization:
+		return "py", "pytest_serialization.tmpl"
+	case plan.TmplPytestValidatorPos:
+		return "py", "pytest_validator_positive.tmpl"
 	case plan.TmplPytestUnit:
 		return "py", "pytest_unit.tmpl"
 	case plan.TmplPytestAPI:
@@ -504,6 +532,79 @@ var funcs = template.FuncMap{
 			return true
 		}
 		return false
+	},
+	// propertyArbitraryFor maps a Param type to a fast-check arbitrary.
+	// Falls back to fc.anything() for unknown types.
+	"propertyArbitraryFor": func(p ast.Param) string {
+		switch strings.ToLower(strings.TrimSpace(p.Type)) {
+		case "number", "int", "float", "double":
+			return "fc.integer()"
+		case "string":
+			return "fc.string()"
+		case "boolean", "bool":
+			return "fc.boolean()"
+		case "string[]", "array<string>":
+			return "fc.array(fc.string())"
+		case "number[]", "array<number>":
+			return "fc.array(fc.integer())"
+		}
+		return "fc.anything()"
+	},
+	// pyStrategyFor maps a Param type to a hypothesis strategy.
+	"pyStrategyFor": func(t string) string {
+		switch strings.ToLower(strings.TrimSpace(t)) {
+		case "int":
+			return "st.integers()"
+		case "float":
+			return "st.floats(allow_nan=False, allow_infinity=False)"
+		case "str", "string":
+			return "st.text()"
+		case "bool":
+			return "st.booleans()"
+		case "list", "list[int]":
+			return "st.lists(st.integers())"
+		case "list[str]":
+			return "st.lists(st.text())"
+		case "dict":
+			return "st.dictionaries(st.text(), st.integers())"
+		}
+		return "st.none() | st.integers() | st.text()"
+	},
+	// dtoSampleValue produces a deterministic placeholder value matching
+	// the TS field type for the serialization round-trip and validator
+	// templates.
+	"dtoSampleValue": func(t string) string {
+		switch strings.ToLower(strings.TrimSpace(t)) {
+		case "number", "int", "float":
+			return "0"
+		case "string":
+			return `"sample"`
+		case "boolean", "bool":
+			return "false"
+		case "string[]", "array<string>":
+			return `[]`
+		case "number[]", "array<number>":
+			return `[]`
+		}
+		return `"sample"`
+	},
+	// dtoSampleValuePy is the Python sibling of dtoSampleValue.
+	"dtoSampleValuePy": func(t string) string {
+		switch strings.ToLower(strings.TrimSpace(t)) {
+		case "int":
+			return "0"
+		case "float":
+			return "0.0"
+		case "str", "string":
+			return `"sample"`
+		case "bool":
+			return "False"
+		case "list", "list[int]", "list[str]":
+			return "[]"
+		case "dict":
+			return "{}"
+		}
+		return `"sample"`
 	},
 }
 

@@ -26,6 +26,7 @@ import (
 	"github.com/reviewqa/reviewqa/internal/ast"
 	"github.com/reviewqa/reviewqa/internal/log"
 	"github.com/reviewqa/reviewqa/internal/mindmap"
+	"github.com/reviewqa/reviewqa/internal/openapi"
 	"github.com/reviewqa/reviewqa/internal/plan"
 )
 
@@ -430,12 +431,222 @@ func runAllImpl(ctx context.Context, urls []string, filter JourneyFilter, covera
 		// action resolves to a same-origin URL. Bounded at 8 per probe so
 		// triage stays tractable on form-heavy sites.
 		items = append(items, apiSpecItems(u, m)...)
+		// v0.22 quality-taxonomy companions — one spec per layer per
+		// origin / page. Caps mirror the fuzz cap so probes stay cheap.
+		items = append(items, qualityCompanions(u, m, coverage)...)
+		// OpenAPI / Swagger contract specs — only emitted when the
+		// origin actually exposes a schema document.
+		items = append(items, openAPIContractItems(ctx, u)...)
 		// Browser-mode DOM snapshots: emit one tests/e2e/_dom/<slug>.html
 		// per crawled page that carries captured HTML. Static crawl pages
 		// don't populate DOMHTML, so this is a no-op outside browser mode.
 		items = append(items, domSnapshotItems(u, m)...)
 	}
 	return items, errs
+}
+
+// qualityCompanions emits the v0.22 quality-layer spec items — a11y,
+// responsive, perf, security, health, observability, i18n — for the
+// crawled mindmap. The per-page kinds (a11y/responsive/perf) are
+// bounded at the same cap as fuzz; the per-origin ones (security,
+// health, observability) emit exactly one. i18n only emits when the
+// landing page exposes hreflang siblings.
+func qualityCompanions(sourceURL string, m *mindmap.Map, coverage CoverageMode) []plan.Item {
+	if m == nil || len(m.Pages) == 0 {
+		return nil
+	}
+	parsed, _ := url.Parse(sourceURL)
+	origin := sourceURL
+	if parsed != nil && parsed.Host != "" {
+		origin = parsed.Scheme + "://" + parsed.Host
+	}
+	host := ""
+	if parsed != nil {
+		host = parsed.Hostname()
+	}
+	stub := ast.Symbol{
+		Name:     hostToName(host),
+		Kind:     ast.KindComponent,
+		File:     origin,
+		Language: "ts",
+	}
+
+	var out []plan.Item
+	originSlug := strings.TrimPrefix(strings.ReplaceAll(host, ".", "-"), "www-")
+	if originSlug == "" {
+		originSlug = "origin"
+	}
+
+	// Per-origin: one of each. The page URL is the origin itself so the
+	// templates can hit "/" relative to baseURL.
+	for _, kind := range []struct {
+		tmpl   plan.Template
+		subdir string
+	}{
+		{plan.TmplPlaywrightSecurity, "security"},
+		{plan.TmplPlaywrightHealth, "health"},
+		{plan.TmplPlaywrightObservability, "observability"},
+	} {
+		out = append(out, plan.Item{
+			Symbol:   stub,
+			Symbols:  []ast.Symbol{stub},
+			PageURL:  origin,
+			Template: kind.tmpl,
+			OutPath:  "tests/e2e/" + kind.subdir + "/" + originSlug + "." + kind.subdir + ".spec.ts",
+		})
+	}
+
+	// Per-page: a11y, responsive, perf. Capped to keep CI cheap.
+	perPageCap := coverage.FuzzCap() // same dial — breadth 3, standard 5, depth 10
+	emitted := 0
+	for _, pURL := range m.Order {
+		if emitted >= perPageCap {
+			break
+		}
+		page := m.Pages[pURL]
+		if page == nil {
+			continue
+		}
+		stem := domSnapshotStem(page.URL) // re-uses the slug builder
+		pageStub := ast.Symbol{
+			Name:     hostToName(parseHost(page.URL)),
+			Kind:     ast.KindComponent,
+			File:     page.URL,
+			Language: "ts",
+		}
+		for _, kind := range []struct {
+			tmpl   plan.Template
+			subdir string
+		}{
+			{plan.TmplPlaywrightA11y, "a11y"},
+			{plan.TmplPlaywrightResponsive, "responsive"},
+			{plan.TmplPlaywrightPerf, "perf"},
+		} {
+			out = append(out, plan.Item{
+				Symbol:   pageStub,
+				Symbols:  []ast.Symbol{pageStub},
+				PageURL:  page.URL,
+				Template: kind.tmpl,
+				OutPath:  "tests/e2e/" + kind.subdir + "/" + stem + "." + kind.subdir + ".spec.ts",
+			})
+		}
+		emitted++
+	}
+
+	// i18n: only when the landing page (or any page) advertises hreflang.
+	for _, pURL := range m.Order {
+		page := m.Pages[pURL]
+		if page == nil || len(page.Meta.Hreflang) == 0 {
+			continue
+		}
+		// Carry the hreflang map through Symbol.Meta so the template
+		// can range over it.
+		i18nStub := ast.Symbol{
+			Name:     hostToName(parseHost(page.URL)),
+			Kind:     ast.KindComponent,
+			File:     page.URL,
+			Language: "ts",
+			Meta:     page.Meta,
+		}
+		out = append(out, plan.Item{
+			Symbol:   i18nStub,
+			Symbols:  []ast.Symbol{i18nStub},
+			PageURL:  page.URL,
+			Template: plan.TmplPlaywrightI18n,
+			OutPath:  "tests/e2e/i18n/" + originSlug + ".i18n.spec.ts",
+		})
+		break // one per origin is enough
+	}
+
+	return out
+}
+
+// openAPIContractItems looks for /openapi.json / /swagger.json /
+// /api-docs.json under the origin and, if found, emits one contract
+// spec per declared endpoint. Bounded at 12 endpoints to keep probes
+// from exploding on huge APIs.
+func openAPIContractItems(ctx context.Context, sourceURL string) []plan.Item {
+	const cap = 12
+	parsed, err := url.Parse(sourceURL)
+	if err != nil || parsed == nil {
+		return nil
+	}
+	origin := parsed.Scheme + "://" + parsed.Host
+	candidates := []string{"/openapi.json", "/swagger.json", "/api-docs.json", "/v1/openapi.json"}
+	var doc []byte
+	var docURL string
+	for _, p := range candidates {
+		res, err := Fetch(ctx, origin+p)
+		if err != nil || res == nil || len(res.Body) == 0 {
+			continue
+		}
+		// Cheap content sniff: must contain "openapi" or "swagger".
+		lower := strings.ToLower(string(res.Body[:min(len(res.Body), 200)]))
+		if !strings.Contains(lower, "openapi") && !strings.Contains(lower, "swagger") {
+			continue
+		}
+		doc = res.Body
+		docURL = res.URL
+		break
+	}
+	if doc == nil {
+		return nil
+	}
+	_, endpoints, err := openapi.Parse(doc)
+	if err != nil {
+		log.Warn("openapi: parse failed; skipping contract emission", "url", docURL, "err", err)
+		return nil
+	}
+	if len(endpoints) > cap {
+		log.Info("openapi: capping endpoints", "discovered", len(endpoints), "cap", cap)
+		endpoints = endpoints[:cap]
+	}
+	host := parsed.Hostname()
+	hostSlug := strings.TrimPrefix(strings.ReplaceAll(host, ".", "-"), "www-")
+	var out []plan.Item
+	for i, ep := range endpoints {
+		// Encode statuses + method as a synthetic FormSpec so the
+		// contract template can render the allowed-status list.
+		inputs := make([]ast.FormInput, 0, len(ep.Statuses))
+		for _, s := range ep.Statuses {
+			if s == "default" {
+				continue
+			}
+			inputs = append(inputs, ast.FormInput{Name: s})
+		}
+		form := &ast.FormSpec{
+			Action: ep.Path,
+			Method: ep.Method,
+			Inputs: inputs,
+		}
+		endpoint := origin + ep.Path
+		stub := ast.Symbol{
+			Name:     hostToName(host),
+			Kind:     ast.KindComponent,
+			File:     endpoint,
+			Language: "ts",
+		}
+		slug := pathSlug(ep.Path)
+		if slug == "" {
+			slug = fmt.Sprintf("ep-%d", i)
+		}
+		out = append(out, plan.Item{
+			Symbol:   stub,
+			Symbols:  []ast.Symbol{stub},
+			PageURL:  endpoint,
+			Template: plan.TmplPlaywrightContract,
+			OutPath:  "tests/e2e/contract/" + hostSlug + "-" + ep.Method + "-" + slug + ".contract.spec.ts",
+			Form:     form,
+		})
+	}
+	return out
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // apiSpecItems synthesises one plan.Item per (page, form) where the

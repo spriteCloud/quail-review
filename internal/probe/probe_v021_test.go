@@ -42,7 +42,19 @@ func TestRunAll_EmitsFeatureFilesAndBDDSteps(t *testing.T) {
 		case strings.HasPrefix(it.OutPath, "tests/e2e/") &&
 			strings.HasSuffix(it.OutPath, ".spec.ts") &&
 			!strings.Contains(it.OutPath, "/api/") &&
-			!strings.HasSuffix(it.OutPath, "-fuzz.spec.ts"):
+			!strings.HasSuffix(it.OutPath, "-fuzz.spec.ts") &&
+			// v0.22: the quality-taxonomy companions land under named
+			// subdirectories (a11y/, responsive/, perf/, security/,
+			// health/, observability/, contract/, i18n/). Not happy-flow
+			// journeys, so exclude them from this guard.
+			!strings.Contains(it.OutPath, "/a11y/") &&
+			!strings.Contains(it.OutPath, "/responsive/") &&
+			!strings.Contains(it.OutPath, "/perf/") &&
+			!strings.Contains(it.OutPath, "/security/") &&
+			!strings.Contains(it.OutPath, "/health/") &&
+			!strings.Contains(it.OutPath, "/observability/") &&
+			!strings.Contains(it.OutPath, "/contract/") &&
+			!strings.Contains(it.OutPath, "/i18n/"):
 			gotSpecTs++
 		case it.OutPath == "tests/e2e/steps/reviewqa.steps.ts":
 			gotStepsFile = true

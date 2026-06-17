@@ -96,6 +96,22 @@ Bounded at 5 emissions total per probe so triage stays tractable.
 | `tests/e2e/gohugo-io-commands-fuzz.spec.ts` | `https://gohugo.io/commands` |
 | `tests/e2e/gohugo-io-configuration-fuzz.spec.ts` | `https://gohugo.io/configuration` |
 
+## Quality companions
+
+Beyond per-journey specs, every probe emits a battery of quality-axis
+checks. Filter any of them with `--grep @kind:<tag>`:
+
+| Layer | Tag | What it checks |
+|---|---|---|
+| Accessibility | `@kind:a11y` | `@axe-core/playwright` — no serious / critical violations. |
+| Responsive | `@kind:responsive` | Page renders at mobile (375), tablet (768), desktop (1280). |
+| Performance | `@kind:perf` | Load time under SLO (default 3000ms; `PERF_SLO_MS` env). |
+| Security headers | `@kind:security` | HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy. |
+| Health | `@kind:health` | At least one of /health, /healthz, /ready, /readyz, /status, /livez responds 2xx. |
+| Observability | `@kind:observability` | x-request-id, server-timing, traceparent, or x-amzn-trace-id present. |
+| OpenAPI contract | `@kind:contract` | Each endpoint declared in /openapi.json hit — status matches declared codes. |
+| i18n | `@kind:i18n` | When `<link rel="alternate" hreflang>` siblings exist, every locale variant rendered. |
+
 ## Assertions emitted
 
 Hard assertions drive the journey: URL changes, h1 visibility, form

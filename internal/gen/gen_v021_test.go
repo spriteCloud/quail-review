@@ -124,9 +124,11 @@ func TestConfigTemplate_UsesDefineBddConfig(t *testing.T) {
 	mustContain(t, body, "defineBddConfig({")
 	mustContain(t, body, "features: 'tests/e2e/features/*.feature'")
 	mustContain(t, body, "steps: 'tests/e2e/steps/*.ts'")
-	mustContain(t, body, "name: 'bdd'")
-	mustContain(t, body, "name: 'extras'")
-	mustContain(t, body, `testMatch: /\.(api|fuzz)\.spec\.ts$/`)
+	// v0.22: project naming switched to "<project>-<browser>" + the
+	// testMatch grew to cover the quality companions.
+	mustContain(t, body, "`bdd-${browser}`")
+	mustContain(t, body, "`extras-${browser}`")
+	mustContain(t, body, "api|fuzz|a11y|responsive|perf|security|health|observability|contract|i18n")
 }
 
 func TestPackageTemplate_DepsListPlaywrightBdd(t *testing.T) {

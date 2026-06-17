@@ -34,6 +34,13 @@ var (
 // reLinkCanonical captures <link rel="canonical" href="...">.
 var reLinkCanonical = regexp.MustCompile(`(?i)<link\b[^>]*\brel\s*=\s*['"]canonical['"][^>]*\bhref\s*=\s*['"]([^'"]+)['"]`)
 
+// reLinkAlternate captures <link rel="alternate" hreflang="..." href="...">
+// siblings. Either attribute order is accepted. Drives the i18n spec.
+var (
+	reLinkAlternateHrefLast = regexp.MustCompile(`(?i)<link\b[^>]*\brel\s*=\s*['"]alternate['"][^>]*\bhreflang\s*=\s*['"]([^'"]+)['"][^>]*\bhref\s*=\s*['"]([^'"]+)['"]`)
+	reLinkAlternateHrefFirst = regexp.MustCompile(`(?i)<link\b[^>]*\brel\s*=\s*['"]alternate['"][^>]*\bhref\s*=\s*['"]([^'"]+)['"][^>]*\bhreflang\s*=\s*['"]([^'"]+)['"]`)
+)
+
 // ExtractImages returns the page's <img> tags carrying non-empty alt
 // text, capped at 8. Decorative images (alt="") and images without an
 // alt attribute at all are dropped — they carry no testable semantic
@@ -125,6 +132,26 @@ func ExtractMetaTags(content []byte) ast.MetaTags {
 	}
 	if m := reLinkCanonical.FindStringSubmatch(str); m != nil {
 		meta.Canonical = strings.TrimSpace(m[1])
+	}
+	// hreflang siblings — both attribute orderings.
+	addAlt := func(lang, href string) {
+		lang = strings.TrimSpace(lang)
+		href = strings.TrimSpace(href)
+		if lang == "" || href == "" || strings.EqualFold(lang, "x-default") {
+			return
+		}
+		if meta.Hreflang == nil {
+			meta.Hreflang = map[string]string{}
+		}
+		if _, exists := meta.Hreflang[lang]; !exists {
+			meta.Hreflang[lang] = href
+		}
+	}
+	for _, m := range reLinkAlternateHrefLast.FindAllStringSubmatch(str, -1) {
+		addAlt(m[1], m[2])
+	}
+	for _, m := range reLinkAlternateHrefFirst.FindAllStringSubmatch(str, -1) {
+		addAlt(m[2], m[1])
 	}
 	return meta
 }
