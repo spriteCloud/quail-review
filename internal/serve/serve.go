@@ -197,6 +197,67 @@ func Handler(workdir string) http.Handler {
 		writeJSON(w, map[string]any{"valid": true})
 	})
 
+	mux.HandleFunc("/api/probe-dom", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var body struct {
+			URL  string `json:"url"`
+			Base string `json:"base,omitempty"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		target, err := resolveTarget(body.URL, body.Base)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+		defer cancel()
+		lm, err := FetchAndParseDOM(ctx, target)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		writeJSON(w, lm)
+	})
+
+	mux.HandleFunc("/api/locator-candidates", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var body struct {
+			URL  string `json:"url"`
+			Base string `json:"base,omitempty"`
+			Kind string `json:"kind"`
+			Hint string `json:"hint"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		target, err := resolveTarget(body.URL, body.Base)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+		defer cancel()
+		lm, err := FetchAndParseDOM(ctx, target)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		writeJSON(w, map[string]any{
+			"url":        lm.URL,
+			"candidates": RankLocators(lm, body.Kind, body.Hint),
+		})
+	})
+
 	return localOnly(mux)
 }
 

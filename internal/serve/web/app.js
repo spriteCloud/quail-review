@@ -90,6 +90,9 @@ function renderFeature (feature, gherkin) {
         el('li', {},
           el('span', { class: 'kw kw-' + st.keyword }, st.keyword),
           el('span', { class: 'text', html: highlightPlaceholders(st.text) }),
+          stepNeedsLocatorPick(st.text)
+            ? el('button', { class: 'step-suggest', title: 'Suggest a locator from the live DOM', onclick: () => openLocatorSuggest(feature, sc, st) }, '🔍 suggest')
+            : null,
         ),
       )),
     )
@@ -98,6 +101,26 @@ function renderFeature (feature, gherkin) {
 
   const addBtn = el('button', { class: 'btn-add', onclick: () => openEditor(feature.path, null, defaultNewScenario()) }, '+ New Scenario')
   $content.appendChild(addBtn)
+}
+
+function stepNeedsLocatorPick (text) {
+  // Heuristic: steps that include a quoted argument or a "<placeholder>"
+  // are candidates for locator-suggestion. We surface a button next to
+  // these so the user can probe the destination DOM.
+  return /"[^"]*"|<[^>]+>/.test(text)
+}
+
+function inferLocatorKind (text) {
+  if (/link|navigate|click/i.test(text)) return 'link'
+  if (/heading|title|reads|see the heading/i.test(text)) return 'heading'
+  if (/field|enter|fill|focus/i.test(text)) return 'input'
+  if (/button|submit|press/i.test(text)) return 'button'
+  return 'button'
+}
+
+function extractQuotedArg (text) {
+  const m = text.match(/"([^"]*)"/)
+  return m ? m[1] : ''
 }
 
 function defaultNewScenario () {
@@ -167,6 +190,72 @@ function openEditor (featurePath, currentName, initialGherkin) {
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
   document.body.appendChild(overlay)
   textarea.focus()
+}
+
+function openLocatorSuggest (feature, scenario, step) {
+  const overlay = el('div', { class: 'modal-overlay' })
+  const kindSelect = el('select', { class: 'locator-kind' },
+    ...['button', 'input', 'link', 'heading'].map(k => el('option', { value: k }, k)))
+  kindSelect.value = inferLocatorKind(step.text)
+  const hintInput = el('input', { class: 'locator-hint', value: extractQuotedArg(step.text) || '' })
+  const urlInput = el('input', { class: 'locator-url', placeholder: 'https://example.com/page-to-probe' })
+
+  // Pre-populate URL guess: prefer the journey landing URL from the
+  // feature narrative if it contains one; otherwise leave for the user.
+  const m = (feature.narrative || '').match(/https?:\/\/\S+/)
+  if (m) urlInput.value = m[0].replace(/[)\.,;]$/, '')
+
+  const results = el('div', { class: 'locator-results' })
+
+  async function doSuggest () {
+    results.replaceChildren(el('div', { class: 'meta' }, 'Probing…'))
+    try {
+      const res = await fetchJSON('/api/locator-candidates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: urlInput.value.trim(),
+          kind: kindSelect.value,
+          hint: hintInput.value.trim(),
+        }),
+      })
+      if (!res.candidates || !res.candidates.length) {
+        results.replaceChildren(el('div', { class: 'meta' }, 'No matches in the probed DOM.'))
+        return
+      }
+      results.replaceChildren(...res.candidates.map(c =>
+        el('div', { class: 'locator-row' },
+          el('div', { class: 'locator-score' }, c.score.toFixed(2)),
+          el('div', { class: 'locator-body' },
+            el('div', { class: 'locator-name' }, c.name || '(no name)'),
+            el('code', { class: 'locator-selector' }, c.selector),
+          ),
+          el('button', { class: 'btn-ghost', onclick: () => { navigator.clipboard.writeText(c.selector); overlay.querySelector('.copied').textContent = '✓ copied' } }, 'Copy'),
+        ),
+      ))
+    } catch (e) {
+      results.replaceChildren(el('div', { class: 'error' }, 'Probe failed: ' + e.message))
+    }
+  }
+
+  const modal = el('div', { class: 'modal modal-wide' },
+    el('h2', {}, 'Suggest locator'),
+    el('div', { class: 'locator-form' },
+      el('label', {}, 'Probe URL', urlInput),
+      el('label', {}, 'Kind', kindSelect),
+      el('label', {}, 'Hint', hintInput),
+    ),
+    el('div', { class: 'modal-actions' },
+      el('span', { class: 'copied meta' }),
+      el('button', { class: 'btn-ghost', onclick: () => overlay.remove() }, 'Close'),
+      el('button', { class: 'btn-primary', onclick: doSuggest }, 'Probe'),
+    ),
+    results,
+  )
+  overlay.appendChild(modal)
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
+  document.body.appendChild(overlay)
+  if (urlInput.value) doSuggest()
 }
 
 async function deleteScenario (featurePath, name) {

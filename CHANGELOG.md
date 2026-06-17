@@ -7,6 +7,51 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.67 — reviewqa serve Phase C: locator suggestion from DOM
+
+Per-step locator suggestion. The UI surfaces a 🔍 button next to each
+step that contains a placeholder or quoted argument — clicking it
+opens a modal where the user supplies the destination URL, the kind
+of element (button / input / link / heading), and the hint text. The
+binary fetches the page via the existing `probe.Fetch` (SSRF guards
++ 4 MiB cap inherited), parses the HTML into landmarks, and returns
+a ranked list of Playwright locators.
+
+Backend:
+- New `internal/serve/dom.go` — `FetchAndParseDOM` extracts title,
+  headings (h1-h6), forms with their inputs (label-aware via the
+  document's `<label for=...>` registry), standalone inputs,
+  buttons, and links.
+- New `RankLocators(lm, kind, hint)` produces selector candidates
+  with a similarity score (exact > substring > token-overlap).
+  Caps at 10 results.
+- Two new HTTP endpoints:
+  - `POST /api/probe-dom` `{url, base?}` → full landmarks JSON.
+  - `POST /api/locator-candidates` `{url, base?, kind, hint}` →
+    ranked candidates with `selector`, `role`, `name`, `score`,
+    `source`.
+
+Selectors produced today:
+- Buttons → `page.getByRole('button', { name: '...' })`
+- Inputs → `getByLabel` / `getByPlaceholder` / `page.locator('[name=...]')` / `#id`
+- Links → `getByRole('link', ...)` AND `a[href=...]` (both offered
+  because generic link text — "Read more" — needs the href).
+- Headings → `getByRole('heading', { level: N, name: '...' })`
+
+Frontend:
+- 🔍 suggest button on every step with `"..."` or `<placeholder>` in
+  the text. Visible on row-hover so it doesn't fight for visual
+  weight.
+- Modal: URL / Kind / Hint fields (kind auto-guessed from the step's
+  verb; URL pre-filled from the feature narrative when it carries a
+  bare https:// URL). Probe button calls the endpoint; results show
+  with score + name + selector. Copy button stages the selector to
+  the system clipboard.
+
+Tests: 10 new in `internal/serve/dom_test.go` (parsing title /
+headings / forms-with-inputs / links / buttons; ranking for each
+kind; relative-URL resolution). Full suite 534 / 534 green.
+
 ## v0.66 — reviewqa serve Phase B: Scenario CRUD
 
 Mutation endpoints on top of v0.65's read-only viewer. Users can now

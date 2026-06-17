@@ -301,4 +301,79 @@ a:hover { text-decoration: underline; }
 .validate-msg { min-height: 18px; font-family: 'Fira Code', monospace; font-size: 12px; }
 .validate-msg.ok { color: #2e7d32; }
 .validate-msg.err { color: #c0392b; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.modal-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+.modal-wide { width: min(820px, 95vw); }
+
+.step-suggest {
+  margin-left: 8px;
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--copper);
+  background: transparent;
+  border: 1px solid var(--border-warm);
+  border-radius: 999px;
+  padding: 2px 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.scenario .steps li:hover .step-suggest { opacity: 1; }
+.step-suggest:hover { border-color: var(--copper); background: var(--copper-soft); }
+
+.locator-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.locator-form label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--mist); font-family: 'Fira Code', monospace; }
+.locator-form input, .locator-form select {
+  flex: 1;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-warm);
+  border-radius: 6px;
+  background: var(--warm-white);
+}
+.locator-form input:focus, .locator-form select:focus { outline: 2px solid var(--copper); outline-offset: -1px; border-color: var(--copper); }
+
+.locator-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.locator-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: var(--warm-white);
+  border-radius: 6px;
+  border: 1px solid var(--border-warm);
+}
+.locator-score {
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--copper);
+  flex: 0 0 36px;
+}
+.locator-body { flex: 1; min-width: 0; }
+.locator-name {
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--deep-water);
+  margin-bottom: 2px;
+}
+.locator-selector {
+  display: block;
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--graphite);
+  background: var(--white);
+  padding: 4px 6px;
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.copied { color: #2e7d32; font-family: 'Fira Code', monospace; font-size: 11px; }
+.meta { color: var(--mist); font-size: 12px; font-family: 'Fira Code', monospace; }
