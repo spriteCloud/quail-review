@@ -25,7 +25,15 @@ var reSpecHeader = regexp.MustCompile(`^---\s+tests/e2e/([\w.-]+\.spec\.ts)\s+--
 // token after the host slug — host slugs themselves can contain dashes.
 var knownKinds = []string{
 	"convert", "contact", "evaluate", "research",
-	"browse", "discover", "explore", "read",
+	"browse", "discover", "explore", "read", "exercise",
+}
+
+// kindsAllowedToFill names journeys whose purpose includes filling a form
+// field. Form leakage is reported only when fill() appears outside these.
+var kindsAllowedToFill = map[string]bool{
+	"convert":  true,
+	"contact":  true,
+	"exercise": true, // search box, date input
 }
 
 // spec is what we collect per .spec.ts emitted by the probe.
@@ -180,7 +188,7 @@ func renderReport(site string, specs []spec) string {
 	emptySteps := 0
 	for _, s := range specs {
 		kindCounts[s.kind]++
-		if s.hasFillCall && s.kind != "convert" && s.kind != "contact" {
+		if s.hasFillCall && !kindsAllowedToFill[s.kind] {
 			formLeakage++
 		}
 		if s.hasH1Assertion {
