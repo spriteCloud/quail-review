@@ -529,6 +529,38 @@ var funcs = template.FuncMap{
 		}
 		return p
 	},
+	// brandFromOrigin turns "https://www.spritecloud.com" into
+	// "spritecloud.com" — strips the scheme and a leading "www.". Used
+	// by the work-summary cover so the headline reads as the brand,
+	// not as a URL ripped across multiple lines.
+	"brandFromOrigin": func(origin string) string {
+		s := strings.TrimSpace(origin)
+		for _, p := range []string{"https://", "http://"} {
+			if strings.HasPrefix(strings.ToLower(s), p) {
+				s = s[len(p):]
+				break
+			}
+		}
+		s = strings.TrimPrefix(s, "www.")
+		// Cut off path / query if present.
+		for _, c := range []string{"/", "?", "#"} {
+			if i := strings.Index(s, c); i != -1 {
+				s = s[:i]
+			}
+		}
+		return s
+	},
+	// countScaffoldOnlyLayers reports the test layers in scope for a
+	// probe-only run that are scaffold-only (Integration today, plus
+	// Contract when no schema was discovered). Drives the risk strip.
+	"countScaffoldOnlyLayers": func(c *plan.Catalogue) int {
+		if c == nil {
+			return 0
+		}
+		// Integration is always scaffold-only on a probe-only run.
+		n := 1
+		return n
+	},
 	// journeyKindBlurb returns a stakeholder-friendly one-liner per
 	// journey kind. Used by the work-summary template to spell out
 	// what each journey actually exercises.

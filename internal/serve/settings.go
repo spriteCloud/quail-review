@@ -17,9 +17,10 @@ import (
 // All fields are optional. Zero values mean "fall back to the env-
 // var / hard-coded default" — `Get()` performs the overlay.
 type Settings struct {
-	LLM   LLMSettings   `json:"llm"`
-	Probe ProbeSettings `json:"probe"`
-	Run   RunSettings   `json:"run"`
+	LLM            LLMSettings   `json:"llm"`
+	Probe          ProbeSettings `json:"probe"`
+	Run            RunSettings   `json:"run"`
+	RecentProjects []string      `json:"recentProjects,omitempty"`
 }
 
 // LLMSettings persist the LLM composer / chat configuration. Empty

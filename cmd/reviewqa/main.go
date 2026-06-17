@@ -132,7 +132,7 @@ func compareSchema(path string, old, new_ []byte) (string, []plan.CompatRegressi
 }
 
 var (
-	version = "0.77"
+	version = "0.78"
 )
 
 func main() {
@@ -823,10 +823,18 @@ func printRendered(rs []gen.Rendered) {
 // creating parent directories as needed. Used by the probe `--local`
 // path (and `reviewqa serve` HOME probe) so neither needs a
 // GitHub token / the gh PR-open path.
+//
+// Stakeholder summary (`summary.html`) and findings ledger
+// (`findings.md`) ALSO get a timestamped copy under
+// `tests/e2e/docs/history/` so previous probes survive a re-run. The
+// canonical `summary.html` / `findings.md` always reflect the latest
+// generation; history is append-only.
 func writeRenderedLocal(workDir string, rs []gen.Rendered) error {
 	if workDir == "" {
 		workDir = "."
 	}
+	stamp := time.Now().UTC().Format("20060102-150405")
+	historyRoot := filepath.Join(workDir, "tests", "e2e", "docs", "history")
 	written := 0
 	for _, r := range rs {
 		dest := filepath.Join(workDir, r.Path)
@@ -837,6 +845,16 @@ func writeRenderedLocal(workDir string, rs []gen.Rendered) error {
 			return fmt.Errorf("write %s: %w", dest, err)
 		}
 		written++
+		// Snapshot the stakeholder-facing docs into history.
+		base := filepath.Base(r.Path)
+		if base == "summary.html" || base == "findings.md" {
+			if err := os.MkdirAll(historyRoot, 0o755); err == nil {
+				ext := filepath.Ext(base)
+				stem := strings.TrimSuffix(base, ext)
+				snap := filepath.Join(historyRoot, stem+"-"+stamp+ext)
+				_ = os.WriteFile(snap, r.Content, 0o644)
+			}
+		}
 	}
 	rlog.Info("probe: wrote local files", "count", written, "workdir", workDir)
 	return nil
