@@ -77,7 +77,10 @@ func TestRunAll_EmitsFeatureFilesAndBDDSteps(t *testing.T) {
 			// v0.45: touch / dragdrop / auth-expiry quality-companion subdirs.
 			!strings.Contains(it.OutPath, "/touch/") &&
 			!strings.Contains(it.OutPath, "/dragdrop/") &&
-			!strings.Contains(it.OutPath, "/auth-expiry/"):
+			!strings.Contains(it.OutPath, "/auth-expiry/") &&
+			// v0.49: graphql / webhook always-attempt stub subdirs.
+			!strings.Contains(it.OutPath, "/graphql/") &&
+			!strings.Contains(it.OutPath, "/webhook/"):
 			gotSpecTs++
 		case it.OutPath == "tests/e2e/steps/reviewqa.steps.ts":
 			gotStepsFile = true

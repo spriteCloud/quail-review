@@ -243,6 +243,8 @@ var templateRegistry = map[plan.Template]templateLoc{
 	plan.TmplPlaywrightDragDrop:          {"ts", "pw_dragdrop.tmpl"},
 	plan.TmplPlaywrightAuthExpiry:        {"ts", "pw_auth_expiry.tmpl"},
 	plan.TmplPlaywrightLocaleSwitch:      {"ts", "pw_locale_switch.tmpl"},
+	plan.TmplPlaywrightGraphQLStub:       {"ts", "pw_graphql_stub.tmpl"},
+	plan.TmplPlaywrightWebhookStub:       {"ts", "pw_webhook_stub.tmpl"},
 	plan.TmplPytestUnit:                 {"py", "pytest_unit.tmpl"},
 	plan.TmplPytestAPI:                  {"py", "pytest_api.tmpl"},
 	plan.TmplGoUnit:                     {"go", "gotest_unit.tmpl"},

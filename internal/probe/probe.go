@@ -526,6 +526,12 @@ func qualityCompanions(sourceURL string, m *mindmap.Map, coverage CoverageMode) 
 		// so the integration layer is represented in the catalogue
 		// even when the consumer has no reviewqa.yml.
 		{plan.TmplPlaywrightIntegrationStub, "integration"},
+		// v0.49: GraphQL + Webhook always-attempt stubs — drop the
+		// endpoint-discovery gate so the Contract / Non-functional
+		// layers are visible in the catalogue on every probe. The
+		// stubs skip gracefully when the candidate paths 404.
+		{plan.TmplPlaywrightGraphQLStub, "graphql"},
+		{plan.TmplPlaywrightWebhookStub, "webhook"},
 	} {
 		out = append(out, plan.Item{
 			Symbol:   stub,

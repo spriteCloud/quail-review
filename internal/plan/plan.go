@@ -113,6 +113,11 @@ const (
 	TmplPlaywrightDragDrop       Template = "pw_dragdrop"
 	TmplPlaywrightAuthExpiry     Template = "pw_auth_expiry"
 	TmplPlaywrightLocaleSwitch   Template = "pw_locale_switch"
+	// v0.49 — always-attempt stubs for the Contract / Non-functional
+	// layers. Emit per origin regardless of endpoint discovery; skip
+	// gracefully when the candidate path 404s.
+	TmplPlaywrightGraphQLStub    Template = "pw_graphql_stub"
+	TmplPlaywrightWebhookStub    Template = "pw_webhook_stub"
 	TmplRaw                 Template = "raw" // sentinel: emit Item.RawContent verbatim
 	TmplPytestUnit          Template = "pytest_unit"
 	TmplPytestAPI           Template = "pytest_api"
