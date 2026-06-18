@@ -415,6 +415,89 @@ func browserModeFromCtx(ctx context.Context) BrowserMode {
 	return ParseBrowserMode("")
 }
 
+// EngineMode picks which Playwright engine the browser probe
+// launches. v0.89 introduces auto-cascade: when auto, the crawler
+// tries chromium → firefox → webkit and stops at the first engine
+// returning >0 pages. WAFs that fingerprint Playwright Chromium
+// at the TLS/HTTP2 layer (Akamai, Cloudflare-bot) routinely let
+// Firefox through.
+type EngineMode string
+
+const (
+	EngineAuto     EngineMode = "auto"
+	EngineChromium EngineMode = "chromium"
+	EngineFirefox  EngineMode = "firefox"
+	EngineWebKit   EngineMode = "webkit"
+)
+
+// defaultCascade is the order auto-mode walks. Chromium first
+// because most sites accept it; Firefox second because it routinely
+// bypasses Akamai-class WAFs; WebKit last as a final differing
+// fingerprint.
+var defaultCascade = []EngineMode{EngineChromium, EngineFirefox, EngineWebKit}
+
+// ParseEngineMode normalises a flag value into an EngineMode.
+// Empty / unknown defaults to EngineAuto (the cascade). Honours
+// REVIEWQA_ENGINE env override.
+func ParseEngineMode(s string) EngineMode {
+	v := strings.ToLower(strings.TrimSpace(s))
+	if v == "" {
+		v = strings.ToLower(strings.TrimSpace(os.Getenv("REVIEWQA_ENGINE")))
+	}
+	switch v {
+	case "chromium":
+		return EngineChromium
+	case "firefox":
+		return EngineFirefox
+	case "webkit":
+		return EngineWebKit
+	default:
+		return EngineAuto
+	}
+}
+
+type engineModeKey struct{}
+
+func WithEngineMode(ctx context.Context, mode EngineMode) context.Context {
+	return context.WithValue(ctx, engineModeKey{}, mode)
+}
+
+func engineModeFromCtx(ctx context.Context) EngineMode {
+	if v, ok := ctx.Value(engineModeKey{}).(EngineMode); ok && v != "" {
+		return v
+	}
+	return ParseEngineMode("")
+}
+
+// ParseStealth maps an `on|off|true|false|1|0` flag value into a
+// bool. Empty defaults to true (stealth-on) — opt-out semantics.
+// Honours REVIEWQA_STEALTH env override.
+func ParseStealth(s string) bool {
+	v := strings.ToLower(strings.TrimSpace(s))
+	if v == "" {
+		v = strings.ToLower(strings.TrimSpace(os.Getenv("REVIEWQA_STEALTH")))
+	}
+	switch v {
+	case "off", "false", "0", "no":
+		return false
+	default:
+		return true
+	}
+}
+
+type stealthKey struct{}
+
+func WithStealth(ctx context.Context, on bool) context.Context {
+	return context.WithValue(ctx, stealthKey{}, on)
+}
+
+func stealthFromCtx(ctx context.Context) bool {
+	if v, ok := ctx.Value(stealthKey{}).(bool); ok {
+		return v
+	}
+	return true
+}
+
 func runAllImpl(ctx context.Context, urls []string, filter JourneyFilter, coverage CoverageMode) ([]plan.Item, []error) {
 	var items []plan.Item
 	var errs []error
@@ -592,24 +675,26 @@ func synthesiseFallbackJourneys(m *mindmap.Map, originURL string) []mindmap.Jour
 var browserCrawler = runBrowserCrawl
 
 func crawlOriginWithFallback(ctx context.Context, u string, fetcher mindmap.Fetcher, opts mindmap.Options, mode BrowserMode) (*mindmap.Map, []error) {
+	engine := engineModeFromCtx(ctx)
+	stealth := stealthFromCtx(ctx)
+	engines := enginesFor(engine)
+
 	switch mode {
 	case BrowserNever:
 		return mindmap.Crawl(ctx, u, fetcher, opts)
 	case BrowserAlways:
-		m, errs := browserCrawler(ctx, u)
+		m, errs, allUnavailable := runBrowserCascade(ctx, u, engines, stealth)
 		if m != nil && len(m.Pages) > 0 {
 			return m, errs
 		}
-		// v0.88: distinguish "runner couldn't start" from "browser
-		// ran but produced no pages". The former is an environment
-		// problem the user needs to see (node missing, npm install
-		// failed, no network on first install). The latter is a
-		// real crawl that came back empty — silent static fallback
-		// is still the right move there.
-		for _, e := range errs {
-			if errors.Is(e, browser.ErrBrowserUnavailable) {
-				return nil, errs
-			}
+		// v0.88 + v0.89: when EVERY engine in the cascade was
+		// unavailable (node missing, npm install failed), surface
+		// that as an error — the user opted into the browser path
+		// and deserves to see why it can't run. When at least one
+		// engine ran but produced no pages, that's a content
+		// signal; fall back to static.
+		if allUnavailable {
+			return nil, errs
 		}
 		for _, e := range errs {
 			log.Warn("browser probe failed; falling back to static", "err", e)
@@ -634,13 +719,56 @@ func crawlOriginWithFallback(ctx context.Context, u string, fetcher mindmap.Fetc
 			return m, errs
 		}
 		log.Info("static probe came back empty / WAF-rejected; retrying via browser probe", "url", u)
-		bm, berrs := browserCrawler(ctx, u)
+		bm, berrs, _ := runBrowserCascade(ctx, u, engines, stealth)
 		if bm != nil && len(bm.Pages) > 0 {
 			return bm, append(errs, berrs...)
 		}
 		// Browser also failed — return whichever errs we collected.
 		return m, append(errs, berrs...)
 	}
+}
+
+// enginesFor returns the engine cascade for a given EngineMode. When
+// the user picked a single engine, the cascade is a one-element
+// slice — explicit choice wins.
+func enginesFor(mode EngineMode) []EngineMode {
+	if mode == "" || mode == EngineAuto {
+		return defaultCascade
+	}
+	return []EngineMode{mode}
+}
+
+// runBrowserCascade runs each engine in order, stopping at the
+// first that returns >0 pages. Returns (winning map, accumulated
+// errs, allUnavailable). allUnavailable is true when every engine
+// errored with ErrBrowserUnavailable — meaning no engine ever got
+// to even try the network — which BrowserAlways treats as a hard
+// failure rather than a content-signal fallback.
+func runBrowserCascade(ctx context.Context, u string, engines []EngineMode, stealth bool) (*mindmap.Map, []error, bool) {
+	var allErrs []error
+	allUnavailable := true
+	for i, eng := range engines {
+		m, errs := browserCrawler(ctx, u, eng, stealth)
+		allErrs = append(allErrs, errs...)
+		if m != nil && len(m.Pages) > 0 {
+			return m, allErrs, false
+		}
+		engineUnavailable := false
+		for _, e := range errs {
+			if errors.Is(e, browser.ErrBrowserUnavailable) {
+				engineUnavailable = true
+				log.Warn("browser probe: engine unavailable; trying next", "engine", string(eng), "err", e)
+				break
+			}
+		}
+		if !engineUnavailable {
+			allUnavailable = false
+		}
+		if i < len(engines)-1 {
+			log.Info("browser probe: cascading to next engine", "from", string(eng), "next", string(engines[i+1]))
+		}
+	}
+	return nil, allErrs, allUnavailable
 }
 
 // identifyAndFilterJourneys is the journey-discovery + prompt-filter

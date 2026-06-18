@@ -23,8 +23,11 @@ func TestWriteScript_RoundTrip(t *testing.T) {
 	}
 	for _, want := range []string{
 		"@playwright/test",
-		"chromium.launch",
+		"engine.launch",
 		"process.stdout.write",
+		"REVIEWQA_ENGINE",
+		"REVIEWQA_STEALTH",
+		"playwright-extra",
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("written script missing %q", want)

@@ -7,6 +7,47 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.89.0 — Multi-engine browser probe + stealth (auto-cascade)
+
+v0.88.0 fixed Playwright ESM resolution, but the browser probe
+still lost against Akamai-protected sites like ing.nl —
+Chromium got `net::ERR_HTTP2_PROTOCOL_ERROR` before any JS ran.
+The WAF fingerprints Playwright Chromium's TLS / HTTP/2 shape
+and drops the handshake. Stealth-plugin patches operate in JS;
+they're invisible to a WAF that rejects the connection.
+
+v0.89 adds two new probe flags:
+
+- `--engine chromium|firefox|webkit|auto` (default `auto`).
+  In auto, the crawler cascades through chromium → firefox →
+  webkit, stopping at the first engine that returns >0 pages.
+  Firefox and WebKit have different TLS/HTTP2 fingerprints than
+  Playwright Chromium and routinely slip past Akamai-class WAFs.
+- `--stealth on|off` (default `on`). Wraps the engine with
+  playwright-extra + StealthPlugin to patch JS-layer detection
+  (navigator.webdriver, plugins, languages, chrome runtime, …).
+  Works fully on Chromium, partially on Firefox, near-no-op on
+  WebKit — those engines bring native fingerprints WAFs don't
+  recognise anyway.
+
+Install strategy is lazy per-engine. The shared runner deps
+(@playwright/test + playwright-extra + the stealth plugin)
+install once; each engine binary is fetched on first use and
+recorded by a `.reviewqa-engine-<name>-ready` sentinel. Users
+who never trip the cascade past Chromium save ~300MB.
+
+UI: HOME card adds engine and stealth selectors next to the
+existing browser-mode dropdown. ProbeRequest now accepts
+`engine` and `stealth` fields; serve marshals them to the CLI
+flags.
+
+Strict-always semantics: when `--browser always` and EVERY
+engine in the cascade reports ErrBrowserUnavailable (node
+missing, npm install failed), the probe surfaces that as an
+error. When at least one engine ran the network but returned 0
+pages, the static fallback still fires — content signal vs
+environment signal stays separate.
+
 ## v0.88.0 — Shared Playwright runner cache for browser probe
 
 `reviewqa probe --browser always` against any URL from a fresh
