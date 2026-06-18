@@ -132,7 +132,7 @@ func compareSchema(path string, old, new_ []byte) (string, []plan.CompatRegressi
 }
 
 var (
-	version = "0.88.0"
+	version = "0.89.0"
 )
 
 func main() {
@@ -229,6 +229,8 @@ func newProbeCmd() *cobra.Command {
 	var llm string
 	var ignoreRobots bool
 	var browser string
+	var engine string
+	var stealth string
 	cmd := &cobra.Command{
 		Use:   "probe",
 		Short: "Fetch live URL(s), generate a Playwright happy-flow per URL, open a PR.",
@@ -266,6 +268,8 @@ LLM scenario composer (OPTIONAL):
 			applyLLMOverride(&cfg, llm)
 			applyIgnoreRobots(ignoreRobots)
 			ctx := probe.WithBrowserMode(cmd.Context(), probe.ParseBrowserMode(browser))
+			ctx = probe.WithEngineMode(ctx, probe.ParseEngineMode(engine))
+			ctx = probe.WithStealth(ctx, probe.ParseStealth(stealth))
 			return runProbe(ctx, cfg, urls, probe.ParseCoverage(coverage), local)
 		},
 	}
@@ -276,6 +280,8 @@ LLM scenario composer (OPTIONAL):
 	cmd.Flags().StringVar(&llm, "llm", llmDefault(), "LLM scenario composer endpoint (e.g. http://100.82.34.115:11434). Local-only; never set in CI. (env: REVIEWQA_LLM)")
 	cmd.Flags().BoolVar(&ignoreRobots, "ignore-robots", false, "Crawl pages disallowed by robots.txt. Default OFF — only enable for QA of sites you own.")
 	cmd.Flags().StringVar(&browser, "browser", "auto", "Browser-probe mode: auto (default; retry through Chromium when the static fetch is blocked by a WAF), always (always use Chromium), never (static only — for CI hosts without Node).")
+	cmd.Flags().StringVar(&engine, "engine", "auto", "Playwright engine: auto (cascade chromium→firefox→webkit, default), chromium, firefox, webkit. Each engine binary lazy-installs on first use (~150MB).")
+	cmd.Flags().StringVar(&stealth, "stealth", "on", "Stealth wrapping (playwright-extra + StealthPlugin) to defeat JS-layer bot detection: on (default), off.")
 	return cmd
 }
 

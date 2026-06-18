@@ -75,6 +75,13 @@ type ProbeRequest struct {
 	// Browser picks how the CLI invokes the browser probe.
 	// v0.86: auto / always / never. Empty defaults to auto.
 	Browser string `json:"browser,omitempty"`
+	// Engine picks which Playwright engine to launch. v0.89:
+	// auto (cascade chromium→firefox→webkit) / chromium / firefox /
+	// webkit. Empty defaults to auto.
+	Engine string `json:"engine,omitempty"`
+	// Stealth toggles playwright-extra + StealthPlugin for JS-layer
+	// bot-detection evasion. v0.89: on (default) / off.
+	Stealth string `json:"stealth,omitempty"`
 }
 
 // ProbeStream invokes the reviewqa binary's `probe` subcommand and
@@ -132,6 +139,12 @@ func ProbeStream(ctx context.Context, w http.ResponseWriter, workdir string, req
 		browserMode = "auto"
 	}
 	args = append(args, "--browser", browserMode)
+	if req.Engine != "" {
+		args = append(args, "--engine", req.Engine)
+	}
+	if req.Stealth != "" {
+		args = append(args, "--stealth", req.Stealth)
+	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {

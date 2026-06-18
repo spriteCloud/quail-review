@@ -14,7 +14,24 @@
 // Bounds (env-overridable): max 20 pages, max depth 3, single Chromium
 // instance, sequential page fetches (rate-friendly).
 
-import { chromium } from '@playwright/test'
+// v0.89: engine selection via REVIEWQA_ENGINE (chromium|firefox|webkit,
+// default chromium) and stealth wrapping via REVIEWQA_STEALTH
+// (on|off, default on). The Go side cascades chromium→firefox→webkit
+// in auto mode; per-engine binaries are lazy-installed by the Go
+// runner cache. playwright-extra + StealthPlugin patch JS-layer bot
+// detection (navigator.webdriver, plugins, chrome runtime); WAF
+// detection at the TLS/HTTP2 layer falls to the engine's native
+// fingerprint, which is why Firefox/WebKit tend to slip past Akamai-
+// class WAFs where Chromium gets dropped.
+import { chromium as chrStock, firefox as ffStock, webkit as wkStock } from '@playwright/test'
+import { addExtra } from 'playwright-extra'
+import StealthPlugin from 'puppeteer-extra-plugin-stealth'
+
+const ENGINES = { chromium: chrStock, firefox: ffStock, webkit: wkStock }
+const ENGINE_NAME = (process.env.REVIEWQA_ENGINE || 'chromium').toLowerCase()
+const STOCK_ENGINE = ENGINES[ENGINE_NAME] || chrStock
+const STEALTH_ON = (process.env.REVIEWQA_STEALTH || 'on').toLowerCase() !== 'off'
+const engine = STEALTH_ON ? addExtra(STOCK_ENGINE).use(StealthPlugin()) : STOCK_ENGINE
 
 const TARGET = process.argv[2]
 if (!TARGET) {
@@ -241,7 +258,7 @@ async function main() {
   const order = []
   const pagesOut = {}
   const queue = [{ url: canonical(TARGET), depth: 0 }]
-  const browser = await chromium.launch({ headless: true })
+  const browser = await engine.launch({ headless: true })
   const ctx = await browser.newContext({
     userAgent: 'reviewqa-browser-probe/1 (+https://github.com/spriteCloud/reviewqa)',
   })

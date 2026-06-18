@@ -20,7 +20,7 @@ import (
 func TestCrawlOriginWithFallback_AlwaysBailsOnUnavailable(t *testing.T) {
 	prev := browserCrawler
 	t.Cleanup(func() { browserCrawler = prev })
-	browserCrawler = func(ctx context.Context, u string) (*mindmap.Map, []error) {
+	browserCrawler = func(ctx context.Context, u string, engine EngineMode, stealth bool) (*mindmap.Map, []error) {
 		return nil, []error{fmt.Errorf("%w: node missing", browser.ErrBrowserUnavailable)}
 	}
 
@@ -42,10 +42,63 @@ func TestCrawlOriginWithFallback_AlwaysBailsOnUnavailable(t *testing.T) {
 	}
 }
 
+// v0.89 cascade: auto mode walks chromium → firefox → webkit and
+// stops at the first engine that returns pages. Mirrors how WAF-
+// fingerprinted sites like ing.nl drop Playwright Chromium at the
+// TLS layer but accept Firefox/WebKit through.
+func TestCrawlOriginWithFallback_AutoCascadeStopsAtFirstSuccess(t *testing.T) {
+	prev := browserCrawler
+	t.Cleanup(func() { browserCrawler = prev })
+
+	var calls []EngineMode
+	browserCrawler = func(ctx context.Context, u string, engine EngineMode, stealth bool) (*mindmap.Map, []error) {
+		calls = append(calls, engine)
+		if engine == EngineFirefox {
+			return &mindmap.Map{
+				Origin: u,
+				Pages:  map[string]*mindmap.Page{u: {URL: u}},
+				Order:  []string{u},
+			}, nil
+		}
+		return &mindmap.Map{Origin: u, Pages: map[string]*mindmap.Page{}}, nil
+	}
+
+	m, _ := crawlOriginWithFallback(context.Background(), "https://example.com/", nil, mindmap.Options{}, BrowserAlways)
+	if m == nil || len(m.Pages) != 1 {
+		t.Fatalf("expected firefox's populated map; got %+v", m)
+	}
+	if len(calls) != 2 || calls[0] != EngineChromium || calls[1] != EngineFirefox {
+		t.Errorf("cascade order wrong: got %v; want [chromium firefox] (webkit must not be called)", calls)
+	}
+}
+
+// When the user pins a single engine (--engine webkit), the cascade
+// is a one-element slice — chromium / firefox MUST NOT be called.
+func TestCrawlOriginWithFallback_ExplicitEngineDoesNotCascade(t *testing.T) {
+	prev := browserCrawler
+	t.Cleanup(func() { browserCrawler = prev })
+
+	var calls []EngineMode
+	browserCrawler = func(ctx context.Context, u string, engine EngineMode, stealth bool) (*mindmap.Map, []error) {
+		calls = append(calls, engine)
+		return &mindmap.Map{Origin: u, Pages: map[string]*mindmap.Page{}}, nil
+	}
+
+	ctx := WithEngineMode(context.Background(), EngineWebKit)
+	_, _ = crawlOriginWithFallback(ctx, "https://example.com/",
+		func(ctx context.Context, u string) ([]byte, string, error) {
+			return []byte("<html></html>"), "text/html", nil
+		}, mindmap.Options{}, BrowserAlways)
+
+	if len(calls) != 1 || calls[0] != EngineWebKit {
+		t.Errorf("explicit engine cascade: got %v; want [webkit] only", calls)
+	}
+}
+
 func TestCrawlOriginWithFallback_AlwaysFallsBackOnZeroPages(t *testing.T) {
 	prev := browserCrawler
 	t.Cleanup(func() { browserCrawler = prev })
-	browserCrawler = func(ctx context.Context, u string) (*mindmap.Map, []error) {
+	browserCrawler = func(ctx context.Context, u string, engine EngineMode, stealth bool) (*mindmap.Map, []error) {
 		// Empty mindmap with no Unavailable signal — a real browser
 		// crawl that just found nothing. Static fallback is correct.
 		return &mindmap.Map{Origin: u, Pages: map[string]*mindmap.Page{}}, nil

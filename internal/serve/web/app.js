@@ -924,6 +924,16 @@ async function renderHome () {
     el('option', { value: 'always' }, 'browser: always'),
     el('option', { value: 'never' }, 'browser: never'),
   )
+  const $engine = el('select', { class: 'home-probe-coverage', title: 'Playwright engine (auto cascades chromium→firefox→webkit until one slips past the WAF)' },
+    el('option', { value: 'auto' }, 'engine: auto'),
+    el('option', { value: 'chromium' }, 'engine: chromium'),
+    el('option', { value: 'firefox' }, 'engine: firefox'),
+    el('option', { value: 'webkit' }, 'engine: webkit'),
+  )
+  const $stealth = el('select', { class: 'home-probe-coverage', title: 'Stealth wrapping (defeats JS-layer bot detection)' },
+    el('option', { value: 'on' }, 'stealth: on'),
+    el('option', { value: 'off' }, 'stealth: off'),
+  )
   const $btn = el('button', { class: 'btn-primary home-probe-btn', onclick: () => startProbe() }, '▶ Probe')
   const $terminal = el('pre', { class: 'run-terminal home-probe-terminal' }, '$ awaiting probe…')
   const $verdict = el('div', { class: 'home-probe-verdict' })
@@ -951,7 +961,7 @@ async function renderHome () {
       const res = await fetch('/api/probe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, coverage: $coverage.value, browser: $browser.value }),
+        body: JSON.stringify({ url, coverage: $coverage.value, browser: $browser.value, engine: $engine.value, stealth: $stealth.value }),
         signal: ctrl.signal,
       })
       if (!res.ok || !res.body) {
@@ -1076,7 +1086,7 @@ async function renderHome () {
     el('section', { class: 'home-card home-probe-card' },
       el('h2', { class: 'home-card-title' }, 'Probe a URL'),
       el('p', { class: 'home-card-sub' }, 'Tests appear in the sidebar when done.'),
-      el('div', { class: 'home-probe-row' }, $urlInput, $coverage, $browser, $btn),
+      el('div', { class: 'home-probe-row' }, $urlInput, $coverage, $browser, $engine, $stealth, $btn),
       $terminal,
       $verdict,
     ),

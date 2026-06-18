@@ -90,15 +90,22 @@ type browserResult struct {
 }
 
 // runBrowserCrawl executes the embedded sidecar script via `node` against
-// the given origin URL and returns a populated mindmap.Map. Returns an
-// error if `node` isn't available, the script bails out, or the JSON is
-// malformed — callers fall back to the static crawl on any failure.
-func runBrowserCrawl(ctx context.Context, origin string) (*mindmap.Map, []error) {
+// the given origin URL and returns a populated mindmap.Map. The engine
+// (chromium|firefox|webkit) selects which Playwright runtime to launch,
+// and stealth toggles playwright-extra + the stealth plugin in the
+// sidecar. Returns an error if `node` isn't available, the runner
+// can't be ensured for this engine, the script bails out, or the JSON
+// is malformed.
+func runBrowserCrawl(ctx context.Context, origin string, engine EngineMode, stealth bool) (*mindmap.Map, []error) {
 	if _, err := exec.LookPath("node"); err != nil {
 		return nil, []error{fmt.Errorf("%w: `node` not found in PATH", browser.ErrBrowserUnavailable)}
 	}
 
-	runnerDir, err := browser.EnsureRunner(ctx)
+	if engine == "" || engine == EngineAuto {
+		engine = EngineChromium
+	}
+
+	runnerDir, err := browser.EnsureRunner(ctx, string(engine))
 	if err != nil {
 		return nil, []error{err}
 	}
@@ -109,13 +116,23 @@ func runBrowserCrawl(ctx context.Context, origin string) (*mindmap.Map, []error)
 	}
 	defer cleanup()
 
+	stealthVal := "on"
+	if !stealth {
+		stealthVal = "off"
+	}
+	log.Info("browser probe: launching", "engine", string(engine), "stealth", stealthVal, "origin", origin)
+
 	cmd := exec.CommandContext(ctx, "node", scriptPath, origin)
 	// Run from the shared runner so node's ESM resolver walks
 	// <runner>/.reviewqa-browser-probe-XXX → <runner> →
 	// <runner>/node_modules — which EnsureRunner just populated.
 	// Independent of where the probed project lives on disk.
 	cmd.Dir = runnerDir
-	cmd.Env = append(os.Environ(), "NODE_PATH="+filepath.Join(runnerDir, "node_modules"))
+	cmd.Env = append(os.Environ(),
+		"NODE_PATH="+filepath.Join(runnerDir, "node_modules"),
+		"REVIEWQA_ENGINE="+string(engine),
+		"REVIEWQA_STEALTH="+stealthVal,
+	)
 	out, err := cmd.Output()
 	if err != nil {
 		stderr := ""
