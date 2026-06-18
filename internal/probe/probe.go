@@ -746,30 +746,53 @@ func crawlOriginWithFallback(ctx context.Context, u string, fetcher mindmap.Fetc
 		return mindmap.Crawl(ctx, u, fetcher, opts)
 	default: // BrowserAuto
 		m, errs := mindmap.Crawl(ctx, u, fetcher, opts)
-		if m != nil && len(m.Pages) > 0 {
-			return m, errs
-		}
-		// Decide whether to retry through the browser. If we have
-		// any error that looks like a WAF rejection — or we got
-		// zero pages with no errors at all (silent block) — retry.
-		retry := len(errs) == 0
-		for _, e := range errs {
-			if looksLikeWAFRejection(e) {
+		// Decide whether to retry through the browser. Three triggers:
+		//  (1) static returned zero pages AND no errors — silent
+		//      block by a WAF / firewall
+		//  (2) any captured error matches the WAF-rejection signature
+		//  (3) v0.91: static returned pages but the journey identifier
+		//      finds no signal — JS-heavy SPA that returned thin shells
+		//      with no rendered nav. We'd otherwise emit only the
+		//      discover-fallback and lose the whole taxonomy.
+		retry := false
+		retryReason := ""
+		if m == nil || len(m.Pages) == 0 {
+			if len(errs) == 0 {
 				retry = true
-				break
+				retryReason = "static returned zero pages"
 			}
+			for _, e := range errs {
+				if looksLikeWAFRejection(e) {
+					retry = true
+					retryReason = "WAF-rejection signature"
+					break
+				}
+			}
+		} else if len(mindmap.IdentifyJourneys(m, 1)) == 0 {
+			retry = true
+			retryReason = "static returned pages but no journey signals"
 		}
 		if !retry {
 			return m, errs
 		}
-		log.Info("static probe came back empty / WAF-rejected; retrying via browser probe", "url", u)
+		log.Info("auto-mode escalating to browser probe", "url", u, "reason", retryReason, "static_pages", pageCount(m))
 		bm, berrs, _ := runBrowserCascade(ctx, u, engines, stealth, opts)
 		if bm != nil && len(bm.Pages) > 0 {
+			// Browser usually beats static for journey richness; if
+			// it found pages, prefer that map.
 			return bm, append(errs, berrs...)
 		}
-		// Browser also failed — return whichever errs we collected.
+		// Browser also failed — return whatever static gave us
+		// (might be non-nil with 0-journey thin shells) plus errs.
 		return m, append(errs, berrs...)
 	}
+}
+
+func pageCount(m *mindmap.Map) int {
+	if m == nil {
+		return 0
+	}
+	return len(m.Pages)
 }
 
 // enginesFor returns the engine cascade for a given EngineMode. When

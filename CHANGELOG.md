@@ -7,6 +7,47 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.91.0 — Many-journey emission (auto-escalate + relaxed finders + role-button)
+
+The user's UI probe of ing.nl with `browser=auto`,
+`coverage=max`, `max-journeys=30` produced 579 files but only
+ONE Feature — the discover-fallback. Same site under
+`browser=always` (v0.90 baseline) emitted 9 Features across
+browse / contact / read kinds. Three stacking gates collapsed
+auto-mode emission to zero on JS-heavy SPAs:
+
+1. **Auto never escalated on zero journeys.**
+   `crawlOriginWithFallback` returned the static map as soon
+   as `len(m.Pages) > 0`, even when the journey identifier
+   would find nothing in the thin shells. Fix: also retry
+   through the browser cascade when
+   `len(IdentifyJourneys(m, 1)) == 0`. Logs
+   `"auto-mode escalating to browser probe" reason="static
+   returned pages but no journey signals"`.
+
+2. **findReadJourneys required TagDetail.** Heavy nav
+   suppresses TagDetail (its `<20`-link gate). Relaxed: any
+   non-landing page with a non-empty title + ≥1 heading
+   entry in Contents counts. The per-kind cap (12 in `max`,
+   `--max-journeys` override) still gates total emission.
+
+3. **Role-tagged submits were invisible.** `<div
+   role="button">` became an Anchor with `Tag="div"`, so
+   `isFormPage`'s `Tag=="submit"` check skipped it. Fix:
+   `ExtractHTMLAnchors` maps `role=button|submit → Tag=submit`
+   and `role=link|menuitem → Tag=link-a`. `isFormPage`'s
+   `hasSubmit` now accepts role-tagged submits. `probe.mjs`
+   also captures `[role="button|submit|link|menuitem"]` into
+   a dedicated `roleAnchors` array so the browser path gets
+   them through Playwright's role resolver too (handles JS-set
+   roles that the regex over rendered DOM might miss).
+
+The locator emitter (`internal/gen/gen.go::locatorFor`)
+already prioritised testid → aria-label → role → name —
+no change needed there. The fix is upstream: role-tagged
+actionables now reach the emitter as submit/link-shaped
+Anchors.
+
 ## v0.90.0 — Browser probe journey taxonomy + max-journeys knob
 
 A v0.89.0 probe of ing.nl yielded 3 Features (2 browse, 1

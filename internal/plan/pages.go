@@ -365,7 +365,20 @@ func ExtractHTMLAnchors(file string, content []byte) []ast.LocatorAnchor {
 			anchors = append(anchors, ast.LocatorAnchor{Aria: m[1], File: file, Line: i + 1, Tag: tag})
 		}
 		if m := rePageHTMLRole.FindStringSubmatch(line); m != nil {
-			anchors = append(anchors, ast.LocatorAnchor{Role: m[1], File: file, Line: i + 1, Tag: tag})
+			// v0.91: role-tagged actionables are first-class
+			// locators. role=button/submit are treated as submits
+			// (Tag=submit) so isFormPage's submit check sees them
+			// even when the wrapping element is a <div>/<span>.
+			// role=link/menuitem fold into the regular link tag
+			// so journey finders treat them like normal anchors.
+			anchorTag := tag
+			switch strings.ToLower(m[1]) {
+			case "button", "submit":
+				anchorTag = "submit"
+			case "link", "menuitem":
+				anchorTag = "link-a"
+			}
+			anchors = append(anchors, ast.LocatorAnchor{Role: m[1], File: file, Line: i + 1, Tag: anchorTag})
 		}
 		// Submit-capable element on this line — either <button type="submit">,
 		// <input type="submit">, or <input type="image">. Emit an anchor with

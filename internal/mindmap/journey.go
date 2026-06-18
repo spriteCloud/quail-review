@@ -460,8 +460,12 @@ func findExploreJourneys(m *Map, max int) []Journey {
 	return out
 }
 
-// findReadJourneys returns journeys against detail-tagged pages (long
-// content). Useful for blog posts, articles.
+// findReadJourneys returns journeys against detail-tagged pages
+// (long content). v0.91 also accepts pages with a heading-rich
+// content shape that didn't trigger TagDetail (heavy nav suppresses
+// the <20-link gate on JS-heavy sites), so a 30-page crawl with no
+// TagDetail pages still emits Read journeys for the content-bearing
+// ones. The per-kind cap still applies.
 func findReadJourneys(m *Map, max int) []Journey {
 	landing := landingPage(m)
 	if landing == nil {
@@ -470,7 +474,7 @@ func findReadJourneys(m *Map, max int) []Journey {
 	var out []Journey
 	for _, url := range m.Order {
 		page := m.Pages[url]
-		if !hasTag(page, TagDetail) || page.URL == landing.URL {
+		if page == nil || page.URL == landing.URL {
 			continue
 		}
 		// Skip pages owned by other journey kinds.
@@ -478,6 +482,25 @@ func findReadJourneys(m *Map, max int) []Journey {
 			hasTag(page, TagPricing) || hasTag(page, TagContact) ||
 			hasTag(page, TagAuth) || hasTag(page, TagService) ||
 			hasTag(page, TagCaseStudy) {
+			continue
+		}
+		// Eligible if TagDetail fired OR the page has enough shape
+		// to be worth visiting — non-empty title + at least one
+		// heading-or-content entry. This is the v0.91 relaxation
+		// that turns "120 thin SPA shells" into Read candidates.
+		readable := hasTag(page, TagDetail)
+		if !readable {
+			hasTitle := strings.TrimSpace(page.Title) != ""
+			hasHeading := false
+			for _, c := range page.Contents {
+				if c.Tag == "h1" || c.Tag == "h2" {
+					hasHeading = true
+					break
+				}
+			}
+			readable = hasTitle && hasHeading
+		}
+		if !readable {
 			continue
 		}
 		journey := Journey{Kind: JourneyRead, Steps: []Step{

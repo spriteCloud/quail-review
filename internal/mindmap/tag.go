@@ -88,7 +88,11 @@ func isFormPage(p *Page) bool {
 	}
 	hasSubmit := false
 	for _, a := range p.Anchors {
-		if a.Tag == "submit" {
+		// v0.91: role-tagged submits count too. <div role="button">
+		// becomes an Anchor with Role="button"; combined with
+		// HasForm + ≥1 required input, that's a legitimate submit
+		// signal even when the literal HTML tag is a div.
+		if a.Tag == "submit" || a.Role == "button" || a.Role == "submit" {
 			hasSubmit = true
 			break
 		}

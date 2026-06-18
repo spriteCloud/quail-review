@@ -208,6 +208,28 @@ async function collectPage(page, requestedURL) {
     return out
   })
 
+  // v0.91: explicit role-tagged actionable capture. The Go-side
+  // regex over DOMHTML catches these too, but Playwright queries
+  // resolve ARIA roles (both explicit role="..." and implicit
+  // roles like <button>) more reliably across engines/frameworks.
+  // The Go side dedups by tag+testid+aria+role+name so duplicate
+  // captures are harmless. Capped at 50/page.
+  const roleAnchors = await page.evaluate(() => {
+    const out = []
+    const els = document.querySelectorAll('[role="button"],[role="submit"],[role="link"],[role="menuitem"]')
+    for (let i = 0; i < els.length && out.length < 50; i++) {
+      const el = els[i]
+      out.push({
+        role: el.getAttribute('role') || '',
+        text: (el.innerText || '').trim().slice(0, 200),
+        ariaLabel: el.getAttribute('aria-label') || '',
+        testid: el.getAttribute('data-testid') || '',
+        visible: !!(el.offsetParent || el.getClientRects().length),
+      })
+    }
+    return out
+  })
+
   return {
     url: requestedURL,
     finalURL,
@@ -220,6 +242,7 @@ async function collectPage(page, requestedURL) {
     hasForm,
     inputs,
     interactions,
+    roleAnchors,
     domHTML,
     forms,
   }

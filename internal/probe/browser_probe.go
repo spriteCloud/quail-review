@@ -32,8 +32,17 @@ type browserPage struct {
 	HasForm      bool               `json:"hasForm"`
 	Inputs       []browserInput     `json:"inputs"`
 	Interactions []browserInteract  `json:"interactions"`
+	RoleAnchors  []browserRoleAnchor `json:"roleAnchors"`
 	DOMHTML      string             `json:"domHTML"`
 	Forms        []browserForm      `json:"forms"`
+}
+
+type browserRoleAnchor struct {
+	Role      string `json:"role"`
+	Text      string `json:"text"`
+	AriaLabel string `json:"ariaLabel"`
+	TestID    string `json:"testid"`
+	Visible   bool   `json:"visible"`
 }
 
 type browserForm struct {
@@ -290,8 +299,33 @@ func browserPageToMindmap(bp browserPage) *mindmap.Page {
 	// pages (e.g. ing.nl's mortgage calculator). Run the same
 	// extractor over DOMHTML now that we have it.
 	if p.DOMHTML != "" {
-		p.Anchors = ast.DedupAnchors(plan.ExtractHTMLAnchors(p.URL, []byte(p.DOMHTML)))
+		p.Anchors = plan.ExtractHTMLAnchors(p.URL, []byte(p.DOMHTML))
 	}
+
+	// v0.91: append Playwright-resolved role-tagged actionables.
+	// The regex extractor above catches role="..." in the rendered
+	// HTML, but some frameworks set role via JS after DOM emission
+	// or use implicit ARIA roles that the regex misses. The
+	// Playwright query in probe.mjs catches both. DedupAnchors
+	// folds overlap with the regex output.
+	for _, r := range bp.RoleAnchors {
+		role := strings.ToLower(strings.TrimSpace(r.Role))
+		anchorTag := ""
+		switch role {
+		case "button", "submit":
+			anchorTag = "submit"
+		case "link", "menuitem":
+			anchorTag = "link-a"
+		}
+		p.Anchors = append(p.Anchors, ast.LocatorAnchor{
+			TestID: r.TestID,
+			Aria:   r.AriaLabel,
+			Role:   role,
+			Name:   r.Text,
+			Tag:    anchorTag,
+		})
+	}
+	p.Anchors = ast.DedupAnchors(p.Anchors)
 
 	// Tags: derive via the existing mindmap.TagPage path — but TagPage is
 	// unexported. Instead we leave Tags nil here; mindmap.IdentifyJourneys
