@@ -41,9 +41,10 @@ func TestSynthesiseFallbackJourneys_EmitsOneFromLanding(t *testing.T) {
 	}
 }
 
-// With fewer than 3 landing links we deliberately bail — better
-// to honestly report "no journeys" than emit a thin Scenario.
-func TestSynthesiseFallbackJourneys_BailsBelowThreshold(t *testing.T) {
+// With a single-page crawl (no second crawled URL to land on)
+// the fallback bails — better to honestly emit no journey than a
+// landing→landing loop.
+func TestSynthesiseFallbackJourneys_BailsWhenSinglePage(t *testing.T) {
 	m := &mindmap.Map{
 		Origin: "https://example.com/",
 		Order:  []string{"https://example.com/"},
@@ -56,6 +57,32 @@ func TestSynthesiseFallbackJourneys_BailsBelowThreshold(t *testing.T) {
 		},
 	}
 	if js := synthesiseFallbackJourneys(m, "https://example.com/"); len(js) != 0 {
-		t.Errorf("expected nil for thin landing, got %+v", js)
+		t.Errorf("expected nil for single-page crawl, got %+v", js)
+	}
+}
+
+// v0.87.1 — when landing.Links don't match m.Pages keys (the
+// common SPA case where hrefs don't round-trip exactly), the
+// fallback still fires by walking the crawl order.
+func TestSynthesiseFallbackJourneys_WorksWhenLinksDontMatchPageKeys(t *testing.T) {
+	landing := "https://example.com/"
+	sub := "https://example.com/about"
+	m := &mindmap.Map{
+		Origin: landing,
+		Order:  []string{landing, sub},
+		Pages: map[string]*mindmap.Page{
+			landing: {
+				URL:  landing,
+				Tags: []string{mindmap.TagLanding},
+				// Links point to relative paths that DON'T match
+				// the absolute keys in m.Pages.
+				Links: []ast.LocatorAnchor{{Aria: "/about"}, {Aria: "/contact"}},
+			},
+			sub: {URL: sub},
+		},
+	}
+	js := synthesiseFallbackJourneys(m, landing)
+	if len(js) != 1 || js[0].Steps[1].Page.URL != sub {
+		t.Fatalf("expected fallback to sub via crawl order; got %+v", js)
 	}
 }

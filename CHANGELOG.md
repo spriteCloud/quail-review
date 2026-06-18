@@ -7,6 +7,43 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.87.1 — Humanize wall-clock budget + discover-fallback fix
+
+Two fixes that surfaced from a v0.87 ing.nl probe: it hung
+forever doing LLM humanization across 167 generated files, and
+the discover-fallback (added in v0.87) silently produced nothing.
+
+### Humanize wall-clock budget
+`finishProbe` / `runGenerate` loop `llmClient.Humanize` per
+rendered file. On a slow local Ollama with 100+ generated
+artifacts, the wall clock spirals — the per-call timeout is
+60s, so worst case is ~hours.
+
+- New `humanizeWithBudget(ctx, client, rendered)` helper. Honours
+  a wall-clock budget that defaults to **5 minutes**. Once
+  exhausted, remaining files keep their deterministic content
+  and a warning logs the count skipped + the env knob to
+  extend.
+- `REVIEWQA_HUMANIZE_BUDGET=10m` (or any Go duration) overrides
+  the default. Set the legacy `REVIEWQA_HUMANIZE=0` to skip the
+  pass entirely.
+
+### Discover-fallback uses crawl order
+v0.87's `synthesiseFallbackJourneys` resolved targets via
+`landing.Links → m.Pages[href]` — but on SPAs the link hrefs
+don't always round-trip to the page-map keys (redirect
+normalisation, fragment stripping). Result: 0 matches → 0
+fallback journeys.
+
+- v0.87.1 walks `m.Order` instead: the second crawled page is
+  the target. Semantically "landing → first sub-page the crawler
+  followed", which is exactly what JourneyDiscover models.
+- Drops the prior "needs ≥ 3 outbound landing links" gate — if
+  the crawler has ≥ 2 pages total, we have what we need.
+
+1 new test covering the "links don't match page keys" SPA case;
+600 → 601 passing.
+
 ## v0.87 — Settings → probe subprocess + empty-dir reuse + discover-fallback
 
 Two user bugs from a v0.86 ing.nl probe, plus a safety-net for

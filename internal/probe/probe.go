@@ -538,26 +538,28 @@ func synthesiseFallbackJourneys(m *mindmap.Map, originURL string) []mindmap.Jour
 	if landing == nil && len(m.Order) > 0 {
 		landing = m.Pages[m.Order[0]]
 	}
-	if landing == nil || len(landing.Links) < 3 {
+	if landing == nil {
 		return nil
 	}
-	// Pick the first link that resolves to a same-origin page in
-	// the crawl. The detailed link ranker lives unexported in
-	// mindmap; for the fallback we just take the first visible
-	// candidate that's also in the crawl, which is good enough to
-	// emit a useful Scenario.
+	// v0.87.1 — use crawl ORDER for the target rather than trying
+	// to resolve landing.Links → m.Pages. The browser probe stores
+	// hrefs that don't always round-trip to FinalURL (redirect
+	// normalisation, fragment stripping), so the v0.87 link-lookup
+	// silently produced no fallback. Crawl order is the source of
+	// truth: m.Order[0] is the landing, the next page is the
+	// first the crawler explored from it — semantically "landing →
+	// first crawled sub-page", which is exactly what a Discover
+	// journey models.
 	var target *mindmap.Page
 	var href string
-	for _, l := range landing.Links {
-		if l.Aria == "" {
+	for _, ord := range m.Order {
+		p := m.Pages[ord]
+		if p == nil || p.URL == landing.URL {
 			continue
 		}
-		// l.Aria carries the href for browser-probe links.
-		if p, ok := m.Pages[l.Aria]; ok && p != nil && p.URL != landing.URL {
-			target = p
-			href = l.Aria
-			break
-		}
+		target = p
+		href = ord
+		break
 	}
 	if target == nil {
 		return nil

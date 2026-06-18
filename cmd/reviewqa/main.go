@@ -132,7 +132,7 @@ func compareSchema(path string, old, new_ []byte) (string, []plan.CompatRegressi
 }
 
 var (
-	version = "0.87"
+	version = "0.87.1"
 )
 
 func main() {
@@ -441,9 +441,7 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 		return fmt.Errorf("render: %w", err)
 	}
 	llmClient := llm.New(cfg)
-	for i := range rendered {
-		rendered[i].Content = llmClient.Humanize(ctx, rendered[i].Symbol.Language, rendered[i].Symbol.Name, rendered[i].Content)
-	}
+	humanizeWithBudget(ctx, llmClient, rendered)
 	if cfg.DryRun || client == nil {
 		printRendered(rendered)
 		return nil
@@ -587,9 +585,7 @@ func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []
 		return fmt.Errorf("probe render: %w", err)
 	}
 	llmClient := llm.New(cfg)
-	for i := range rendered {
-		rendered[i].Content = llmClient.Humanize(ctx, rendered[i].Symbol.Language, rendered[i].Symbol.Name, rendered[i].Content)
-	}
+	humanizeWithBudget(ctx, llmClient, rendered)
 	if cfg.DryRun {
 		printRendered(rendered)
 		return nil
@@ -823,6 +819,53 @@ type prSummary struct {
 	HeadBranch string
 	HeadSHA    string
 	URL        string
+}
+
+// humanizeWithBudget walks `rendered` and calls Humanize on each
+// entry, but stops early once the wall-clock budget is exhausted
+// — leaving remaining files at their deterministic content.
+//
+// v0.87.1 — without this cap, a slow local Ollama with many
+// generated files (a probe of a sprawling site easily emits 150+
+// per-page artifacts × per-call latency of 5-30s = an hour+).
+// The user reported a probe that never finished; v0.87.1 caps
+// the phase.
+//
+// Budget defaults to 5 minutes; override via
+// REVIEWQA_HUMANIZE_BUDGET (Go duration string, e.g. "10m",
+// "30s"). Set "0" or "" to disable the cap (legacy behaviour).
+// REVIEWQA_HUMANIZE=0 still short-circuits before any LLM call,
+// same as before.
+func humanizeWithBudget(ctx context.Context, client *llm.Client, rendered []gen.Rendered) {
+	if len(rendered) == 0 || client == nil {
+		return
+	}
+	if os.Getenv("REVIEWQA_HUMANIZE") == "0" {
+		// Humanize() short-circuits itself in this mode; just call
+		// it once to surface the announce log line.
+		client.Humanize(ctx, rendered[0].Symbol.Language, rendered[0].Symbol.Name, rendered[0].Content)
+		return
+	}
+	budget := 5 * time.Minute
+	if raw := strings.TrimSpace(os.Getenv("REVIEWQA_HUMANIZE_BUDGET")); raw != "" {
+		if d, err := time.ParseDuration(raw); err == nil {
+			budget = d
+		}
+	}
+	deadline := time.Now().Add(budget)
+	skipped := 0
+	for i := range rendered {
+		if budget > 0 && time.Now().After(deadline) {
+			skipped = len(rendered) - i
+			break
+		}
+		rendered[i].Content = client.Humanize(ctx, rendered[i].Symbol.Language, rendered[i].Symbol.Name, rendered[i].Content)
+	}
+	if skipped > 0 {
+		rlog.Warn("llm humanize budget exhausted; skipping remaining files",
+			"skipped", skipped, "of", len(rendered), "budget", budget,
+			"hint", "extend with REVIEWQA_HUMANIZE_BUDGET=10m or disable with REVIEWQA_HUMANIZE=0")
+	}
 }
 
 func printRendered(rs []gen.Rendered) {
