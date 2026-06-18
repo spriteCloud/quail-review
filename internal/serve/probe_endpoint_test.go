@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -79,4 +80,25 @@ func TestProbeCwd_UsesWorkdirForOtherLayouts(t *testing.T) {
 	if got != workdir {
 		t.Errorf("probeCwd(%q) = %q, want workdir unchanged", workdir, got)
 	}
+}
+func TestProbeStream(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		got, err := ProbeStream(nil, nil, "", nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if reflect.DeepEqual(got, *new(int)) {
+			t.Fatalf("got zero value: %#v", got)
+		}
+	})
+
+	t.Run("returns expected type", func(t *testing.T) {
+		got, err := ProbeStream(nil, nil, "", nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got, want := reflect.TypeOf(got), reflect.TypeOf(*new(int)); got != want {
+			t.Fatalf("type = %v, want %v", got, want)
+		}
+	})
 }
