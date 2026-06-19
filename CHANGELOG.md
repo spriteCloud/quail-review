@@ -7,6 +7,31 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.94.1 — Landing-page revamp with real UI screenshots
+
+The landing page (`web/index.html`) was text-only since the rebrand.
+v0.94.1 weaves in four real screenshots captured from the running
+`quail serve` UI:
+
+- **Hero two-up**: HOME `Probe a URL` card on the left, generated
+  scenario card on the right. Captions read `TYPE A URL.` / `GET TESTS.`
+- **Local control room**: the same HOME card mid-probe (copper
+  progress bar at the "Composing scenarios" stage, log open with
+  realistic stdout), a Given/When/Then scenario card with copper
+  tag chips, and the probe console. Captions explain each step of
+  the loop.
+- **Features grid**: a 9th card calls out v0.94's cross-platform
+  story — single Go binary on Linux + macOS + Windows, with the
+  `quail-serve.bat` launcher.
+
+Screenshots are captured by `tools/snap-landing.mjs` (committed for
+future refreshes) which drives Playwright via the runner already
+cached by the browser probe — no new npm dependency.
+
+CSS reuses the existing colour tokens, snippet shadows, Fira Code
+labels — branding (spriteCloud wordmark, copper accents, Sora
+display, deep-water headings, pixel-bar motif) is preserved.
+
 ## v0.94.0 — Windows build + double-click serve launcher
 
 Re-enables the Windows target dropped in v0.93. Goreleaser now ships

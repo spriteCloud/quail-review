@@ -231,6 +231,64 @@
     .foot-links { display: flex; gap: 22px; font-family: 'Fira Code', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
     .foot-links a { color: rgba(255,255,255,0.65); }
 
+    /* SCREENSHOTS — hero two-up + serve grid. Reuses existing card
+       border + shadow tokens; no new design language. */
+    .hero-shot { margin: 32px auto 0; max-width: 1100px; }
+    .hero-shot.two-up {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+    @media (min-width: 760px) {
+      .hero-shot.two-up { grid-template-columns: repeat(2, 1fr); }
+    }
+    .hero-shot figure { margin: 0; }
+    .hero-shot img {
+      width: 100%;
+      height: auto;
+      border: 1px solid rgba(27,54,93,0.10);
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(15,17,23,0.10);
+      display: block;
+    }
+    .hero-shot figcaption {
+      font-family: 'Fira Code', ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #C0805A;
+      margin-top: 10px;
+      text-align: center;
+    }
+    .serve-shots {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+      margin: 32px 0 28px;
+    }
+    @media (min-width: 960px) {
+      .serve-shots { grid-template-columns: repeat(2, 1fr); }
+      .serve-shots > figure:first-child { grid-column: 1 / -1; }
+    }
+    .serve-shots figure { margin: 0; }
+    .serve-shots img {
+      width: 100%;
+      height: auto;
+      border: 1px solid rgba(27,54,93,0.10);
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(15,17,23,0.06);
+      display: block;
+    }
+    .serve-shots figcaption {
+      font-family: 'Fira Code', ui-monospace, monospace;
+      font-size: 12px;
+      color: #8899AA;
+      margin-top: 10px;
+      letter-spacing: 0.02em;
+    }
+    .serve-shots figcaption strong { color: #C0805A; font-weight: 600; }
+
     /* RESPONSIVE */
     @media (max-width: 860px) {
       .grid { grid-template-columns: 1fr; }
@@ -269,11 +327,21 @@
         UI, API, Contract, Integration, Mobile, Non-functional — plus
         per-form adversarial negatives, an a11y trio on every crawled page,
         the stakeholder catalogue, a bug-discovery ledger, and locator
-        self-heal when the DOM drifts. One Go binary. <strong>v0.92.0</strong>.
+        self-heal when the DOM drifts. One Go binary, Linux + macOS + Windows. <strong>v0.94</strong>.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/marketplace/actions/quail" data-testid="cta-install">Add to your repo</a>
         <a class="btn btn-ghost" href="https://github.com/spriteCloud/quail" data-testid="cta-github">View source</a>
+      </div>
+      <div class="hero-shot two-up" data-testid="hero-shot">
+        <figure>
+          <img src="img/home-probe-card.png" alt="Probe a URL card with URL field, optional Name, and Probe button" loading="eager">
+          <figcaption>Type a URL.</figcaption>
+        </figure>
+        <figure>
+          <img src="img/scenario-card.png" alt="Generated browse-journey scenario card with Given/When/Then steps and Run / Chat / Edit buttons" loading="eager">
+          <figcaption>Get tests.</figcaption>
+        </figure>
       </div>
       <div class="pixel-bar" aria-hidden="true" data-testid="pixel-motif">
         <span class="pb-1"></span><span class="pb-2"></span><span class="pb-3"></span>
@@ -331,6 +399,11 @@
           <div class="num">08</div>
           <h3>gRPC contracts from .proto diffs</h3>
           <p>Drop a <code>.proto</code> file in your PR and quail emits per-RPC contract tests classified by streaming shape (unary / server-stream / client-stream / bidi) using <code>@grpc/grpc-js</code>.</p>
+        </div>
+        <div class="card copper">
+          <div class="num">09</div>
+          <h3>Cross‑platform — Linux, macOS, Windows</h3>
+          <p>Single Go binary, no CGO. v0.94 ships <code>quail_windows_amd64.zip</code> with a <code>quail-serve.bat</code> launcher: double‑click and the UI opens at <code>http://127.0.0.1:8765/</code>. Pin to Start menu, done.</p>
         </div>
       </div>
     </div>
@@ -411,6 +484,20 @@ quail prompt "verify the checkout flow" \
         <span class="label">Local control room</span>
         <h2>Run <code>quail serve</code>. Probe, edit, and re-run from your browser.</h2>
         <p>One binary, zero install. Opens a localhost UI for tailoring an existing project or probing a fresh URL — Scenario chat, locator suggestion from the live DOM, per-scenario ▶ Run, run history with pass-rate sparkline.</p>
+      </div>
+      <div class="serve-shots" data-testid="serve-shots">
+        <figure>
+          <img src="img/home-probe-progress.png" alt="HOME card mid-probe: copper progress bar at the Composing scenarios stage, log open with stdout">
+          <figcaption>One URL in. Crawl → browser → composer → humanize. Progress + streaming log; the log auto‑collapses on a passing run.</figcaption>
+        </figure>
+        <figure>
+          <img src="img/scenario-card.png" alt="Browse-journey scenario card with copper tag chips and Given/When/Then steps">
+          <figcaption>Every scenario gets a card. BDD steps, copper tag chips, <strong>▶ Run</strong> drives a real Playwright execution.</figcaption>
+        </figure>
+        <figure>
+          <img src="img/run-drawer.png" alt="Probe console with quail probe output and journey identification logs">
+          <figcaption>Probe console below. Real binary, real stdout — verdict + reason land back in the card.</figcaption>
+        </figure>
       </div>
 <pre class="snippet" data-testid="serve-snippet"><span class="c"># macOS / Linux — install once (amd64 or arm64)</span>
 curl -fsSL "https://github.com/spriteCloud/quail/releases/latest/download/quail_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | sudo tar -xz -C /usr/local/bin quail
