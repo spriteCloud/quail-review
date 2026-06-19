@@ -132,7 +132,7 @@ func compareSchema(path string, old, new_ []byte) (string, []plan.CompatRegressi
 }
 
 var (
-	version = "0.94.1"
+	version = "0.95.0"
 )
 
 func main() {
@@ -866,9 +866,34 @@ func humanizeWithBudget(ctx context.Context, client *llm.Client, rendered []gen.
 	}
 	deadline := time.Now().Add(budget)
 	skipped := 0
-	for i := range rendered {
+
+	// v0.95 — humanize the BDD pair (features + matching .steps.ts) as
+	// one paired LLM call so step phrasing and step-def pattern stay in
+	// lockstep. Per-file humanize couldn't safely rephrase steps
+	// because the deterministic step-def patterns are frozen, so any
+	// natural rewrite of step text broke the binding and reverted.
+	bdd, leftover := gen.GroupBDDPair(rendered)
+	if bdd != nil {
 		if budget > 0 && time.Now().After(deadline) {
-			skipped = len(rendered) - i
+			skipped += len(bdd.FeatureIdx) + 1
+		} else {
+			features := make([]llm.SuiteFile, len(bdd.FeatureIdx))
+			for i, idx := range bdd.FeatureIdx {
+				features[i] = llm.SuiteFile{Path: rendered[idx].Path, Body: rendered[idx].Content}
+			}
+			steps := llm.SuiteFile{Path: rendered[bdd.StepsIdx].Path, Body: rendered[bdd.StepsIdx].Content}
+			symbol := rendered[bdd.StepsIdx].Symbol.Name
+			newFeatures, newSteps := client.HumanizeSuite(ctx, symbol, features, steps)
+			for i, idx := range bdd.FeatureIdx {
+				rendered[idx].Content = newFeatures[i].Body
+			}
+			rendered[bdd.StepsIdx].Content = newSteps.Body
+		}
+	}
+
+	for k, i := range leftover {
+		if budget > 0 && time.Now().After(deadline) {
+			skipped += len(leftover) - k
 			break
 		}
 		rendered[i].Content = client.Humanize(ctx, rendered[i].Symbol.Language, rendered[i].Symbol.Name, rendered[i].Content)
