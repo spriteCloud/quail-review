@@ -130,6 +130,15 @@ func (c *Client) OpenPR(ctx context.Context, opts PROpts) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("gh: invalid GITHUB_REPOSITORY %q", c.cfg.Repo)
 	}
+	// Shell fallback for GitHub Actions runners (see openpr_shell.go).
+	if useShellOpenPR() {
+		if url, handled, err := c.openPRViaShell(ctx, owner, repo, opts); handled {
+			if err != nil {
+				return "", fmt.Errorf("open pr (shell): %w", err)
+			}
+			return url, nil
+		}
+	}
 	baseRef, _, err := c.api.Git.GetRef(ctx, owner, repo, "refs/heads/"+opts.BaseBranch)
 	if err != nil {
 		return "", fmt.Errorf("get base ref: %w", err)
