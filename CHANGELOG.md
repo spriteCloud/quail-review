@@ -7,6 +7,25 @@ shipped the depth-parity arc (Contract, Integration, Mobile, A11y trio).
 v0.61–v0.62 are the live-execution + composer-validation arc — first
 real-site run + composer destination-DOM enforcement.
 
+## v0.93.1 — Param Outline `with-quotes` row uses single-quotes only
+
+Deterministic `@kind:param` Scenario Outline emitted a row whose
+value contained literal `"` chars. Substituted into the surrounding
+`When I enter "<value>"…` step, the result had three `"` inside the
+value span, so playwright-bdd's `{string}` parser saw a 3-arg step
+that no registered pattern matched. `bddgen` aborted with
+"Missing step definitions" and `npx playwright test` exited 1.
+
+The fix flips the row value to single-quotes only — still exercises
+the "value contains quote-like chars" boundary, but parses cleanly.
+Adds a regression test that runs the rendered param Outline through
+`composer.IsGherkinSafe` (the existing humanization-output gate) so
+any future template edit that re-introduces nested-quote shapes
+fails at `go test`.
+
+Existing `.feature` files emitted before v0.93.1 need a one-time
+sed to unblock the bound step. Or just re-probe.
+
 ## v0.93.0 — Renamed to Quail
 
 The product is now **Quail**. Hard cut, no back-compat:
