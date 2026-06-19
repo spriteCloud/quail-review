@@ -246,6 +246,7 @@
       <div class="nav-links">
         <a href="#features">Features</a>
         <a href="#examples">Examples</a>
+        <a href="#serve">Local UI</a>
         <a href="docs.html">Docs</a>
         <a href="#usage">Usage</a>
         <a href="#faq">FAQ</a>
@@ -401,6 +402,26 @@ quail probe --url https://shop.example.com --coverage depth
 <span class="c"># focused, prompt-driven, runs and bundles an evidence ZIP</span>
 quail prompt "verify the checkout flow" \
   --url https://shop.example.com --evidence</pre>
+    </div>
+  </section>
+
+  <section class="features" id="serve">
+    <div class="container">
+      <div class="section-head">
+        <span class="label">Local control room</span>
+        <h2>Run <code>quail serve</code>. Probe, edit, and re-run from your browser.</h2>
+        <p>One binary, zero install. Opens a localhost UI for tailoring an existing project or probing a fresh URL — Scenario chat, locator suggestion from the live DOM, per-scenario ▶ Run, run history with pass-rate sparkline.</p>
+      </div>
+<pre class="snippet" data-testid="serve-snippet"><span class="c"># install once (Linux / macOS, amd64 / arm64)</span>
+curl -fsSL https://github.com/spriteCloud/quail/releases/latest/download/quail_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz \
+  | sudo tar -xz -C /usr/local/bin quail
+
+<span class="c"># open the UI (loopback only by default)</span>
+quail serve
+<span class="c"># → http://127.0.0.1:8765/</span>
+
+<span class="c"># probe any URL straight from the HOME card — no project required</span>
+<span class="c"># pick a name, fold "Advanced" for coverage / engine / stealth knobs</span></pre>
     </div>
   </section>
 
