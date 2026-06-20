@@ -133,7 +133,7 @@ func compareSchema(path string, old, new_ []byte) (string, []plan.CompatRegressi
 }
 
 var (
-	version = "0.96.2"
+	version = "0.96.3"
 )
 
 func main() {
@@ -439,18 +439,23 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 	items = append(items, loadSentinelItems(cfg.WorkDir)...)
 	if probeURLs := nonEmptyURLs(os.Getenv("QUAIL_TARGET_URLS")); len(probeURLs) > 0 {
 		force := os.Getenv("QUAIL_FORCE_PROBE") == "1"
-		if !force && probe.SuiteAlreadyCovers(cfg.WorkDir, probeURLs, time.Now()) {
+		// v0.96.3 — target-urls is documented as a FALLBACK for PRs
+		// whose diff produces no journey-bearing symbols. Honor that:
+		// if the diff already gave us items, skip the probe so the bot
+		// PR contains tests for the NEW symbols only — not a full-suite
+		// regen on every PR. QUAIL_FORCE_PROBE=1 keeps the legacy
+		// always-probe behaviour for environments that want it.
+		switch {
+		case force:
+			items = appendProbeAndMark(ctx, probeURLs, items)
+		case len(items) > 0:
+			rlog.Info("skipping probe — PR diff produced symbols (set QUAIL_FORCE_PROBE=1 to override)",
+				"diff_items", len(items), "urls", probeURLs)
+		case probe.SuiteAlreadyCovers(cfg.WorkDir, probeURLs, time.Now()):
 			rlog.Info("skipping probe — suite already covers target URLs (set QUAIL_FORCE_PROBE=1 to override)",
 				"urls", probeURLs)
-		} else {
-			probeItems, probeErrs := probe.RunAll(ctx, probeURLs)
-			for _, e := range probeErrs {
-				rlog.Warn("probe url failed", "err", e)
-			}
-			items = append(items, probeItems...)
-			if err := probe.WriteState(cfg.WorkDir, probeURLs, version); err != nil {
-				rlog.Warn("could not write probe-state marker", "err", err)
-			}
+		default:
+			items = appendProbeAndMark(ctx, probeURLs, items)
 		}
 	}
 	if len(items) == 0 {
@@ -486,6 +491,24 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 	rlog.Info("opened test PR", "url", url)
 	writeStepSummary(generateSummary(prInfo, rendered, url))
 	return nil
+}
+
+// appendProbeAndMark runs the target-urls probe, appends its emitted
+// items, logs any per-URL errors, and writes the probe-state marker.
+// Split out so the gated-probe switch in runGenerate stays readable.
+//
+// v0.96.3.
+func appendProbeAndMark(ctx context.Context, probeURLs []string, items []plan.Item) []plan.Item {
+	probeItems, probeErrs := probe.RunAll(ctx, probeURLs)
+	for _, e := range probeErrs {
+		rlog.Warn("probe url failed", "err", e)
+	}
+	items = append(items, probeItems...)
+	wd, _ := os.Getwd()
+	if err := probe.WriteState(wd, probeURLs, version); err != nil {
+		rlog.Warn("could not write probe-state marker", "err", err)
+	}
+	return items
 }
 
 // runGenerateStandalone handles the no-PR path — only target URLs are
