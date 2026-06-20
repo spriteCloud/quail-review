@@ -3,189 +3,153 @@ package gh
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/go-github/v66/github"
 	"github.com/spriteCloud/quail/internal/log"
 )
 
-// openPRViaShell creates the bot PR by shelling out to `gh api` for
-// every write call. Why: under GitHub Actions, quail's go-github writes
-// to /git/trees consistently 403 with "Resource not accessible by
-// integration" — even though the SAME GITHUB_TOKEN, from the SAME
-// runner, succeeds on the SAME endpoint via curl and `gh api` (proven
-// by a side-by-side diagnostic on the quail-e2e-demo repo). Cause is
-// not yet root-caused in the go-github / oauth2 stack. Until it is,
-// this shell path is the reliable fallback when running under Actions.
+// openPRViaShell creates the bot PR via plain git CLI + `gh pr create`,
+// completely bypassing the REST git data API.
+//
+// Why: under GitHub Actions on this org/repo, POST /git/trees
+// consistently returns 404 "Not Found" regardless of the body shape
+// (inline content or SHA refs), regardless of the token type
+// (GITHUB_TOKEN, OAuth user token, classic PAT), and regardless of
+// the request size — yet the same token from the same runner happily
+// accepts blob creation, branch creation, and PR creation. A
+// side-by-side curl diagnostic from the same workflow returns 201 on
+// a tiny tree but quail's request returns 404. GitHub-side
+// root cause is unknown. Git CLI uses the regular git smart-HTTP
+// transport (`git push https://x-access-token:TOKEN@github.com/...`),
+// which has no documented restrictions and is the path actions/checkout
+// itself uses to fetch.
 //
 // Returns (url, true, nil) on success. (_, false, nil) means "not
-// applicable, caller should try the go-github path." Any error is
-// from the shell path itself.
+// applicable, caller should try the go-github path."
+//
+// v0.95.8.
 func (c *Client) openPRViaShell(ctx context.Context, owner, repo string, opts PROpts) (string, bool, error) {
-	if _, err := exec.LookPath("curl"); err != nil {
-		log.Warn("openPRViaShell: curl not found on PATH; falling back to go-github")
-		return "", false, nil
+	for _, bin := range []string{"git", "gh"} {
+		if _, err := exec.LookPath(bin); err != nil {
+			log.Warn("openPRViaShell: required binary missing; falling back to go-github", "bin", bin)
+			return "", false, nil
+		}
 	}
 
-	// 1) Resolve base branch SHA.
-	baseSHARaw, err := ghAPI(ctx, c.cfg.GitHubToken, "GET",
-		fmt.Sprintf("/repos/%s/%s/git/refs/heads/%s", owner, repo, opts.BaseBranch), nil)
+	token := c.cfg.GitHubToken
+	tmp, err := os.MkdirTemp("", "quail-pr-*")
 	if err != nil {
-		return "", true, fmt.Errorf("get base ref: %w", err)
+		return "", true, fmt.Errorf("mkdtemp: %w", err)
 	}
-	var ref struct {
-		Object struct {
-			SHA string `json:"sha"`
-		} `json:"object"`
-	}
-	if err := json.Unmarshal(baseSHARaw, &ref); err != nil {
-		return "", true, fmt.Errorf("parse base ref: %w", err)
-	}
-	parent := ref.Object.SHA
+	defer os.RemoveAll(tmp)
 
-	// 2) v0.95.7 — pre-create blobs and reference them by SHA. The
-	// inline-content path triggers a 404 on this runner / repo
-	// combination once the cumulative body exceeds ~1MB, even though
-	// the same token + endpoint accept a tiny inline tree fine.
-	// Pre-creating blobs keeps each request small, and the resulting
-	// tree request carries only SHAs (a few KB total).
-	type entrySHA struct {
-		Path string `json:"path"`
-		Mode string `json:"mode"`
-		Type string `json:"type"`
-		SHA  string `json:"sha"`
+	cloneURL := fmt.Sprintf("https://x-access-token:%s@github.com/%s/%s.git", token, owner, repo)
+	if err := runCmd(ctx, "", "git", "clone", "--depth=1", "--branch", opts.BaseBranch, cloneURL, tmp); err != nil {
+		return "", true, fmt.Errorf("clone %s: %w", opts.BaseBranch, err)
 	}
-	shaEntries := make([]entrySHA, 0, len(opts.Files))
+
+	if err := runCmd(ctx, tmp, "git", "config", "user.email", "quail-bot@users.noreply.github.com"); err != nil {
+		return "", true, fmt.Errorf("git config email: %w", err)
+	}
+	if err := runCmd(ctx, tmp, "git", "config", "user.name", "quail-bot"); err != nil {
+		return "", true, fmt.Errorf("git config name: %w", err)
+	}
+
+	// Branch off base. Force-create so a stale local clone (won't happen
+	// here since /tmp is fresh, but defensive) can't trip us.
+	if err := runCmd(ctx, tmp, "git", "switch", "-C", opts.NewBranch); err != nil {
+		return "", true, fmt.Errorf("switch -C %s: %w", opts.NewBranch, err)
+	}
+
 	for path, content := range opts.Files {
-		blobReq := map[string]any{
-			"content":  base64.StdEncoding.EncodeToString(content),
-			"encoding": "base64",
+		dest := filepath.Join(tmp, path)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			return "", true, fmt.Errorf("mkdir %s: %w", filepath.Dir(dest), err)
 		}
-		blobResp, err := ghAPI(ctx, c.cfg.GitHubToken, "POST",
-			fmt.Sprintf("/repos/%s/%s/git/blobs", owner, repo), blobReq)
-		if err != nil {
-			return "", true, fmt.Errorf("create blob %s: %w", path, err)
+		if err := os.WriteFile(dest, content, 0o644); err != nil {
+			return "", true, fmt.Errorf("write %s: %w", dest, err)
 		}
-		var blob struct {
-			SHA string `json:"sha"`
-		}
-		if err := json.Unmarshal(blobResp, &blob); err != nil {
-			return "", true, fmt.Errorf("parse blob %s: %w", path, err)
-		}
-		shaEntries = append(shaEntries, entrySHA{
-			Path: path, Mode: "100644", Type: "blob", SHA: blob.SHA,
-		})
-	}
-	log.Info("openPRViaShell: blobs created", "count", len(shaEntries))
-
-	// 3) CreateTree (small body — only SHA refs).
-	treeReq := map[string]any{"base_tree": parent, "tree": shaEntries}
-	treeResp, err := ghAPI(ctx, c.cfg.GitHubToken, "POST",
-		fmt.Sprintf("/repos/%s/%s/git/trees", owner, repo), treeReq)
-	if err != nil {
-		return "", true, fmt.Errorf("create tree: %w", err)
-	}
-	var tree struct {
-		SHA string `json:"sha"`
-	}
-	if err := json.Unmarshal(treeResp, &tree); err != nil {
-		return "", true, fmt.Errorf("parse tree: %w", err)
 	}
 
-	// 4) CreateCommit.
-	commitReq := map[string]interface{}{
-		"message": opts.Title,
-		"tree":    tree.SHA,
-		"parents": []string{parent},
+	if err := runCmd(ctx, tmp, "git", "add", "-A"); err != nil {
+		return "", true, fmt.Errorf("git add: %w", err)
 	}
-	commitResp, err := ghAPI(ctx, c.cfg.GitHubToken, "POST",
-		fmt.Sprintf("/repos/%s/%s/git/commits", owner, repo), commitReq)
-	if err != nil {
-		return "", true, fmt.Errorf("create commit: %w", err)
-	}
-	var commit struct {
-		SHA string `json:"sha"`
-	}
-	if err := json.Unmarshal(commitResp, &commit); err != nil {
-		return "", true, fmt.Errorf("parse commit: %w", err)
+	// `git commit` exits 1 when nothing changed; treat as success (a
+	// re-run of the same probe on the same head produces no diff).
+	if err := runCmd(ctx, tmp, "git", "commit", "-m", opts.Title); err != nil {
+		log.Info("openPRViaShell: nothing to commit; skipping PR open", "reason", err.Error())
+		return "", true, nil
 	}
 
-	// 5) CreateRef / UpdateRef.
-	branchRef := "refs/heads/" + opts.NewBranch
-	createRefReq := map[string]interface{}{"ref": branchRef, "sha": commit.SHA}
-	_, err = ghAPI(ctx, c.cfg.GitHubToken, "POST",
-		fmt.Sprintf("/repos/%s/%s/git/refs", owner, repo), createRefReq)
-	branchAction := "created"
-	if err != nil {
-		// Branch already exists → fast-forward via PATCH.
-		if !strings.Contains(err.Error(), "Reference already exists") {
-			return "", true, fmt.Errorf("create branch: %w", err)
-		}
-		updateRefReq := map[string]interface{}{"sha": commit.SHA, "force": true}
-		if _, err := ghAPI(ctx, c.cfg.GitHubToken, "PATCH",
-			fmt.Sprintf("/repos/%s/%s/git/refs/heads/%s", owner, repo, opts.NewBranch), updateRefReq); err != nil {
-			return "", true, fmt.Errorf("update branch: %w", err)
-		}
-		branchAction = "updated"
+	if err := runCmd(ctx, tmp, "git", "push", "--force", "origin", opts.NewBranch); err != nil {
+		return "", true, fmt.Errorf("push %s: %w", opts.NewBranch, err)
 	}
-	log.Info(branchAction+" branch", "branch", opts.NewBranch)
+	log.Info("openPRViaShell: pushed branch", "branch", opts.NewBranch)
 
-	// 6) Idempotency: if a PR already exists for this head, patch it.
-	listPath := fmt.Sprintf("/repos/%s/%s/pulls?head=%s:%s&state=open&per_page=1",
-		owner, repo, owner, opts.NewBranch)
-	listResp, err := ghAPI(ctx, c.cfg.GitHubToken, "GET", listPath, nil)
+	// Idempotency: if a PR for this head already exists, edit it.
+	listResp, err := ghAPI(ctx, token, "GET",
+		fmt.Sprintf("/repos/%s/%s/pulls?head=%s:%s&state=open&per_page=1",
+			owner, repo, owner, opts.NewBranch), nil)
 	if err == nil {
 		var existing []struct {
 			Number  int    `json:"number"`
 			HTMLURL string `json:"html_url"`
 		}
 		if json.Unmarshal(listResp, &existing) == nil && len(existing) > 0 {
-			patchReq := map[string]interface{}{"title": opts.Title, "body": opts.Body}
+			patchReq := map[string]any{"title": opts.Title, "body": opts.Body}
 			patchPath := fmt.Sprintf("/repos/%s/%s/pulls/%d", owner, repo, existing[0].Number)
-			if _, err := ghAPI(ctx, c.cfg.GitHubToken, "PATCH", patchPath, patchReq); err == nil {
-				log.Info("updated existing pr", "url", existing[0].HTMLURL, "branch", opts.NewBranch)
+			if _, err := ghAPI(ctx, token, "PATCH", patchPath, patchReq); err == nil {
+				log.Info("openPRViaShell: updated existing pr", "url", existing[0].HTMLURL)
 				return existing[0].HTMLURL, true, nil
 			}
 		}
 	}
 
-	// 7) Create the PR.
-	prReq := map[string]interface{}{
-		"title":                 opts.Title,
-		"head":                  opts.NewBranch,
-		"base":                  opts.BaseBranch,
-		"body":                  opts.Body,
-		"maintainer_can_modify": true,
-	}
-	prResp, err := ghAPI(ctx, c.cfg.GitHubToken, "POST",
-		fmt.Sprintf("/repos/%s/%s/pulls", owner, repo), prReq)
+	// Open new PR via gh CLI (works — proven, that's how everyone does it).
+	createCmd := exec.CommandContext(ctx, "gh", "pr", "create",
+		"--repo", owner+"/"+repo,
+		"--base", opts.BaseBranch,
+		"--head", opts.NewBranch,
+		"--title", opts.Title,
+		"--body", opts.Body)
+	createCmd.Dir = tmp
+	createCmd.Env = append(os.Environ(), "GH_TOKEN="+token, "GITHUB_TOKEN="+token)
+	var stderr bytes.Buffer
+	createCmd.Stderr = &stderr
+	out, err := createCmd.Output()
 	if err != nil {
-		return "", true, fmt.Errorf("create pr: %w", err)
+		return "", true, fmt.Errorf("gh pr create: %s", strings.TrimSpace(stderr.String()))
 	}
-	var pr struct {
-		HTMLURL string `json:"html_url"`
-	}
-	if err := json.Unmarshal(prResp, &pr); err != nil {
-		return "", true, fmt.Errorf("parse pr: %w", err)
-	}
-	log.Info("opened pr", "url", pr.HTMLURL, "branch", opts.NewBranch)
-	return pr.HTMLURL, true, nil
+	url := strings.TrimSpace(string(out))
+	log.Info("openPRViaShell: opened pr", "url", url, "branch", opts.NewBranch)
+	return url, true, nil
 }
 
-// ghAPI shells out to `curl` against api.github.com. Why curl, not the
-// `gh` CLI or net/http: a side-by-side diagnostic on the quail-e2e-demo
-// repo proved that under GitHub Actions the SAME GITHUB_TOKEN +
-// SAME endpoint succeeds via curl with default headers but 403s under
-// `gh api` AND under go-github. The empirical difference is the
-// request headers (Content-Type, X-GitHub-Api-Version, User-Agent);
-// curl's defaults are the only set that passes. body=nil → no body.
-// Returns response body bytes; error includes the HTTP code + curl
-// stderr.
+// runCmd runs a command and returns a wrapped error on non-zero exit
+// with stderr attached.
+func runCmd(ctx context.Context, dir string, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return nil
+}
+
+// ghAPI shells out to `curl` against api.github.com. Retained for the
+// remaining PR-list / PR-patch calls that DO succeed via curl. The
+// failing tree/commit/ref API path is no longer used — see the git
+// CLI path above.
 func ghAPI(ctx context.Context, token, method, path string, body any) ([]byte, error) {
 	url := "https://api.github.com" + path
 	args := []string{
@@ -201,12 +165,6 @@ func ghAPI(ctx context.Context, token, method, path string, body any) ([]byte, e
 		if err != nil {
 			return nil, fmt.Errorf("marshal body: %w", err)
 		}
-		// Inline `-d` puts the body on the kernel argv, capped by
-		// ARG_MAX (~128KB on Linux). The bot-PR tree payload is
-		// routinely several MB. Pipe via stdin instead. `--data-binary`
-		// preserves bytes verbatim and keeps the same default
-		// Content-Type (application/x-www-form-urlencoded) that the
-		// successful curl-diagnostic used.
 		cmd.Args = append(cmd.Args, "--data-binary", "@-")
 		cmd.Stdin = bytes.NewReader(raw)
 	}
@@ -220,7 +178,6 @@ func ghAPI(ctx context.Context, token, method, path string, body any) ([]byte, e
 		}
 		return nil, fmt.Errorf("curl %s %s: %s", method, path, msg)
 	}
-	// Parse the trailing "\n__HTTP_CODE__NNN" marker off the body.
 	idx := bytes.LastIndex(out, []byte("__HTTP_CODE__"))
 	if idx < 0 {
 		return nil, fmt.Errorf("curl %s %s: missing http code marker; body=%s", method, path, out)
@@ -236,9 +193,7 @@ func ghAPI(ctx context.Context, token, method, path string, body any) ([]byte, e
 
 // useShellOpenPR is the gate for the shell fallback. On when running
 // under GitHub Actions AND go-github's client is pointed at the real
-// api.github.com. The BaseURL check is what keeps unit tests (which
-// inject a localhost mock server) out of the shell path even when
-// they themselves run under a GitHub Actions runner.
+// api.github.com.
 func (c *Client) useShellOpenPR() bool {
 	if os.Getenv("GITHUB_ACTIONS") != "true" {
 		return false
