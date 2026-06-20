@@ -89,7 +89,7 @@ export function Counter() {
 
 	var flow *Item
 	for i := range items {
-		if items[i].Template == TmplPlaywrightHappyFlow {
+		if items[i].Template == TmplPlaywrightFeature {
 			flow = &items[i]
 		}
 		if items[i].Template == TmplPlaywrightE2E {
@@ -97,7 +97,7 @@ export function Counter() {
 		}
 	}
 	if flow == nil {
-		t.Fatalf("no happy-flow item; items = %+v", items)
+		t.Fatalf("no feature item; items = %+v", items)
 	}
 	if len(flow.Symbols) != 2 {
 		t.Errorf("flow.Symbols len = %d, want 2: %+v", len(flow.Symbols), flow.Symbols)
@@ -105,7 +105,7 @@ export function Counter() {
 	if flow.PageURL != "/home" {
 		t.Errorf("PageURL = %q, want /home", flow.PageURL)
 	}
-	if flow.OutPath != "tests/e2e/Home.spec.ts" {
+	if flow.OutPath != "tests/e2e/features/Home.feature" {
 		t.Errorf("OutPath = %q", flow.OutPath)
 	}
 }
@@ -128,17 +128,17 @@ func TestBuildEmitsHappyFlowForHTMLPage(t *testing.T) {
 
 	var flow *Item
 	for i := range items {
-		if items[i].Template == TmplPlaywrightHappyFlow {
+		if items[i].Template == TmplPlaywrightFeature {
 			flow = &items[i]
 		}
 	}
 	if flow == nil {
-		t.Fatalf("no happy-flow item for index.html; items = %+v", items)
+		t.Fatalf("no feature item for index.html; items = %+v", items)
 	}
 	if flow.PageURL != "/" {
 		t.Errorf("PageURL = %q, want /", flow.PageURL)
 	}
-	if flow.OutPath != "tests/e2e/index.spec.ts" {
+	if flow.OutPath != "tests/e2e/features/index.feature" {
 		t.Errorf("OutPath = %q", flow.OutPath)
 	}
 	if len(flow.Symbols) != 1 || len(flow.Symbols[0].Anchors) < 3 {
@@ -167,17 +167,19 @@ func TestBuildFallsBackToPerComponentWhenNoPage(t *testing.T) {
 		{Path: faqPath, Added: []diff.Range{{Start: 1, End: 5}}, Status: "added"},
 	}
 	items := Build(files, Detect(dir))
+	// v0.97.0 — Kind=Component now emits TmplPlaywrightFeature on the
+	// diff path (Gherkin), not vanilla TmplPlaywrightE2E.
 	got := 0
 	for _, it := range items {
-		if it.Template == TmplPlaywrightE2E {
+		if it.Template == TmplPlaywrightFeature {
 			got++
 		}
-		if it.Template == TmplPlaywrightHappyFlow {
-			t.Errorf("unexpected happy-flow item without a page root: %+v", it)
+		if it.Template == TmplPlaywrightE2E || it.Template == TmplPlaywrightHappyFlow {
+			t.Errorf("unexpected vanilla item: %+v", it)
 		}
 	}
 	if got != 2 {
-		t.Errorf("expected 2 per-component E2E items, got %d", got)
+		t.Errorf("expected 2 per-component .feature items, got %d", got)
 	}
 }
 
@@ -203,6 +205,8 @@ export default function Home() { return (<main><Counter /><FAQ /></main>) }
 	t.Setenv("QUAIL_E2E_STYLE", "per-component")
 	items := Build(files, Detect(dir))
 	for _, it := range items {
+		// v0.97.0 — per-component mode now emits one Feature per
+		// component instead of a grouped HappyFlow.
 		if it.Template == TmplPlaywrightHappyFlow {
 			t.Errorf("env override should disable happy-flow grouping, got %+v", it)
 		}

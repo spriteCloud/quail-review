@@ -62,10 +62,16 @@ export function LoginForm() {
 	for _, r := range rs {
 		combined += string(r.Content)
 	}
+	// v0.97.0 — diff path now emits Gherkin (.feature) rather than
+	// vanilla Playwright code. Assert the Gherkin shape: Feature
+	// keyword, deterministic field-fill steps with literal values,
+	// and a submit step. The matching playwright assertions live in
+	// tests/e2e/steps/quail.steps.ts (emitted by the probe path).
 	for _, want := range []string{
-		".fill('test@example.com')",
-		".fill('Passw0rd!')",
-		"click()",
+		"Feature: LoginForm",
+		"\"test@example.com\"",
+		"\"Passw0rd!\"",
+		"I submit the form",
 	} {
 		if !strings.Contains(combined, want) {
 			t.Errorf("login flow missing %q in:\n%s", want, combined)
@@ -104,33 +110,36 @@ export function Counter() {
 		{Path: "src/FAQ.tsx", Added: []diff.Range{{Start: 1, End: 10}}, Status: "added", NewBlob: faq},
 	}
 	items := plan.Build(files, plan.Detect(dir))
+	// v0.97.0 — grouped page items now ship as one Gherkin .feature
+	// rather than a TmplPlaywrightHappyFlow .spec.ts.
 	var flow *plan.Item
 	for i := range items {
-		if items[i].Template == plan.TmplPlaywrightHappyFlow {
+		if items[i].Template == plan.TmplPlaywrightFeature {
 			flow = &items[i]
 		}
-		if items[i].Template == plan.TmplPlaywrightE2E {
-			t.Errorf("unexpected per-component E2E item: %+v", items[i])
+		if items[i].Template == plan.TmplPlaywrightE2E || items[i].Template == plan.TmplPlaywrightHappyFlow {
+			t.Errorf("unexpected vanilla item: %+v", items[i])
 		}
 	}
 	if flow == nil {
-		t.Fatalf("expected one happy-flow item, items = %+v", items)
+		t.Fatalf("expected one feature item, items = %+v", items)
 	}
 	rs, err := gen.Render([]plan.Item{*flow}, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	body := string(rs[0].Content)
+	// The Feature title comes from g.symbols[0].Name and the sort key
+	// is line number, which both test components share (line 1) — so
+	// either Counter or FAQ wins the title slot. Assert only on shape.
 	for _, want := range []string{
-		"page happy flow",
-		"full user journey (2 step(s))",
-		"// Step 1 — visit",
-		"// Step 2 —",
-		"getByTestId('counter-root')",
-		"getByTestId('faq-list')",
+		"Feature:",
+		"As a visitor of /home",
+		"Scenario:",
+		"Given I open the landing page",
 	} {
 		if !strings.Contains(body, want) {
-			t.Errorf("happy-flow body missing %q in:\n%s", want, body)
+			t.Errorf("feature body missing %q in:\n%s", want, body)
 		}
 	}
 }

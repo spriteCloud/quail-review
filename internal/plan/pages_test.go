@@ -40,12 +40,12 @@ func TestHTMLPageExtractsInputs(t *testing.T) {
 	items := Build(files, Detect(dir))
 	var flow *Item
 	for i := range items {
-		if items[i].Template == TmplPlaywrightHappyFlow {
+		if items[i].Template == TmplPlaywrightFeature {
 			flow = &items[i]
 		}
 	}
 	if flow == nil {
-		t.Fatalf("no happy-flow item; items = %+v", items)
+		t.Fatalf("no feature item; items = %+v", items)
 	}
 	if len(flow.Symbols) != 1 {
 		t.Fatalf("expected 1 synthetic symbol, got %d", len(flow.Symbols))
@@ -158,12 +158,12 @@ func TestPageRootDetectionAcrossFrameworks(t *testing.T) {
 			items := Build(files, Detect(dir))
 			var flow *Item
 			for i := range items {
-				if items[i].Template == TmplPlaywrightHappyFlow {
+				if items[i].Template == TmplPlaywrightFeature {
 					flow = &items[i]
 				}
 			}
 			if flow == nil {
-				t.Fatalf("no happy-flow item for %s; items=%+v", tc.name, items)
+				t.Fatalf("no feature item for %s; items=%+v", tc.name, items)
 			}
 			if flow.PageURL != tc.wantURL {
 				t.Errorf("PageURL = %q, want %q", flow.PageURL, tc.wantURL)
@@ -236,7 +236,7 @@ func TestPageURLsEnvOverride(t *testing.T) {
 	items := Build(files, Detect(dir))
 	var found bool
 	for _, it := range items {
-		if it.Template == TmplPlaywrightHappyFlow && it.PageURL == "/bespoke" {
+		if it.Template == TmplPlaywrightFeature && it.PageURL == "/bespoke" {
 			found = true
 		}
 	}

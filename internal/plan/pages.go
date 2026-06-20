@@ -241,6 +241,13 @@ func deriveURL(slashPath, stem string) string {
 	return "/"
 }
 
+// DeriveURL is the exported wrapper around deriveURL used by the diff
+// path in cmd/quail to map a journey-bearing symbol's source file to
+// the URL its containing page renders at.
+func DeriveURL(slashPath, stem string) string {
+	return deriveURL(slashPath, stem)
+}
+
 func matchIndexLike(l string) bool {
 	return hasAnySuffix(l, "/index.html", "/pages/index.tsx", "/pages/index.jsx")
 }
@@ -686,7 +693,12 @@ func matchComponentsToRoots(items []Item, roots []pageRoot) ([]Item, []Item, map
 	var nonE2E, ungroupedE2E []Item
 	grouped := map[string]*pageGroup{}
 	for _, it := range items {
-		if it.Template != TmplPlaywrightE2E {
+		// v0.97.0 — Components emit TmplPlaywrightFeature on the diff
+		// path now (was TmplPlaywrightE2E). Treat Feature items the
+		// same way as E2E for page-root grouping so multiple
+		// components mounted on the same page collapse to one feature
+		// file.
+		if it.Template != TmplPlaywrightE2E && it.Template != TmplPlaywrightFeature {
 			nonE2E = append(nonE2E, it)
 			continue
 		}
@@ -727,21 +739,23 @@ func materializeGroups(grouped map[string]*pageGroup, ungrouped *[]Item, style s
 	for _, g := range grouped {
 		if len(g.symbols) < 2 && style != "page-flow" {
 			for _, s := range g.symbols {
+				// v0.97.0 — was TmplPlaywrightE2E with .spec.ts.
 				*ungrouped = append(*ungrouped, Item{
 					Symbol:   s,
-					Template: TmplPlaywrightE2E,
-					OutPath:  filepath.ToSlash(filepath.Join("tests", "e2e", s.Name+".spec.ts")),
+					Template: TmplPlaywrightFeature,
+					OutPath:  filepath.ToSlash(filepath.Join("tests", "e2e", "features", s.Name+".feature")),
 				})
 			}
 			continue
 		}
 		sort.Slice(g.symbols, func(i, j int) bool { return g.symbols[i].Line < g.symbols[j].Line })
+		// v0.97.0 — was TmplPlaywrightHappyFlow with .spec.ts.
 		out = append(out, Item{
 			Symbol:   g.symbols[0],
 			Symbols:  g.symbols,
 			PageURL:  g.root.URL,
-			Template: TmplPlaywrightHappyFlow,
-			OutPath:  filepath.ToSlash(filepath.Join("tests", "e2e", g.root.Stem+".spec.ts")),
+			Template: TmplPlaywrightFeature,
+			OutPath:  filepath.ToSlash(filepath.Join("tests", "e2e", "features", g.root.Stem+".feature")),
 		})
 	}
 	return out
@@ -770,12 +784,13 @@ func materializePageRoots(roots []pageRoot, inDiff, alreadyCovered map[string]bo
 			Links:    ast.DedupLinks(r.Links),
 			HasForm:  r.HasForm,
 		}
+		// v0.97.0 — was TmplPlaywrightHappyFlow with .spec.ts.
 		out = append(out, Item{
 			Symbol:   synthetic,
 			Symbols:  []ast.Symbol{synthetic},
 			PageURL:  r.URL,
-			Template: TmplPlaywrightHappyFlow,
-			OutPath:  filepath.ToSlash(filepath.Join("tests", "e2e", stemOf(r.Stem)+".spec.ts")),
+			Template: TmplPlaywrightFeature,
+			OutPath:  filepath.ToSlash(filepath.Join("tests", "e2e", "features", stemOf(r.Stem)+".feature")),
 		})
 	}
 	return out

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -133,7 +134,7 @@ func compareSchema(path string, old, new_ []byte) (string, []plan.CompatRegressi
 }
 
 var (
-	version = "0.96.3"
+	version = "0.97.0"
 )
 
 func main() {
@@ -437,25 +438,21 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 	// v0.40: every open finding in the bug-discovery ledger becomes a
 	// sentinel test.fail() spec. Resolved findings are skipped.
 	items = append(items, loadSentinelItems(cfg.WorkDir)...)
-	if probeURLs := nonEmptyURLs(os.Getenv("QUAIL_TARGET_URLS")); len(probeURLs) > 0 {
+	// v0.97.0 — always probe the affected pages. The diff tells us
+	// which page changed; only probing that page gives the LLM the
+	// anchors it needs to write real journey Gherkin. The probe-state
+	// TTL cache (probe.SuiteAlreadyCovers) still short-circuits inside
+	// appendProbeAndMark so re-running on the same diff doesn't
+	// re-probe. QUAIL_FORCE_PROBE=1 bypasses that cache.
+	probeURLs := nonEmptyURLs(os.Getenv("QUAIL_TARGET_URLS"))
+	urls := deriveAffectedURLs(items, layout, probeURLs)
+	if len(urls) > 0 {
 		force := os.Getenv("QUAIL_FORCE_PROBE") == "1"
-		// v0.96.3 — target-urls is documented as a FALLBACK for PRs
-		// whose diff produces no journey-bearing symbols. Honor that:
-		// if the diff already gave us items, skip the probe so the bot
-		// PR contains tests for the NEW symbols only — not a full-suite
-		// regen on every PR. QUAIL_FORCE_PROBE=1 keeps the legacy
-		// always-probe behaviour for environments that want it.
-		switch {
-		case force:
-			items = appendProbeAndMark(ctx, probeURLs, items)
-		case len(items) > 0:
-			rlog.Info("skipping probe — PR diff produced symbols (set QUAIL_FORCE_PROBE=1 to override)",
-				"diff_items", len(items), "urls", probeURLs)
-		case probe.SuiteAlreadyCovers(cfg.WorkDir, probeURLs, time.Now()):
+		if !force && probe.SuiteAlreadyCovers(cfg.WorkDir, urls, time.Now()) {
 			rlog.Info("skipping probe — suite already covers target URLs (set QUAIL_FORCE_PROBE=1 to override)",
-				"urls", probeURLs)
-		default:
-			items = appendProbeAndMark(ctx, probeURLs, items)
+				"urls", urls)
+		} else {
+			items = appendProbeAndMark(ctx, urls, items)
 		}
 	}
 	if len(items) == 0 {
@@ -491,6 +488,74 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 	rlog.Info("opened test PR", "url", url)
 	writeStepSummary(generateSummary(prInfo, rendered, url))
 	return nil
+}
+
+// deriveAffectedURLs maps each journey-bearing item's source file to
+// the URL its containing page renders at (via plan.DeriveURL), then
+// resolves those paths against each configured target-url origin so
+// the probe lands on the affected page rather than the bare origin.
+// Falls back to the configured probeURLs unchanged when symbol→URL
+// mapping yielded nothing.
+//
+// v0.97.0.
+func deriveAffectedURLs(items []plan.Item, _ plan.Layout, probeURLs []string) []string {
+	seen := map[string]struct{}{}
+	add := func(s string) {
+		if s == "" {
+			return
+		}
+		if _, ok := seen[s]; ok {
+			return
+		}
+		seen[s] = struct{}{}
+	}
+	paths := map[string]struct{}{}
+	for _, it := range items {
+		if it.Template != plan.TmplPlaywrightFeature {
+			continue
+		}
+		file := it.Symbol.File
+		if file == "" {
+			continue
+		}
+		stem := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+		p := plan.DeriveURL(filepath.ToSlash(file), stem)
+		if p == "" {
+			continue
+		}
+		paths[p] = struct{}{}
+	}
+	if len(paths) == 0 {
+		return probeURLs
+	}
+	if len(probeURLs) == 0 {
+		// No origin to resolve against; the diff-derived paths are
+		// useless on their own (probe needs an absolute URL). Keep the
+		// empty list — caller skips probe.
+		return nil
+	}
+	out := make([]string, 0, len(paths)*len(probeURLs))
+	for _, origin := range probeURLs {
+		base, err := url.Parse(origin)
+		if err != nil || base == nil {
+			add(origin)
+			continue
+		}
+		for p := range paths {
+			ref, err := url.Parse(p)
+			if err != nil {
+				continue
+			}
+			resolved := base.ResolveReference(ref).String()
+			if _, ok := seen[resolved]; ok {
+				continue
+			}
+			seen[resolved] = struct{}{}
+			out = append(out, resolved)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // appendProbeAndMark runs the target-urls probe, appends its emitted

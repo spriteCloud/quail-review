@@ -557,7 +557,13 @@ func pickTemplate(s ast.Symbol, l Layout) Template {
 		case ast.KindRoute:
 			return TmplJestAPI
 		case ast.KindComponent:
-			return TmplPlaywrightE2E
+			// v0.97.0 — TS components emit Gherkin (.feature). The
+			// previous vanilla TmplPlaywrightE2E produced a flat
+			// page.goto + one-role-assert skeleton with no real DOM
+			// context; journeys now flow through pw_feature.tmpl, and
+			// the always-probe affected-pages logic in runGenerate
+			// supplies the matching rich step definitions.
+			return TmplPlaywrightFeature
 		default:
 			return TmplJestUnit
 		}
@@ -606,6 +612,9 @@ func testPathFor(s ast.Symbol, t Template, l Layout) string {
 func testPathForTS(dir, stem string, t Template, l Layout) string {
 	if t == TmplPlaywrightE2E || t == TmplPlaywrightHappyFlow {
 		return filepath.Join("tests", "e2e", stem+".spec.ts")
+	}
+	if t == TmplPlaywrightFeature {
+		return filepath.Join("tests", "e2e", "features", stem+".feature")
 	}
 	if l.HasJestDir {
 		return filepath.Join(dir, "__tests__", stem+".test.ts")
