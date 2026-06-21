@@ -39,6 +39,10 @@ type Rendered struct {
 	// PR-write layer — when true, the writer must NOT overwrite an
 	// existing file. Used by the bug-discovery ledger.
 	IfMissingOnly bool
+	// Template is the plan.Template that produced this file. v0.99 —
+	// surfaced for the bot PR body so genPRBody can group by
+	// plan.KindOf(Template). Empty for TmplRaw items.
+	Template plan.Template
 }
 
 func Render(items []plan.Item, workDir string) ([]Rendered, error) {
@@ -49,7 +53,7 @@ func Render(items []plan.Item, workDir string) ([]Rendered, error) {
 		// snapshot pipeline so probed HTML lands beside the specs without
 		// going through Go's text/template (which would escape it).
 		if it.Template == plan.TmplRaw {
-			out = append(out, Rendered{Path: it.OutPath, Content: it.RawContent, Symbol: it.Symbol, IfMissingOnly: it.IfMissingOnly})
+			out = append(out, Rendered{Path: it.OutPath, Content: it.RawContent, Symbol: it.Symbol, IfMissingOnly: it.IfMissingOnly, Template: it.Template})
 			log.Debug("emitted raw artifact", "path", it.OutPath, "bytes", len(it.RawContent))
 			continue
 		}
@@ -83,7 +87,7 @@ func Render(items []plan.Item, workDir string) ([]Rendered, error) {
 		default:
 			content, notes = annotateQualityReport(buf.Bytes(), it.Symbol)
 		}
-		out = append(out, Rendered{Path: it.OutPath, Content: content, Symbol: it.Symbol, QualityNotes: notes, IfMissingOnly: it.IfMissingOnly})
+		out = append(out, Rendered{Path: it.OutPath, Content: content, Symbol: it.Symbol, QualityNotes: notes, IfMissingOnly: it.IfMissingOnly, Template: it.Template})
 		log.Debug("rendered scaffold", "template", it.Template, "symbol", it.Symbol.Name, "path", it.OutPath, "quality_notes", len(notes))
 	}
 	return out, nil

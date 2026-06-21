@@ -38,6 +38,7 @@ func runPromptEvidence(ctx context.Context, cfg config.Config, urls []string, fi
 	if len(items) == 0 {
 		return fmt.Errorf("prompt --evidence: probe yielded no items (filter: %s)", filter.Describe())
 	}
+	items = applyKindFilter(items)
 	rendered, err := gen.Render(items, cfg.WorkDir)
 	if err != nil {
 		return fmt.Errorf("prompt --evidence: render: %w", err)

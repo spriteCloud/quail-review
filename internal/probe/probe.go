@@ -1678,6 +1678,13 @@ func companionItems(sourceURL string, m *mindmap.Map, cat *plan.Catalogue, proje
 	if parsed != nil {
 		originOnly = parsed.Scheme + "://" + parsed.Host
 	}
+	// v0.99 — every scaffolding item is IfMissingOnly. When the
+	// target project already ships its own package.json /
+	// playwright.config.ts / tsconfig.json / README, the merge layer
+	// has no business folding ours on top — previous behavior with
+	// package.json was to dispatch to appendTS, which can't dedupe
+	// JSON and concatenated two complete objects, producing an
+	// EJSONPARSE on npm install in the bot PR.
 	items := []plan.Item{
 		{
 			Symbol:   stub,
@@ -1685,6 +1692,7 @@ func companionItems(sourceURL string, m *mindmap.Map, cat *plan.Catalogue, proje
 			PageURL:  originOnly,
 			Template: plan.TmplPlaywrightFixtures,
 			OutPath:  "tests/e2e/_fixtures.ts",
+			IfMissingOnly: true,
 		},
 		{
 			Symbol:   stub,
@@ -1692,6 +1700,7 @@ func companionItems(sourceURL string, m *mindmap.Map, cat *plan.Catalogue, proje
 			PageURL:  originOnly,
 			Template: plan.TmplPlaywrightConfig,
 			OutPath:  "playwright.config.ts",
+			IfMissingOnly: true,
 		},
 		{
 			Symbol:   stub,
@@ -1699,6 +1708,7 @@ func companionItems(sourceURL string, m *mindmap.Map, cat *plan.Catalogue, proje
 			PageURL:  originOnly,
 			Template: plan.TmplPlaywrightReadme,
 			OutPath:  "tests/e2e/README.md",
+			IfMissingOnly: true,
 		},
 		{
 			Symbol:   stub,
@@ -1706,6 +1716,7 @@ func companionItems(sourceURL string, m *mindmap.Map, cat *plan.Catalogue, proje
 			PageURL:  originOnly,
 			Template: plan.TmplPlaywrightPackage,
 			OutPath:  "package.json",
+			IfMissingOnly: true,
 		},
 		{
 			Symbol:   stub,
@@ -1713,6 +1724,7 @@ func companionItems(sourceURL string, m *mindmap.Map, cat *plan.Catalogue, proje
 			PageURL:  originOnly,
 			Template: plan.TmplPlaywrightTsconfig,
 			OutPath:  "tsconfig.json",
+			IfMissingOnly: true,
 		},
 		{
 			Symbol:   stub,
@@ -1720,6 +1732,7 @@ func companionItems(sourceURL string, m *mindmap.Map, cat *plan.Catalogue, proje
 			PageURL:  originOnly,
 			Template: plan.TmplPlaywrightCIFile,
 			OutPath:  ".github/workflows/e2e.yml",
+			IfMissingOnly: true,
 		},
 		// v0.98 — emit the step-def files only when the project is
 		// BDD-shaped. A vanilla @playwright/test project has no
@@ -1735,6 +1748,7 @@ func companionItems(sourceURL string, m *mindmap.Map, cat *plan.Catalogue, proje
 				PageURL:  originOnly,
 				Template: plan.TmplPlaywrightSteps,
 				OutPath:  "tests/e2e/lib/steps.ts",
+				IfMissingOnly: true,
 			},
 			plan.Item{
 				Symbol:   stub,
@@ -1742,6 +1756,7 @@ func companionItems(sourceURL string, m *mindmap.Map, cat *plan.Catalogue, proje
 				PageURL:  originOnly,
 				Template: plan.TmplPlaywrightStepsBDD,
 				OutPath:  "tests/e2e/steps/quail.steps.ts",
+				IfMissingOnly: true,
 			},
 		)
 	}

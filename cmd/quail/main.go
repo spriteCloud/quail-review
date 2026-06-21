@@ -134,7 +134,7 @@ func compareSchema(path string, old, new_ []byte) (string, []plan.CompatRegressi
 }
 
 var (
-	version = "0.98.0"
+	version = "0.99.0"
 )
 
 func main() {
@@ -162,6 +162,7 @@ func newRoot() *cobra.Command {
 func newGenerateCmd() *cobra.Command {
 	var pr int
 	var dryRun bool
+	var kinds, excludeKinds string
 	cmd := &cobra.Command{
 		Use:   "generate",
 		Short: "Scan a PR's diff, emit test scaffolds, and open a follow-up PR.",
@@ -183,12 +184,41 @@ func newGenerateCmd() *cobra.Command {
 			}
 			cfg.PRNumber = pr
 			cfg.DryRun = dryRun
+			applyKindFlagsToEnv(kinds, excludeKinds)
 			return runGenerate(cmd.Context(), cfg)
 		},
 	}
 	cmd.Flags().IntVar(&pr, "pr", 0, "PR number")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print plan instead of opening a PR")
+	addKindFlags(cmd, &kinds, &excludeKinds)
 	return cmd
+}
+
+// addKindFlags wires --kinds / --exclude-kinds onto a cobra command.
+// Reused by generate + probe so the taxonomy gate is uniformly
+// available wherever items are emitted.
+//
+// v0.99.
+func addKindFlags(cmd *cobra.Command, kinds, excludeKinds *string) {
+	cmd.Flags().StringVar(kinds, "kinds", "",
+		"Comma-separated allow-list of test kinds (e.g. a11y,perf,journey). "+
+			"Empty = all kinds. Env: QUAIL_KINDS. "+
+			"Scaffolding (config/README/package.json), docs, and sentinels are always kept.")
+	cmd.Flags().StringVar(excludeKinds, "exclude-kinds", "",
+		"Comma-separated deny-list of test kinds (applied after --kinds). "+
+			"Env: QUAIL_EXCLUDE_KINDS.")
+}
+
+// applyKindFlagsToEnv promotes flag values into the QUAIL_KINDS /
+// QUAIL_EXCLUDE_KINDS env vars so the downstream filter (which reads
+// env) sees them. Flag wins over a pre-existing env value.
+func applyKindFlagsToEnv(kinds, excludeKinds string) {
+	if kinds != "" {
+		os.Setenv("QUAIL_KINDS", kinds)
+	}
+	if excludeKinds != "" {
+		os.Setenv("QUAIL_EXCLUDE_KINDS", excludeKinds)
+	}
 }
 
 func newHealCmd() *cobra.Command {
@@ -235,6 +265,7 @@ func newProbeCmd() *cobra.Command {
 	var stealth string
 	var maxJourneys string
 	var projectName string
+	var kinds, excludeKinds string
 	cmd := &cobra.Command{
 		Use:   "probe",
 		Short: "Fetch live URL(s), generate a Playwright happy-flow per URL, open a PR.",
@@ -276,6 +307,7 @@ LLM scenario composer (OPTIONAL):
 			ctx = probe.WithStealth(ctx, probe.ParseStealth(stealth))
 			ctx = probe.WithMaxJourneys(ctx, probe.ParseMaxJourneys(maxJourneys))
 			ctx = probe.WithProjectLabel(ctx, projectName)
+			applyKindFlagsToEnv(kinds, excludeKinds)
 			return runProbe(ctx, cfg, urls, probe.ParseCoverage(coverage), local)
 		},
 	}
@@ -290,6 +322,7 @@ LLM scenario composer (OPTIONAL):
 	cmd.Flags().StringVar(&stealth, "stealth", "on", "Stealth wrapping (playwright-extra + StealthPlugin) to defeat JS-layer bot detection: on (default), off.")
 	cmd.Flags().StringVar(&maxJourneys, "max-journeys", "", "Override the per-kind journey cap (default: coverage mode decides — breadth 1, standard 3, depth 6, max 12). Set to a positive integer to force a specific cap. Env: QUAIL_MAX_JOURNEYS.")
 	cmd.Flags().StringVar(&projectName, "name", "", "Human-friendly project name. Drives the feature label inside emitted specs and (when serve creates a new sibling dir) the dir name. Empty falls back to the host-derived brand.")
+	addKindFlags(cmd, &kinds, &excludeKinds)
 	return cmd
 }
 
@@ -455,6 +488,12 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 			items = appendProbeAndMark(ctx, urls, items)
 		}
 	}
+	// v0.99 — taxonomy gate. QUAIL_KINDS narrows emission to the listed
+	// families (allow-list); QUAIL_EXCLUDE_KINDS drops them
+	// (deny-list). Scaffolding / docs / sentinel items are never
+	// dropped — they're project prerequisites. Empty env vars =
+	// no filter.
+	items = applyKindFilter(items)
 	if len(items) == 0 {
 		rlog.Info("no symbols in PR diff and no target URLs to probe; nothing to generate")
 		writeStepSummary("quail: no new symbols in PR diff and no target URLs configured.\n")
@@ -556,6 +595,25 @@ func deriveAffectedURLs(items []plan.Item, _ plan.Layout, probeURLs []string) []
 	}
 	sort.Strings(out)
 	return out
+}
+
+// applyKindFilter narrows the rendered set by the QUAIL_KINDS allow-
+// list and QUAIL_EXCLUDE_KINDS deny-list. Scaffolding, docs, and
+// sentinel items are always preserved (see plan.FilterByKinds).
+//
+// v0.99.
+func applyKindFilter(items []plan.Item) []plan.Item {
+	allow := plan.ParseKinds(os.Getenv("QUAIL_KINDS"))
+	deny := plan.ParseKinds(os.Getenv("QUAIL_EXCLUDE_KINDS"))
+	if len(allow) == 0 && len(deny) == 0 {
+		return items
+	}
+	before := len(items)
+	items = plan.FilterByKinds(items, allow, deny)
+	rlog.Info("kind filter applied",
+		"allow", allow, "deny", deny,
+		"items_before", before, "items_after", len(items))
+	return items
 }
 
 // appendProbeAndMark runs the target-urls probe, appends its emitted
@@ -691,6 +749,8 @@ func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []
 	// v0.25: LLM scenario composer — strictly opt-in via --llm.
 	// Mutates feature items in-place to attach ExtraScenarios.
 	items = composeScenarios(ctx, cfg, items)
+	// v0.99 — same taxonomy gate as runGenerate.
+	items = applyKindFilter(items)
 	rendered, err := gen.Render(items, cfg.WorkDir)
 	if err != nil {
 		return fmt.Errorf("probe render: %w", err)
@@ -1120,13 +1180,76 @@ func genPRBody(pr *prSummary, rs []gen.Rendered) string {
 	if pr != nil {
 		fmt.Fprintf(&b, "Generated by quail for #%d.\n\n", pr.Number)
 	}
+	b.WriteString(fmt.Sprintf("**%d files** organised by kind:\n\n", len(rs)))
 	b.WriteString("Files:\n")
-	for _, r := range rs {
-		fmt.Fprintf(&b, "- `%s` — covers `%s` (%s)\n", r.Path, r.Symbol.Name, r.Symbol.Language)
-	}
+	writeKindSummary(&b, rs)
 	b.WriteString("\nEach scaffold contains one or more deterministic happy-path scenarios per component or symbol. Review and extend with edge cases.\n")
 	appendQualityNotes(&b, rs)
+	writeFullFileList(&b, rs)
 	return b.String()
+}
+
+// writeKindSummary groups rendered files by plan.KindOf(Template) and
+// emits one line per kind: "- a11y: 47 specs (e.g.
+// `tests/e2e/a11y/landing.a11y.spec.ts`)". Replaces the legacy
+// one-bullet-per-file shape that produced 200+ identical-looking
+// rows in the bot PR body. v0.99.
+func writeKindSummary(b *strings.Builder, rs []gen.Rendered) {
+	type bucket struct {
+		count    int
+		sample   string
+	}
+	buckets := map[string]*bucket{}
+	for _, r := range rs {
+		k := plan.KindOf(r.Template)
+		if k == "" {
+			k = "unknown"
+		}
+		bk := buckets[k]
+		if bk == nil {
+			bk = &bucket{}
+			buckets[k] = bk
+		}
+		bk.count++
+		if bk.sample == "" {
+			bk.sample = r.Path
+		}
+	}
+	kinds := make([]string, 0, len(buckets))
+	for k := range buckets {
+		kinds = append(kinds, k)
+	}
+	sort.Slice(kinds, func(i, j int) bool {
+		bi, bj := buckets[kinds[i]], buckets[kinds[j]]
+		if bi.count != bj.count {
+			return bi.count > bj.count
+		}
+		return kinds[i] < kinds[j]
+	})
+	for _, k := range kinds {
+		bk := buckets[k]
+		unit := "files"
+		if bk.count == 1 {
+			unit = "file"
+		}
+		fmt.Fprintf(b, "- **%s** — %d %s (e.g. `%s`)\n", k, bk.count, unit, bk.sample)
+	}
+}
+
+// writeFullFileList appends a GitHub-collapsible <details> block with
+// the every-file view so reviewers who want the raw list still have
+// it without inflating the default render. v0.99.
+func writeFullFileList(b *strings.Builder, rs []gen.Rendered) {
+	if len(rs) == 0 {
+		return
+	}
+	b.WriteString("\n<details>\n<summary>Full file list (")
+	fmt.Fprintf(b, "%d files", len(rs))
+	b.WriteString(")</summary>\n\n")
+	for _, r := range rs {
+		fmt.Fprintf(b, "- `%s`\n", r.Path)
+	}
+	b.WriteString("\n</details>\n")
 }
 
 // appendQualityNotes summarises weak/missing locators across the rendered

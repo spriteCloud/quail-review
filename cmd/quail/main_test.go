@@ -10,6 +10,7 @@ import (
 	"github.com/spriteCloud/quail/internal/config"
 	"github.com/spriteCloud/quail/internal/gen"
 	"github.com/spriteCloud/quail/internal/heal"
+	"github.com/spriteCloud/quail/internal/plan"
 )
 
 func TestProbeBranchName_HostSlugForSingleURL(t *testing.T) {
@@ -132,13 +133,27 @@ func TestApplyEditsOutOfRange(t *testing.T) {
 }
 
 func TestGenPRBody(t *testing.T) {
+	// v0.99 — body is now a kind summary + collapsible full list.
+	// One a11y spec + one perf spec + one scaffold file should
+	// produce: header, three kind bullets (a11y, perf, scaffold)
+	// each with a sample path, and a <details> block.
 	pr := &prSummary{Number: 9}
-	rs := []gen.Rendered{{
-		Path: "tests/foo.test.ts",
-		Symbol: ast.Symbol{Name: "foo", Language: "ts"},
-	}}
+	rs := []gen.Rendered{
+		{Path: "tests/e2e/a11y/landing.a11y.spec.ts", Template: plan.TmplPlaywrightA11y, Symbol: ast.Symbol{Name: "landing"}},
+		{Path: "tests/e2e/perf/landing.perf.spec.ts", Template: plan.TmplPlaywrightPerf, Symbol: ast.Symbol{Name: "landing"}},
+		{Path: "playwright.config.ts", Template: plan.TmplPlaywrightConfig, Symbol: ast.Symbol{Name: "spritecloud"}},
+	}
 	got := genPRBody(pr, rs)
-	for _, want := range []string{"#9", "tests/foo.test.ts", "`foo`", "ts"} {
+	for _, want := range []string{
+		"#9",
+		"**3 files**",
+		"**a11y** — 1 file",
+		"**perf** — 1 file",
+		"**scaffold** — 1 file",
+		"tests/e2e/a11y/landing.a11y.spec.ts",
+		"<details>",
+		"Full file list (3 files)",
+	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
