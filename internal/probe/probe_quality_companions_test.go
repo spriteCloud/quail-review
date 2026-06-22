@@ -59,6 +59,9 @@ func TestRunAll_EmitsQualityCompanions(t *testing.T) {
 // split in qualityCompanions.
 func TestRunAll_A11yTrioUncapped_v059(t *testing.T) {
 	t.Setenv("QUAIL_PROBE_ALLOW_LOOPBACK", "1")
+	// v1.0.1: a11y trio defaults to capped; opt back into uncapped
+	// behavior to assert the v0.59 contract still holds under the flag.
+	t.Setenv("QUAIL_A11Y_UNCAP", "1")
 	// Build a server with 8 distinct pages, all linked from /. The
 	// breadth coverage cap is 3, so before v0.59 only 3 pages would
 	// get the quality companions; with the cap lifted on the a11y

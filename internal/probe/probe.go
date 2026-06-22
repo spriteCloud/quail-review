@@ -666,7 +666,12 @@ func probeOneOrigin(ctx context.Context, u string, coverage CoverageMode, filter
 	items = append(items, openAPIContractItems(ctx, u, projectLabel)...)
 	items = append(items, graphQLContractItems(ctx, u, projectLabel)...)
 	items = append(items, webhookContractItems(ctx, u, projectLabel)...)
-	items = append(items, domSnapshotItems(u, m, projectLabel)...)
+	// ponytail: _dom/*.html dumps are debug artifacts (browser-rendered
+	// HTML for trace-viewer diffs), not tests. They added 30 files to the
+	// v1.0 spritecloud.com probe PR for zero test value. Opt-in via env.
+	if os.Getenv("QUAIL_DOM_SNAPSHOTS") == "1" {
+		items = append(items, domSnapshotItems(u, m, projectLabel)...)
+	}
 	return items, crawlErrs
 }
 
@@ -1031,12 +1036,26 @@ func qualityCompanions(sourceURL string, m *mindmap.Map, coverage CoverageMode, 
 	//     budgets, multi-device emulation).
 	perPageCap := coverage.FuzzCap() // breadth 3, standard 5, depth/max 10
 
-	// Pass A — uncapped a11y trio for every crawled page.
+	// ponytail: a11y trio defaults to capped (perPageCap) so a 30-page
+	// crawl doesn't emit 90 a11y specs into the first PR. Set
+	// QUAIL_A11Y_UNCAP=1 to restore the v0.59 every-page behavior when
+	// you want full a11y coverage.
+	a11yCap := perPageCap
+	if os.Getenv("QUAIL_A11Y_UNCAP") == "1" {
+		a11yCap = len(m.Order) + 1
+	}
+
+	// Pass A — a11y trio, capped (or uncapped under QUAIL_A11Y_UNCAP=1).
+	a11yEmitted := 0
 	for _, pURL := range m.Order {
+		if a11yEmitted >= a11yCap {
+			break
+		}
 		page := m.Pages[pURL]
 		if page == nil {
 			continue
 		}
+		a11yEmitted++
 		stem := pageStem(page.URL)
 		pageStub := ast.Symbol{
 			Name:     projectName(projectLabel, parseHost(page.URL)),

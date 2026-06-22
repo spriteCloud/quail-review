@@ -1,0 +1,62 @@
+# Copy this file to .github/workflows/quail-probe.yml in your repo.
+#
+# Runs quail-review against a live URL on a schedule (and on demand).
+# No PR diff, no source code required — the URL is the source of truth.
+# Output: a follow-up PR containing tests/e2e/ (Playwright + Gherkin).
+#
+# Knobs you'll likely flip:
+#   - QUAIL_TARGET_URL (repo variable) — the URL to probe
+#   - schedule cron     — default 03:17 UTC nightly
+#   - OPENAI_API_KEY    — optional; skips LLM humanizer when unset
+
+name: quail-probe
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      url:
+        description: URL to probe (overrides the QUAIL_TARGET_URL repo variable)
+        required: false
+        default: ''
+      kinds:
+        description: 'Comma-list of test kinds to emit (e.g. "a11y,perf"). Empty = all.'
+        required: false
+        default: ''
+      exclude-kinds:
+        description: 'Comma-list of kinds to drop (e.g. "mobile,integration,touch,race").'
+        required: false
+        default: ''
+      dom-snapshots:
+        description: Commit raw tests/e2e/_dom/*.html dumps.
+        required: false
+        type: boolean
+        default: false
+      a11y-uncap:
+        description: Emit a11y trio on every crawled page.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: spriteCloud/quail-review@v1
+        with:
+          target-urls: ${{ github.event.inputs.url || vars.QUAIL_TARGET_URL }}
+          openai-base-url: ${{ vars.OPENAI_BASE_URL || 'https://api.openai.com/v1' }}
+          openai-api-key:  ${{ secrets.OPENAI_API_KEY }}
+          model: ${{ vars.QUAIL_MODEL || 'gpt-4o-mini' }}
+          kinds: ${{ github.event.inputs.kinds }}
+          exclude-kinds: ${{ github.event.inputs.exclude-kinds }}
+          dom-snapshots: ${{ github.event.inputs.dom-snapshots }}
+          a11y-uncap: ${{ github.event.inputs.a11y-uncap }}
+          run-generate: 'false'
+          run-heal: 'false'

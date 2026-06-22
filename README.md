@@ -125,6 +125,8 @@ The full set; every var is read from the environment AND most have a CLI flag.
 | `QUAIL_BROWSER_PROBE` | (unset) | Set to `1` to drive Chromium (Playwright) instead of static HTML crawl. Required for SPAs. |
 | `QUAIL_IGNORE_ROBOTS` | (unset) | Set to `1` to crawl `robots.txt` Disallow paths. Default OFF; enable for QA of sites you own. |
 | `QUAIL_PROBE_ALLOW_LOOPBACK` | (unset) | `1` to bypass loopback/private-IP guard (tests only). |
+| `QUAIL_A11Y_UNCAP` | (unset) | `1` to emit the a11y trio on *every* crawled page. Default caps it at `coverage.FuzzCap()` (breadth 3 / standard 5 / depth 10) to keep the first PR small. |
+| `QUAIL_DOM_SNAPSHOTS` | (unset) | `1` to commit raw `tests/e2e/_dom/*.html` browser-render dumps. Default off — useful for trace-viewer diffs, noisy in PRs. |
 
 ### CI / PR plumbing
 
@@ -170,8 +172,9 @@ jobs:
 
 ### Probe-only mode (no diff needed)
 
-Drop this into `.github/workflows/quail-probe.yml` of any repo to generate
-Playwright tests against a live URL — no source code required:
+Want a ready-made starter? Copy [`templates/probe-site/`](./templates/probe-site/)
+into your repo — workflow file + 3-step README, scheduled nightly + manual
+dispatch. The minimal inline version:
 
 ```yaml
 name: quail-probe
@@ -196,6 +199,27 @@ jobs:
           run-generate: 'false'
           run-heal: 'false'
 ```
+
+#### Narrow the emitted taxonomy
+
+Pass `kinds:` / `exclude-kinds:` to ship a focused PR instead of the
+full matrix. The vocabulary (same names the `--kinds` CLI flag accepts):
+
+> `journey, a11y, perf, visual, security, contract, health,
+> observability, i18n, network, storage, print, mobile, responsive,
+> touch, race, fuzz, webhook, graphql, auth-expiry, history-depth,
+> clipboard, iframe, date-edges, file-upload, deeplink, http-chains,
+> api, integration, grpc, compat, unit, pwa, locale, jobs`
+
+Recipes:
+
+| Goal | Pass |
+|---|---|
+| Accessibility-only PR | `kinds: a11y` |
+| User flows + a11y | `kinds: journey,a11y` |
+| Drop the heaviest layers | `exclude-kinds: mobile,integration,touch,race` |
+| Commit `_dom/` debug dumps too | `dom-snapshots: 'true'` |
+| Uncap a11y trio to every page | `a11y-uncap: 'true'` |
 
 ## AI usage rules
 

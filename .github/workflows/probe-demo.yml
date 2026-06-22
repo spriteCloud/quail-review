@@ -21,6 +21,24 @@ on:
         description: Optional PR number to attach the generated spec to (leave empty for a standalone PR against main)
         required: false
         default: ''
+      kinds:
+        description: 'Comma-list of test kinds to emit (e.g. a11y, perf, journey,a11y). Empty = all.'
+        required: false
+        default: ''
+      exclude-kinds:
+        description: 'Comma-list of kinds to drop (e.g. mobile,integration,touch,race).'
+        required: false
+        default: ''
+      dom-snapshots:
+        description: Commit raw tests/e2e/_dom/*.html browser-render dumps.
+        required: false
+        type: boolean
+        default: false
+      a11y-uncap:
+        description: Emit a11y trio on every crawled page (default caps it).
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -45,3 +63,7 @@ jobs:
           heal-mode: 'off'
           log-level: info
           target-urls: ${{ github.event.inputs.url || 'https://www.spritecloud.com' }}
+          kinds: ${{ github.event.inputs.kinds }}
+          exclude-kinds: ${{ github.event.inputs.exclude-kinds }}
+          dom-snapshots: ${{ github.event.inputs.dom-snapshots }}
+          a11y-uncap: ${{ github.event.inputs.a11y-uncap }}

@@ -1,5 +1,9 @@
 # Examples — what `reviewqa probe` produces
 
+> Want to **run** this in your own repo, not just read the output? Copy
+> [`../templates/probe-site/`](../templates/probe-site/) — workflow file
+> + 3-step README.
+
 Each subdirectory is the complete output of running
 
 ```bash
