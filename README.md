@@ -12,7 +12,7 @@ broken locators when they drift.
 - **Deterministic-first**: regex/AST/HTML extractors emit test scaffolds the
   same way every time. LLM-composed Scenarios are an OPT-IN second layer.
 - **10-layer taxonomy** out of the box: Unit, Component, API, Contract,
-  Integration, Backend, UI, Mobile, Data, Non-functional. See [docs](https://spritecloud.github.io/quail/docs.html).
+  Integration, Backend, UI, Mobile, Data, Non-functional. See [docs](https://spritecloud.github.io/quail-page/docs.html).
 - **Inference is yours**: any OpenAI-compatible base URL (Ollama, vLLM,
   DGX-hosted vLLM, OpenAI).
 
@@ -143,7 +143,7 @@ source code.
 | 9 | Data | PR diff touches dbt / pandera / Great-Expectations | 1+ per schema |
 | 10 | Non-functional | Every probed page (mix of capped and uncapped) | ~17 templates, 1–3 tests each |
 
-Full reference + recipes: <https://spritecloud.github.io/quail/docs.html>.
+Full reference + recipes: <https://spritecloud.github.io/quail-page/docs.html>.
 
 ## Subcommands
 
