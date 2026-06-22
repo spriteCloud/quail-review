@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spriteCloud/quail/internal/config"
-	"github.com/spriteCloud/quail/internal/gen"
-	rlog "github.com/spriteCloud/quail/internal/log"
-	"github.com/spriteCloud/quail/internal/probe"
-	"github.com/spriteCloud/quail/internal/prompt"
+	"github.com/spriteCloud/quail-review/internal/config"
+	"github.com/spriteCloud/quail-review/internal/gen"
+	rlog "github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-review/internal/probe"
+	"github.com/spriteCloud/quail-review/internal/prompt"
 )
 
 // runPromptEvidence is the prompt-driven evidence-pack flow.

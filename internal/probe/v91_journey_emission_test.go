@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/mindmap"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/mindmap"
 )
 
 // v0.91: auto mode used to return the static map as soon as

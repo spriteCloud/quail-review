@@ -3,11 +3,11 @@ package ast_test
 import (
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	_ "github.com/spriteCloud/quail/internal/ast/golang"
-	_ "github.com/spriteCloud/quail/internal/ast/java"
-	_ "github.com/spriteCloud/quail/internal/ast/python"
-	_ "github.com/spriteCloud/quail/internal/ast/ts"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	_ "github.com/spriteCloud/quail-review/internal/ast/golang"
+	_ "github.com/spriteCloud/quail-review/internal/ast/java"
+	_ "github.com/spriteCloud/quail-review/internal/ast/python"
+	_ "github.com/spriteCloud/quail-review/internal/ast/ts"
 )
 
 func TestRegistry(t *testing.T) {

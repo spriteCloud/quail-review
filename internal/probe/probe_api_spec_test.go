@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/mindmap"
-	"github.com/spriteCloud/quail/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/mindmap"
+	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
 func TestApiSpecItems_EmitsOnePerFormSameOrigin(t *testing.T) {

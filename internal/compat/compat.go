@@ -9,9 +9,9 @@ package compat
 import (
 	"strings"
 
-	"github.com/spriteCloud/quail/internal/asyncapi"
-	rgrpc "github.com/spriteCloud/quail/internal/grpc"
-	"github.com/spriteCloud/quail/internal/openapi"
+	"github.com/spriteCloud/quail-review/internal/asyncapi"
+	rgrpc "github.com/spriteCloud/quail-review/internal/grpc"
+	"github.com/spriteCloud/quail-review/internal/openapi"
 )
 
 // Regression is one breaking-change finding. Kind is the category

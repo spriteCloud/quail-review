@@ -14,8 +14,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
 // Map is the result of a crawl.

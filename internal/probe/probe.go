@@ -24,12 +24,12 @@ import (
 
 	"golang.org/x/net/publicsuffix"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/log"
-	"github.com/spriteCloud/quail/internal/mindmap"
-	"github.com/spriteCloud/quail/internal/openapi"
-	"github.com/spriteCloud/quail/internal/plan"
-	"github.com/spriteCloud/quail/internal/probe/browser"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-review/internal/mindmap"
+	"github.com/spriteCloud/quail-review/internal/openapi"
+	"github.com/spriteCloud/quail-review/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/probe/browser"
 )
 
 // userAgent retained for back-compat with code outside this file

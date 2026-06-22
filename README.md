@@ -1,12 +1,23 @@
-# quail
+# quail-review
 
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-quail-1B365D?logo=github&logoColor=white&labelColor=0F1117)](https://github.com/marketplace/actions/quail)
-[![Release](https://img.shields.io/github/v/release/spriteCloud/quail?color=4B8BBE&labelColor=0F1117)](https://github.com/spriteCloud/quail/releases)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-quail--review-1B365D?logo=github&logoColor=white&labelColor=0F1117)](https://github.com/marketplace/actions/quail-review)
+[![Release](https://img.shields.io/github/v/release/spriteCloud/quail-review?color=4B8BBE&labelColor=0F1117)](https://github.com/spriteCloud/quail-review/releases)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-C0805A?labelColor=0F1117)](./LICENSE)
 
-A small Go binary + GitHub Action that watches a PR (or a live URL), opens a
-follow-up PR with generated Playwright tests + stakeholder docs, and heals
-broken locators when they drift.
+OSS PR bot. A small Go binary + GitHub Action that watches a PR (or a live
+URL), opens a follow-up PR with generated Playwright tests + stakeholder
+docs, and heals broken locators when they drift.
+
+> **Looking for the local UI / DGX tunnel / on-prem deploy?** Those live in
+> the commercial [`spriteCloud/quail`](https://github.com/spriteCloud/quail)
+> edition. Both editions share the same engine; the OSS one ships the
+> PR/CI surface only.
+>
+> **Migration notice (v1.0.0):** the repository was renamed from
+> `spriteCloud/quail` to `spriteCloud/quail-review`. The action input
+> `uses: spriteCloud/quail@v1` continues to work via GitHub's redirect
+> for 30 days; please update to `spriteCloud/quail-review@v1` at your
+> earliest convenience.
 
 - **One binary**, pure Go, no CGO — works locally and in CI.
 - **Deterministic-first**: regex/AST/HTML extractors emit test scaffolds the
@@ -23,57 +34,13 @@ Six reference probes covering a spread of site shapes; each is a complete,
 runnable Playwright + Gherkin project. Re-emit on every release via
 [`scripts/refresh-examples.sh`](./scripts/refresh-examples.sh).
 
-## Tailor the generated suite locally
+## Tailor the generated suite locally (commercial)
 
-`quail serve` opens a local browser UI for browsing AND editing the
-Features, Scenarios, and stakeholder docs of an existing project. As of
-v0.66 you can delete, edit, and append Scenarios from the UI; each edit
-is backed up under `tests/e2e/.quail-history/`. v0.67 adds a 🔍 suggest
-button on each step — probe a destination URL and the UI ranks candidate
-Playwright locators against your hint. v0.68 wires an **AI compose**
-button into the editor: type free Gherkin, set a destination URL, and
-the LLM returns a Scenario whose steps match the registered patterns and
-whose assertions reference the real DOM. v0.69 ports the public site's
-full design system. v0.70 ships a **💬 Chat** button per Scenario — a
-non-technical reviewer can talk to the LLM about that specific Scenario
-and Apply the assistant's proposed update with one click.
-
-**What's new since v0.70:**
-
-- **v0.71 / v0.75** — ▶ Run button per Scenario streams Playwright
-  output as Server-Sent Events; per-step verdicts post-parsed from
-  the JSON reporter; last-run pill persists across reloads.
-- **v0.76 — HOME view + probe from the UI.** Sidebar opens on a HOME
-  panel with a Probe form that shells out to `quail probe --local`
-  (no GitHub token needed) and streams stdout into a terminal panel.
-  Project list auto-refreshes on success.
-- **v0.77 — Settings page.** Edits persist to
-  `~/.config/quail/serve.json` (mode 0600) and take effect on the
-  next API call. Toggle LLM on/off, set endpoint / model / API key /
-  timeout (with a Test-connection button), set probe + run defaults.
-- **v0.78 — Project switcher + Stakeholder Summary rewrite + history.**
-  The header pill is now a dropdown that lists sibling quail
-  projects, plus a recents list and a free-form "Open path" input.
-  Each probe writes timestamped copies to `tests/e2e/docs/history/`.
-- **v0.79.1 — UI verbosity sweep + dropped redundant PRETTY/RAW toggle.**
-- **v0.80 — Onboard non-quail projects + vanilla Playwright.**
-  The switcher accepts any directory with a `playwright.config.{ts,js}`
-  or a `*.spec.{ts,js}` under `tests/`, `e2e/`, `playwright/`. A new
-  `Tests` sidebar section surfaces vanilla `test('…')` blocks alongside
-  Gherkin Scenarios.
-- **v0.81 — Probe-into-new-project.** Probing a fresh URL from the
-  HOME form now creates a sibling project dir named after the URL's
-  brand and auto-switches into it on success.
-- **v0.82 — Multi-run history + sparkline.** The last-run pill is now
-  clickable; opens an SVG sparkline of the last 20 runs plus the most
-  recent 5 as a list.
-- **v0.83 — Design tokens + responsive polish.** Status colors
-  centralized, narrower-viewport rules tightened.
-
-```bash
-quail serve --workdir ./my-generated-suite
-# Opens http://127.0.0.1:8765 in your default browser.
-```
+The local browser UI (`quail serve` — browsing, editing, running,
+chat-composing Scenarios with SSE log streaming) lives in the
+**commercial** [`spriteCloud/quail`](https://github.com/spriteCloud/quail)
+edition. Same engine, plus `serve` + the DGX-hosted Qwen tunnel +
+on-prem / data-sovereign deploy paths. Contact hello@spritecloud.com.
 
 | Example | Site | Files | Pages w/ a11y | Notes |
 |---|---|---:|---:|---|
@@ -219,7 +186,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: spriteCloud/quail@v1
+      - uses: spriteCloud/quail-review@v1
         with:
           # Optional — leave empty to skip the LLM humanizer entirely.
           openai-base-url: ${{ vars.QUAIL_LLM_URL }}
@@ -250,7 +217,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: spriteCloud/quail@v1
+      - uses: spriteCloud/quail-review@v1
         with:
           target-urls: ${{ github.event.inputs.url }}
           run-generate: 'false'

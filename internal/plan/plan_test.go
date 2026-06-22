@@ -5,11 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	_ "github.com/spriteCloud/quail/internal/ast/golang"
-	_ "github.com/spriteCloud/quail/internal/ast/java"
-	_ "github.com/spriteCloud/quail/internal/ast/python"
-	_ "github.com/spriteCloud/quail/internal/ast/ts"
-	"github.com/spriteCloud/quail/internal/diff"
+	_ "github.com/spriteCloud/quail-review/internal/ast/golang"
+	_ "github.com/spriteCloud/quail-review/internal/ast/java"
+	_ "github.com/spriteCloud/quail-review/internal/ast/python"
+	_ "github.com/spriteCloud/quail-review/internal/ast/ts"
+	"github.com/spriteCloud/quail-review/internal/diff"
 )
 
 func TestBuildPicksTemplatesPerLanguage(t *testing.T) {

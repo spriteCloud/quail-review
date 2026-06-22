@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
 func TestRunAll_EmitsDragDropOnlyWhenDraggablePresent(t *testing.T) {

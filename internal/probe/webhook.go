@@ -5,10 +5,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/log"
-	"github.com/spriteCloud/quail/internal/openapi"
-	"github.com/spriteCloud/quail/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-review/internal/openapi"
+	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
 // webhookContractItems detects webhook endpoints from two sources:

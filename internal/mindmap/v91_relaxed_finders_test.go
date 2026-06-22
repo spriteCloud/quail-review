@@ -3,7 +3,7 @@ package mindmap
 import (
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/ast"
 )
 
 // v0.91: isFormPage's hasSubmit check accepts role-tagged submits.

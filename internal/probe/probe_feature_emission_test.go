@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
 // TestRunAll_EmitsFeatureFilesAndBDDSteps proves the v0.21 inversion:

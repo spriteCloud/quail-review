@@ -5,12 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/composer"
-	"github.com/spriteCloud/quail/internal/config"
-	"github.com/spriteCloud/quail/internal/llm"
-	rlog "github.com/spriteCloud/quail/internal/log"
-	"github.com/spriteCloud/quail/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/composer"
+	"github.com/spriteCloud/quail-review/internal/config"
+	"github.com/spriteCloud/quail-review/internal/llm"
+	rlog "github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
 // buildLadder constructs the LLM model ladder. The primary rung is

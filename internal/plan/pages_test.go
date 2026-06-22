@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	_ "github.com/spriteCloud/quail/internal/ast/ts"
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/diff"
+	_ "github.com/spriteCloud/quail-review/internal/ast/ts"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/diff"
 )
 
 func write(t *testing.T, dir, rel, body string) string {

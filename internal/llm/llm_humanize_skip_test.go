@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/config"
+	"github.com/spriteCloud/quail-review/internal/config"
 )
 
 func TestHumanize_HonorsHumanizeEnvSkip(t *testing.T) {

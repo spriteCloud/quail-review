@@ -8,10 +8,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/graphql"
-	"github.com/spriteCloud/quail/internal/log"
-	"github.com/spriteCloud/quail/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/graphql"
+	"github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
 // graphQLContractItems probes for a GraphQL endpoint at the origin and,

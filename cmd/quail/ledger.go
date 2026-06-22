@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/spriteCloud/quail/internal/ledger"
-	rlog "github.com/spriteCloud/quail/internal/log"
+	"github.com/spriteCloud/quail-review/internal/ledger"
+	rlog "github.com/spriteCloud/quail-review/internal/log"
 )
 
 // newLedgerCmd registers the `quail ledger ...` subcommand group.

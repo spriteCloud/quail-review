@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/composer"
-	"github.com/spriteCloud/quail/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/composer"
+	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
 // Param Outline + Examples rows must produce step text that

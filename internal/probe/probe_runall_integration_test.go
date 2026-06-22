@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/mindmap"
-	"github.com/spriteCloud/quail/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/mindmap"
+	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
 // TestRunAll_EmitsStepsCatalogueAndSummary verifies the v0.19 companion

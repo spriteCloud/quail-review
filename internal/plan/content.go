@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/spriteCloud/quail/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/ast"
 )
 
 // decodeText unescapes HTML entities and trims a captured text. Used by

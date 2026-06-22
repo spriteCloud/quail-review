@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v66/github"
-	"github.com/spriteCloud/quail/internal/log"
+	"github.com/spriteCloud/quail-review/internal/log"
 )
 
 // openPRViaShell creates the bot PR via plain git CLI + `gh pr create`,

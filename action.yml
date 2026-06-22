@@ -1,5 +1,5 @@
-name: quail
-description: Generate tests for a PR and heal Playwright locators on failure.
+name: quail-review
+description: Generate tests for a PR and heal Playwright locators on failure (OSS edition).
 author: spriteCloud
 branding:
   icon: target
@@ -54,13 +54,13 @@ inputs:
     required: false
     default: info
   version:
-    description: quail release tag to install. Defaults to "latest".
+    description: quail-review release tag to install. Defaults to "latest".
     required: false
     default: latest
 runs:
   using: composite
   steps:
-    - name: Install quail
+    - name: Install quail-review
       shell: bash
       run: |
         set -euo pipefail
@@ -72,23 +72,26 @@ runs:
           aarch64|arm64) arch=arm64 ;;
         esac
         if [ "$ver" = "latest" ]; then
-          ver=$(curl -fsSL https://api.github.com/repos/spriteCloud/quail/releases/latest | grep tag_name | cut -d'"' -f4)
+          ver=$(curl -fsSL https://api.github.com/repos/spriteCloud/quail-review/releases/latest | grep tag_name | cut -d'"' -f4)
         fi
-        base="https://github.com/spriteCloud/quail/releases/download/${ver}"
-        archive="quail_${os}_${arch}.tar.gz"
+        base="https://github.com/spriteCloud/quail-review/releases/download/${ver}"
+        archive="quail-review_${os}_${arch}.tar.gz"
         tmp=$(mktemp -d)
         curl -fsSL "$base/$archive" -o "$tmp/$archive"
         if curl -fsSL "$base/checksums.txt" -o "$tmp/checksums.txt"; then
           (cd "$tmp" && sha256sum -c --ignore-missing checksums.txt) || {
-            echo "quail: checksum verification failed" >&2
+            echo "quail-review: checksum verification failed" >&2
             exit 1
           }
         else
-          echo "quail: checksums.txt unavailable; proceeding without verification" >&2
+          echo "quail-review: checksums.txt unavailable; proceeding without verification" >&2
         fi
         tar -xzf "$tmp/$archive" -C "$tmp"
-        sudo install -m 0755 "$tmp/quail" /usr/local/bin/quail
-        quail --version
+        sudo install -m 0755 "$tmp/quail-review" /usr/local/bin/quail-review
+        # v1.0.0 — also install under the legacy `quail` name so
+        # existing per-step `run: quail ...` blocks keep working.
+        sudo ln -sf /usr/local/bin/quail-review /usr/local/bin/quail
+        quail-review --version
     - name: quail generate
       # Diff-driven generation needs a PR. Skip when there's none but a probe
       # target is set — the standalone probe step below covers that case.

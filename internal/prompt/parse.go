@@ -7,7 +7,7 @@ package prompt
 import (
 	"strings"
 
-	"github.com/spriteCloud/quail/internal/mindmap"
+	"github.com/spriteCloud/quail-review/internal/mindmap"
 )
 
 // Filter is what `quail prompt` produces: a set of journey kinds and

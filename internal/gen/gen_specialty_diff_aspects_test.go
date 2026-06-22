@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
 func render024(t *testing.T, tmpl plan.Template, sym ast.Symbol, page string, form *ast.FormSpec) string {

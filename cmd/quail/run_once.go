@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/spriteCloud/quail/internal/ledger"
-	rlog "github.com/spriteCloud/quail/internal/log"
+	"github.com/spriteCloud/quail-review/internal/ledger"
+	rlog "github.com/spriteCloud/quail-review/internal/log"
 )
 
 // newRunOnceCmd registers `quail run-once`. Closes the v0.43d gap:

@@ -17,26 +17,26 @@ import (
 
 	"github.com/spf13/cobra"
 
-	_ "github.com/spriteCloud/quail/internal/ast/golang"
-	_ "github.com/spriteCloud/quail/internal/ast/java"
-	_ "github.com/spriteCloud/quail/internal/ast/proto"
-	_ "github.com/spriteCloud/quail/internal/ast/python"
-	_ "github.com/spriteCloud/quail/internal/ast/ts"
+	_ "github.com/spriteCloud/quail-review/internal/ast/golang"
+	_ "github.com/spriteCloud/quail-review/internal/ast/java"
+	_ "github.com/spriteCloud/quail-review/internal/ast/proto"
+	_ "github.com/spriteCloud/quail-review/internal/ast/python"
+	_ "github.com/spriteCloud/quail-review/internal/ast/ts"
 
-	"github.com/spriteCloud/quail/internal/compat"
-	"github.com/spriteCloud/quail/internal/config"
-	"github.com/spriteCloud/quail/internal/diff"
-	"github.com/spriteCloud/quail/internal/gen"
-	"github.com/spriteCloud/quail/internal/gh"
-	"github.com/spriteCloud/quail/internal/heal"
-	"github.com/spriteCloud/quail/internal/integration"
-	"github.com/spriteCloud/quail/internal/ledger"
-	"github.com/spriteCloud/quail/internal/llm"
-	rlog "github.com/spriteCloud/quail/internal/log"
-	"github.com/spriteCloud/quail/internal/merge"
-	"github.com/spriteCloud/quail/internal/plan"
-	"github.com/spriteCloud/quail/internal/probe"
-	"github.com/spriteCloud/quail/internal/prompt"
+	"github.com/spriteCloud/quail-review/internal/compat"
+	"github.com/spriteCloud/quail-review/internal/config"
+	"github.com/spriteCloud/quail-review/internal/diff"
+	"github.com/spriteCloud/quail-review/internal/gen"
+	"github.com/spriteCloud/quail-review/internal/gh"
+	"github.com/spriteCloud/quail-review/internal/heal"
+	"github.com/spriteCloud/quail-review/internal/integration"
+	"github.com/spriteCloud/quail-review/internal/ledger"
+	"github.com/spriteCloud/quail-review/internal/llm"
+	rlog "github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-review/internal/merge"
+	"github.com/spriteCloud/quail-review/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/probe"
+	"github.com/spriteCloud/quail-review/internal/prompt"
 )
 
 // loadSentinelItems reads the bug-discovery ledger and emits one
@@ -134,7 +134,7 @@ func compareSchema(path string, old, new_ []byte) (string, []plan.CompatRegressi
 }
 
 var (
-	version = "0.99.1"
+	version = "1.0.0"
 )
 
 func main() {
@@ -155,7 +155,9 @@ func newRoot() *cobra.Command {
 		SilenceErrors: true,
 		Version:       version,
 	}
-	root.AddCommand(newGenerateCmd(), newHealCmd(), newScanCmd(), newProbeCmd(), newPromptCmd(), newLedgerCmd(), newRunOnceCmd(), newServeCmd())
+	// v1.0.0 — `serve` moved to the commercial spriteCloud/quail
+	// repo. The OSS quail-review edition ships PR/CI surface only.
+	root.AddCommand(newGenerateCmd(), newHealCmd(), newScanCmd(), newProbeCmd(), newPromptCmd(), newLedgerCmd(), newRunOnceCmd())
 	return root
 }
 

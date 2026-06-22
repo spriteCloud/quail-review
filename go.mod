@@ -1,4 +1,4 @@
-module github.com/spriteCloud/quail
+module github.com/spriteCloud/quail-review
 
 go 1.25.10
 

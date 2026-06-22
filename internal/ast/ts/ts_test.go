@@ -3,7 +3,7 @@ package ts
 import (
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/ast"
 )
 
 func TestMultiLineExportFunction(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/spriteCloud/quail/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/ast"
 )
 
 type extractor struct{}

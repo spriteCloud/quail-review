@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/plan"
+	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
 func v044TestServer(t *testing.T, body string) *httptest.Server {

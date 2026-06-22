@@ -12,10 +12,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/diff"
-	"github.com/spriteCloud/quail/internal/plan/patterns"
-	"github.com/spriteCloud/quail/internal/log"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/diff"
+	"github.com/spriteCloud/quail-review/internal/plan/patterns"
+	"github.com/spriteCloud/quail-review/internal/log"
 )
 
 // pageRoot is a candidate page file: either a static HTML page or a TSX/JSX

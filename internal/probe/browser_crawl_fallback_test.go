@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/mindmap"
-	"github.com/spriteCloud/quail/internal/probe/browser"
+	"github.com/spriteCloud/quail-review/internal/mindmap"
+	"github.com/spriteCloud/quail-review/internal/probe/browser"
 )
 
 // v0.88: when the browser runner can't start (node missing, npm

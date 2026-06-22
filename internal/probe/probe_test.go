@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/mindmap"
+	"github.com/spriteCloud/quail-review/internal/mindmap"
 )
 
 func TestFetch_HappyPath(t *testing.T) {

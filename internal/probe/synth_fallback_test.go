@@ -3,8 +3,8 @@ package probe
 import (
 	"testing"
 
-	"github.com/spriteCloud/quail/internal/ast"
-	"github.com/spriteCloud/quail/internal/mindmap"
+	"github.com/spriteCloud/quail-review/internal/ast"
+	"github.com/spriteCloud/quail-review/internal/mindmap"
 )
 
 func TestSynthesiseFallbackJourneys_EmitsOneFromLanding(t *testing.T) {

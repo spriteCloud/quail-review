@@ -1,15 +1,15 @@
 version: 2
 
-project_name: quail
+project_name: quail-review
 
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - id: quail
+  - id: quail-review
     main: ./cmd/quail
-    binary: quail
+    binary: quail-review
     env:
       - CGO_ENABLED=0
     goos:
@@ -20,17 +20,15 @@ builds:
       - amd64
       - arm64
     ignore:
-      # quail: Windows arm64 demand is low; revisit if asked. The
-      # other Windows arch (amd64) builds cleanly via the build-tag
-      # split in internal/probe/browser/flock_{unix,windows}.go.
+      # quail-review: Windows arm64 demand is low; revisit if asked.
       - goos: windows
         goarch: arm64
     ldflags:
       - -s -w -X main.version={{ .Version }}
 
 archives:
-  - id: quail
-    name_template: "quail_{{ .Os }}_{{ .Arch }}"
+  - id: quail-review
+    name_template: "quail-review_{{ .Os }}_{{ .Arch }}"
     format: tar.gz
     format_overrides:
       - goos: windows
@@ -38,11 +36,6 @@ archives:
     files:
       - LICENSE
       - README.md
-      # Windows double-click launcher: starts `quail serve` and opens
-      # the default browser at http://127.0.0.1:8765/. Harmless ride-
-      # along on Unix archives.
-      - src: scripts/quail-serve.bat
-        dst: quail-serve.bat
 
 checksum:
   name_template: checksums.txt
@@ -65,7 +58,7 @@ changelog:
 release:
   github:
     owner: spriteCloud
-    name: quail
+    name: quail-review
   draft: false
   prerelease: auto
   name_template: "{{ .ProjectName }} {{ .Version }}"
