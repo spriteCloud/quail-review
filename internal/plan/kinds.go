@@ -231,8 +231,22 @@ func FilterByKinds(items []Item, allow, deny []string) []Item {
 	return out
 }
 
+// isAlwaysKeep marks the structural kinds that the user-facing
+// --kinds / --exclude-kinds filters MUST NOT drop. Scaffolding is
+// project plumbing (package.json, playwright.config.ts, README,
+// step-defs); docs are stakeholder-facing summaries. Both are
+// prerequisites for any spec to run, regardless of which test
+// families the user picked.
+//
+// v0.99.1 — KindSentinel REMOVED from this set. Sentinels are
+// derived from findings.md ledger rows and are themselves test
+// specs (they assert a previously-seen failure stays detected).
+// Treating them as always-keep meant QUAIL_KINDS=journey still
+// shipped 80+ a11y-regression sentinel files in the bot PR. With
+// this fix, sentinels respect the kind filter like any other test
+// family.
 func isAlwaysKeep(k string) bool {
-	return k == KindScaffold || k == KindDocs || k == KindSentinel
+	return k == KindScaffold || k == KindDocs
 }
 
 func setOf(parts []string) map[string]bool {

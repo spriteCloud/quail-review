@@ -203,20 +203,40 @@ func TestFilterByKinds_NeverDropsScaffoldOrDocs(t *testing.T) {
 	items := []Item{
 		{Template: TmplPlaywrightConfig},    // scaffold
 		{Template: TmplPlaywrightCatalogue}, // docs
-		{Template: TmplPlaywrightSentinel},  // sentinel
 		{Template: TmplPlaywrightA11y},      // a11y
 		{Template: TmplPlaywrightVisual},    // visual
 	}
-	// Allow-list says perf only — but scaffold/docs/sentinel must
-	// pass anyway.
+	// Allow-list says perf only — but scaffold/docs must pass
+	// anyway.
 	got := FilterByKinds(items, []string{"perf"}, []string{"a11y", "visual"})
-	if len(got) != 3 {
-		t.Fatalf("expected 3 always-keep items, got %d: %+v", len(got), got)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 always-keep items (scaffold + docs), got %d: %+v", len(got), got)
 	}
 	for _, it := range got {
 		k := KindOf(it.Template)
 		if !isAlwaysKeep(k) {
 			t.Errorf("non-always-keep kind %q survived filters", k)
+		}
+	}
+}
+
+// v0.99.1 — sentinels (derived from findings.md) are NOT
+// always-keep. They're test specs in their own right and must
+// respect --kinds / --exclude-kinds like any other family.
+func TestFilterByKinds_SentinelsRespectAllowList(t *testing.T) {
+	items := []Item{
+		{Template: TmplPlaywrightFeature},  // journey
+		{Template: TmplPlaywrightSentinel}, // sentinel — should drop under journey-only allow
+		{Template: TmplPlaywrightConfig},   // scaffold — always-keep
+	}
+	got := FilterByKinds(items, []string{"journey"}, nil)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 items (journey + scaffold), got %d: %+v", len(got), got)
+	}
+	for _, it := range got {
+		k := KindOf(it.Template)
+		if k == KindSentinel {
+			t.Errorf("sentinel should be filtered out under --kinds=journey; got %+v", it)
 		}
 	}
 }
