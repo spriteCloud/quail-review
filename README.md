@@ -105,7 +105,7 @@ The full set; every var is read from the environment AND most have a CLI flag.
 
 | Var | Default | Purpose |
 |---|---|---|
-| `QUAIL_LLM` | (empty) | OpenAI-compatible endpoint. When set, the composer adds up to 5 `@llm-composed` Scenarios per journey. **Strictly local-only** — never set in public CI. |
+| `QUAIL_LLM` | (empty) | OpenAI-compatible endpoint. When set, the composer adds up to 5 `@llm-composed` Scenarios per journey. Accepts the URL with or without a trailing `/v1` (normalized). **Strictly local-only** — never set in public CI. |
 | `QUAIL_MODEL` | `gpt-4o-mini` | Model id. Auto-set to `qwen3-coder-next:latest` when `--llm` points at an Ollama-shaped endpoint. |
 | `QUAIL_LLM_LADDER` | (empty) | Comma-separated model fallbacks. |
 | `QUAIL_LLM_TIMEOUT` | `60s` *(since v0.48)* | Per-call timeout. Bump on slower local LLMs. |
