@@ -345,7 +345,14 @@ func applyLLMOverride(cfg *config.Config, llmURL string) {
 	if llmURL == "" {
 		return
 	}
-	cfg.OpenAIBaseURL = strings.TrimRight(llmURL, "/") + "/v1"
+	// Idempotent: accept the endpoint with or without a trailing /v1.
+	// Previously appended unconditionally → `…/v1/v1/chat/completions`
+	// → 404 against Ollama / vLLM when QUAIL_LLM already ended in /v1.
+	base := strings.TrimRight(llmURL, "/")
+	if !strings.HasSuffix(base, "/v1") {
+		base += "/v1"
+	}
+	cfg.OpenAIBaseURL = base
 	if cfg.Model == "" || cfg.Model == "gpt-4o-mini" {
 		cfg.Model = "qwen3-coder-next:latest"
 	}
