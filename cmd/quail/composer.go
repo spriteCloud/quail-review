@@ -8,7 +8,7 @@ import (
 	"github.com/spriteCloud/quail-review/internal/ast"
 	"github.com/spriteCloud/quail-core/composer"
 	"github.com/spriteCloud/quail-core/config"
-	"github.com/spriteCloud/quail-review/internal/llm"
+	"github.com/spriteCloud/quail-core/llm"
 	rlog "github.com/spriteCloud/quail-core/log"
 	"github.com/spriteCloud/quail-review/internal/plan"
 )

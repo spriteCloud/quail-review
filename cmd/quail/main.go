@@ -23,17 +23,15 @@ import (
 	_ "github.com/spriteCloud/quail-review/internal/ast/python"
 	_ "github.com/spriteCloud/quail-review/internal/ast/ts"
 
-	"github.com/spriteCloud/quail-review/internal/compat"
+	"github.com/spriteCloud/quail-core/compat"
 	"github.com/spriteCloud/quail-core/config"
 	"github.com/spriteCloud/quail-core/diff"
 	"github.com/spriteCloud/quail-review/internal/gen"
-	"github.com/spriteCloud/quail-review/internal/gh"
+	"github.com/spriteCloud/quail-core/gh"
 	"github.com/spriteCloud/quail-review/internal/heal"
 	"github.com/spriteCloud/quail-review/internal/integration"
 	"github.com/spriteCloud/quail-review/internal/ledger"
-	"github.com/spriteCloud/quail-review/internal/llm"
-
-	corellm "github.com/spriteCloud/quail-core/llm"
+	"github.com/spriteCloud/quail-core/llm"
 	rlog "github.com/spriteCloud/quail-core/log"
 	"github.com/spriteCloud/quail-core/merge"
 	"github.com/spriteCloud/quail-review/internal/plan"
@@ -347,7 +345,7 @@ func applyLLMOverride(cfg *config.Config, llmURL string) {
 	if llmURL == "" {
 		return
 	}
-	cfg.OpenAIBaseURL = corellm.NormalizeBaseURL(llmURL)
+	cfg.OpenAIBaseURL = llm.NormalizeBaseURL(llmURL)
 	if cfg.Model == "" || cfg.Model == "gpt-4o-mini" {
 		cfg.Model = "qwen3-coder-next:latest"
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/spriteCloud/quail-review/internal/ast"
 	"github.com/spriteCloud/quail-core/config"
 	"github.com/spriteCloud/quail-core/diff"
-	"github.com/spriteCloud/quail-review/internal/llm"
+	"github.com/spriteCloud/quail-core/llm"
 	"github.com/spriteCloud/quail-core/log"
 )
 
