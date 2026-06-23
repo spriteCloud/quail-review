@@ -13,9 +13,9 @@ import (
 	"strings"
 
 	"github.com/spriteCloud/quail-review/internal/ast"
-	"github.com/spriteCloud/quail-review/internal/diff"
+	"github.com/spriteCloud/quail-core/diff"
 	"github.com/spriteCloud/quail-review/internal/plan/patterns"
-	"github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-core/log"
 )
 
 // pageRoot is a candidate page file: either a static HTML page or a TSX/JSX

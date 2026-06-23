@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/spriteCloud/quail-core/composer"
-	"github.com/spriteCloud/quail-review/internal/config"
-	"github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-core/config"
+	"github.com/spriteCloud/quail-core/log"
 )
 
 type Client struct {

@@ -7,7 +7,7 @@ import (
 
 	_ "github.com/spriteCloud/quail-review/internal/ast/ts"
 	"github.com/spriteCloud/quail-review/internal/ast"
-	"github.com/spriteCloud/quail-review/internal/diff"
+	"github.com/spriteCloud/quail-core/diff"
 )
 
 func write(t *testing.T, dir, rel, body string) string {

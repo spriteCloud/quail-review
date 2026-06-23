@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v66/github"
-	"github.com/spriteCloud/quail-review/internal/config"
-	"github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-core/config"
+	"github.com/spriteCloud/quail-core/log"
 	"golang.org/x/oauth2"
 )
 

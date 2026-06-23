@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-core/log"
 )
 
 // ErrBrowserUnavailable is returned when the browser probe can't run

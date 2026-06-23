@@ -24,8 +24,8 @@ import (
 	_ "github.com/spriteCloud/quail-review/internal/ast/ts"
 
 	"github.com/spriteCloud/quail-review/internal/compat"
-	"github.com/spriteCloud/quail-review/internal/config"
-	"github.com/spriteCloud/quail-review/internal/diff"
+	"github.com/spriteCloud/quail-core/config"
+	"github.com/spriteCloud/quail-core/diff"
 	"github.com/spriteCloud/quail-review/internal/gen"
 	"github.com/spriteCloud/quail-review/internal/gh"
 	"github.com/spriteCloud/quail-review/internal/heal"
@@ -34,8 +34,8 @@ import (
 	"github.com/spriteCloud/quail-review/internal/llm"
 
 	corellm "github.com/spriteCloud/quail-core/llm"
-	rlog "github.com/spriteCloud/quail-review/internal/log"
-	"github.com/spriteCloud/quail-review/internal/merge"
+	rlog "github.com/spriteCloud/quail-core/log"
+	"github.com/spriteCloud/quail-core/merge"
 	"github.com/spriteCloud/quail-review/internal/plan"
 	"github.com/spriteCloud/quail-review/internal/probe"
 	"github.com/spriteCloud/quail-review/internal/prompt"

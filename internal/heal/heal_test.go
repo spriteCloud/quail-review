@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	_ "github.com/spriteCloud/quail-review/internal/ast/ts"
-	"github.com/spriteCloud/quail-review/internal/config"
-	"github.com/spriteCloud/quail-review/internal/diff"
+	"github.com/spriteCloud/quail-core/config"
+	"github.com/spriteCloud/quail-core/diff"
 )
 
 func fakeDiff(path, oldBlob, newBlob string) []diff.File {

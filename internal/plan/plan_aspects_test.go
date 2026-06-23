@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/spriteCloud/quail-review/internal/ast"
-	"github.com/spriteCloud/quail-review/internal/diff"
+	"github.com/spriteCloud/quail-core/diff"
 )
 
 func TestFanOutAspects_PureFunction(t *testing.T) {

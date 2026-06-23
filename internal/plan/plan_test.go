@@ -9,7 +9,7 @@ import (
 	_ "github.com/spriteCloud/quail-review/internal/ast/java"
 	_ "github.com/spriteCloud/quail-review/internal/ast/python"
 	_ "github.com/spriteCloud/quail-review/internal/ast/ts"
-	"github.com/spriteCloud/quail-review/internal/diff"
+	"github.com/spriteCloud/quail-core/diff"
 )
 
 func TestBuildPicksTemplatesPerLanguage(t *testing.T) {

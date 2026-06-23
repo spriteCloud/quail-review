@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 	"github.com/spriteCloud/quail-core/composer"
-	"github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-core/log"
 )
 
 // SuiteFile is one rendered file inside a BDD pair (either a .feature

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/spriteCloud/quail-review/internal/ast"
-	"github.com/spriteCloud/quail-review/internal/config"
+	"github.com/spriteCloud/quail-core/config"
 	"github.com/spriteCloud/quail-review/internal/gen"
 	"github.com/spriteCloud/quail-review/internal/heal"
 	"github.com/spriteCloud/quail-review/internal/plan"

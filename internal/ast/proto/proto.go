@@ -7,7 +7,7 @@ package proto
 
 import (
 	"github.com/spriteCloud/quail-review/internal/ast"
-	rgrpc "github.com/spriteCloud/quail-review/internal/grpc"
+	rgrpc "github.com/spriteCloud/quail-core/grpc"
 )
 
 type extractor struct{}

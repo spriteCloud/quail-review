@@ -17,7 +17,7 @@ import (
 	"text/template"
 
 	"github.com/spriteCloud/quail-review/internal/ast"
-	"github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-core/log"
 	"github.com/spriteCloud/quail-review/internal/mindmap"
 	"github.com/spriteCloud/quail-review/internal/plan"
 	"github.com/spriteCloud/quail-review/internal/probe"

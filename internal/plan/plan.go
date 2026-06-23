@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/spriteCloud/quail-review/internal/ast"
-	"github.com/spriteCloud/quail-review/internal/diff"
+	"github.com/spriteCloud/quail-core/diff"
 )
 
 type Template string

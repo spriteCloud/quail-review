@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/spriteCloud/quail-review/internal/ast"
-	"github.com/spriteCloud/quail-review/internal/log"
-	"github.com/spriteCloud/quail-review/internal/openapi"
+	"github.com/spriteCloud/quail-core/log"
+	"github.com/spriteCloud/quail-core/openapi"
 	"github.com/spriteCloud/quail-review/internal/plan"
 )
 

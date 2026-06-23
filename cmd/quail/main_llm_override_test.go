@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/spriteCloud/quail-review/internal/config"
+	"github.com/spriteCloud/quail-core/config"
 )
 
 // Regression test for the double-/v1 bug: probe-demo's LLM_BASE_URL

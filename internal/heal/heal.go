@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"github.com/spriteCloud/quail-review/internal/ast"
-	"github.com/spriteCloud/quail-review/internal/config"
-	"github.com/spriteCloud/quail-review/internal/diff"
+	"github.com/spriteCloud/quail-core/config"
+	"github.com/spriteCloud/quail-core/diff"
 	"github.com/spriteCloud/quail-review/internal/llm"
-	"github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-core/log"
 )
 
 // Candidate is a possible replacement for a broken locator.

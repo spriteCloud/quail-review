@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/spriteCloud/quail-review/internal/ast"
-	"github.com/spriteCloud/quail-review/internal/graphql"
-	"github.com/spriteCloud/quail-review/internal/log"
+	"github.com/spriteCloud/quail-core/graphql"
+	"github.com/spriteCloud/quail-core/log"
 	"github.com/spriteCloud/quail-review/internal/plan"
 )
 
