@@ -39,6 +39,12 @@ on:
         required: false
         type: boolean
         default: false
+      browsers:
+        description: 'Playwright engine(s) the bot PR defaults to. firefox for Akamai-class WAFs (ING, banks).'
+        required: false
+        type: choice
+        default: chromium
+        options: [chromium, firefox, webkit, 'chromium,firefox']
 
 permissions:
   contents: write
@@ -99,3 +105,4 @@ jobs:
           exclude-kinds: ${{ github.event.inputs.exclude-kinds }}
           dom-snapshots: ${{ github.event.inputs.dom-snapshots }}
           a11y-uncap: ${{ github.event.inputs.a11y-uncap }}
+          browsers: ${{ github.event.inputs.browsers || 'chromium' }}

@@ -101,6 +101,17 @@ inputs:
       do not point at a third-party endpoint with private repo content.
     required: false
     default: ""
+  browsers:
+    description: |
+      Comma-list of Playwright engines the bot PR should default to
+      (e.g. `chromium`, `firefox`, `chromium,firefox`). Baked into the
+      generated `playwright.config.ts` and the CI workflow as the
+      default; runtime override via `QUAIL_BROWSERS` env still wins.
+      Use `firefox` for Akamai-class WAFs (ING, banks) that drop
+      chromium at the TLS layer before any JS-level stealth runs.
+      First entry of the list also drives the probe-side QUAIL_ENGINE.
+    required: false
+    default: chromium
   log-level:
     description: debug | info | warn | error
     required: false
@@ -165,7 +176,13 @@ runs:
         QUAIL_HUMANIZE_BUDGET: ${{ inputs.humanize-budget }}
         QUAIL_LLM_TIMEOUT: ${{ inputs.llm-timeout }}
         QUAIL_KEEP_WORKFLOWS: ${{ inputs.keep-workflows == 'true' && '1' || '' }}
-      run: quail generate
+        QUAIL_BROWSERS: ${{ inputs.browsers }}
+      run: |
+        # `browsers` is a comma-list (pw_config supports multi-engine
+        # projects). The probe runner only drives one engine at a
+        # time, so QUAIL_ENGINE = first entry of the list.
+        export QUAIL_ENGINE="${QUAIL_BROWSERS%%,*}"
+        quail generate
     - name: quail probe (standalone, no PR)
       # Fires when target-urls is set AND no PR is available (workflow_dispatch
       # or push runs). The PR-attached probe path already runs inside `generate`.
@@ -186,7 +203,10 @@ runs:
         QUAIL_HUMANIZE_BUDGET: ${{ inputs.humanize-budget }}
         QUAIL_LLM_TIMEOUT: ${{ inputs.llm-timeout }}
         QUAIL_KEEP_WORKFLOWS: ${{ inputs.keep-workflows == 'true' && '1' || '' }}
-      run: quail probe
+        QUAIL_BROWSERS: ${{ inputs.browsers }}
+      run: |
+        export QUAIL_ENGINE="${QUAIL_BROWSERS%%,*}"
+        quail probe
     - name: quail heal
       if: inputs.run-heal == 'true' && inputs.heal-mode != 'off'
       shell: bash
