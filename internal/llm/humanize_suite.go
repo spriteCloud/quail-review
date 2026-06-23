@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"github.com/spriteCloud/quail-review/internal/composer"
+	"github.com/spriteCloud/quail-core/composer"
 	"github.com/spriteCloud/quail-review/internal/log"
 )
 

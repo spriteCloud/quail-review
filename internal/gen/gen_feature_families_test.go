@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/spriteCloud/quail-review/internal/ast"
-	"github.com/spriteCloud/quail-review/internal/composer"
+	"github.com/spriteCloud/quail-core/composer"
 	"github.com/spriteCloud/quail-review/internal/plan"
 )
 

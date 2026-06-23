@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/spriteCloud/quail-review/internal/composer"
+	"github.com/spriteCloud/quail-core/composer"
 	"github.com/spriteCloud/quail-review/internal/config"
 	"github.com/spriteCloud/quail-review/internal/log"
 )
