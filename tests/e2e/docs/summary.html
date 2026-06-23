@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>quail stakeholder summary — https://www.ing.nl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --deep-water:  #1B365D;
+    --clear-blue:  #4B8BBE;
+    --copper:      #C0805A;
+    --copper-soft: rgba(192, 128, 90, 0.10);
+    --ink:         #0F1117;
+    --charcoal:    #1A1D26;
+    --graphite:    #2D3748;
+    --warm-white:  #FAFAF7;
+    --mist:        #8899AA;
+    --border-warm: #E8E6E1;
+    --white:       #FFFFFF;
+    --wm-blue:     #0090D0;
+    --wm-gray:     #9DA5AE;
+    --bad-fg:      #B91C1C;
+    --bad-bg:      #FEE2E2;
+    --info-fg:     #4B8BBE;
+    --info-bg:     rgba(75,139,190,0.12);
+    --ok-fg:       #15803D;
+    --ok-bg:       #DCFCE7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--graphite);
+    background: var(--warm-white);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--clear-blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: 'Fira Code', ui-monospace, monospace; }
+
+  /* Wordmark — same treatment as web/index.html and serve UI. */
+  .wm { font-family: 'Inter', sans-serif; font-weight: 900; letter-spacing: -0.05em; font-size: 18px; }
+  .wm .s { color: var(--wm-blue); }
+  .wm .c { color: var(--wm-gray); }
+
+  /* COVER BAND */
+  .cover {
+    background: var(--deep-water);
+    color: var(--white);
+    padding: 48px 56px 36px;
+    position: relative;
+  }
+  .cover-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+  .cover .label {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--copper);
+  }
+  .cover h1 {
+    font-family: 'Sora', sans-serif;
+    font-weight: 800;
+    font-size: clamp(26px, 2.8vw, 36px);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    color: var(--white);
+    margin: 10px 0 14px;
+    overflow-wrap: anywhere;
+  }
+  .cover .origin {
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--copper);
+    word-break: break-all;
+    margin-bottom: 10px;
+    display: block;
+  }
+  /* Risk strip — three KPI tiles right under the cover band. */
+  .risk-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    background: var(--charcoal);
+    color: var(--white);
+    padding: 0;
+  }
+  .risk-tile {
+    padding: 18px 24px;
+    border-right: 1px solid rgba(255,255,255,0.08);
+  }
+  .risk-tile:last-child { border-right: 0; }
+  .risk-tile .num {
+    font-family: 'Sora', sans-serif;
+    font-weight: 800;
+    font-size: 32px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .risk-tile .label {
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--copper);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .risk-tile .sub {
+    font-size: 11px;
+    color: var(--mist);
+    margin-top: 4px;
+  }
+  @media (max-width: 720px) {
+    .risk-strip { grid-template-columns: 1fr; }
+    .risk-tile { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .risk-tile:last-child { border-bottom: 0; }
+  }
+  .cover-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: rgba(255,255,255,0.72);
+  }
+  .cover-meta .pill {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--copper);
+    background: rgba(192, 128, 90, 0.18);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .cover-meta .dot { color: rgba(255,255,255,0.4); }
+
+  /* PIXEL-RAIL */
+  .pixel-rail { background: var(--deep-water); padding: 0 0 6px; display: flex; justify-content: center; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .pixel-rail-inner { display: flex; align-items: flex-end; gap: 4px; height: 80px; }
+  .pixel-rail span { display: block; width: 24px; }
+  .pr-1  { height: 18px; background: #EDF1F7; }
+  .pr-2  { height: 24px; background: #EDF1F7; }
+  .pr-3  { height: 30px; background: #D8E2EE; }
+  .pr-4  { height: 22px; background: #CADAE8; }
+  .pr-5  { height: 36px; background: #CADAE8; }
+  .pr-6  { height: 48px; background: #D8E2EE; }
+  .pr-7  { height: 40px; background: #CADAE8; }
+  .pr-8  { height: 54px; background: #CADAE8; }
+  .pr-9  { height: 80px; background: var(--copper); }
+  .pr-10 { height: 40px; background: #CADAE8; }
+  .pr-11 { height: 56px; background: #CADAE8; }
+  .pr-12 { height: 34px; background: #D8E2EE; }
+  .pr-13 { height: 42px; background: #D8E2EE; }
+  .pr-14 { height: 26px; background: #EDF1F7; }
+  .pr-15 { height: 16px; background: #EDF1F7; }
+
+  main { padding: 48px 56px 64px; max-width: 1120px; margin: 0 auto; }
+  .section { margin-top: 44px; }
+  .section:first-child { margin-top: 0; }
+  .section-head { margin-bottom: 18px; }
+  .section-head .label {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--copper);
+  }
+  .section-head h2 {
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    color: var(--deep-water);
+    margin-top: 6px;
+    margin-bottom: 4px;
+  }
+  .section-head p.lede {
+    color: var(--graphite);
+    font-size: 14px;
+    line-height: 1.65;
+    max-width: 720px;
+  }
+
+  /* AT-A-GLANCE NARRATIVE CARD */
+  .glance {
+    background: var(--white);
+    border: 1px solid var(--border-warm);
+    border-left: 4px solid var(--copper);
+    border-radius: 12px;
+    padding: 26px 28px;
+    margin-bottom: 32px;
+  }
+  .glance p {
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    color: var(--graphite);
+    margin-top: 0;
+  }
+  .glance p + p { margin-top: 12px; }
+  .glance strong { color: var(--deep-water); font-weight: 600; }
+  .glance .num { color: var(--copper); font-family: 'Sora', sans-serif; font-weight: 700; }
+
+  /* COVERAGE MAP — 2x3 layer grid */
+  .coverage-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .layer-card {
+    background: var(--white);
+    border: 1px solid var(--border-warm);
+    border-radius: 10px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .layer-card .layer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .layer-card h3 {
+    font-family: 'Sora', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    color: var(--deep-water);
+  }
+  .layer-card .layer-desc {
+    color: var(--graphite);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .pill-state {
+    font-family: 'Fira Code', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .state-yes  { color: var(--ok-fg);  background: var(--ok-bg);  border-color: rgba(21,128,61,0.18); }
+  .state-stub { color: var(--copper); background: var(--copper-soft); border-color: rgba(192,128,90,0.20); }
+  .state-no   { color: var(--mist);   background: var(--warm-white); border-color: var(--border-warm); }
+
+  /* PRIORITY BAR */
+  .pri-bar { width: 100%; height: 22px; background: var(--border-warm); border-radius: 999px; overflow: hidden; display: flex; border: 1px solid var(--border-warm); }
+  .pri-bar span { display: block; height: 100%; }
+  .pri-legend { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 14px; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--graphite); }
+  .pri-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 8px; vertical-align: middle; }
+
+  /* JOURNEY CARDS */
+  .journey-list { display: flex; flex-direction: column; gap: 12px; }
+  .journey-card {
+    background: var(--white);
+    border: 1px solid var(--border-warm);
+    border-radius: 10px;
+    padding: 18px 22px;
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 18px;
+    align-items: center;
+  }
+  .journey-card .pri { font-family: 'Fira Code', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; text-align: center; }
+  .pri-critical { color: var(--bad-fg); background: var(--bad-bg); }
+  .pri-standard { color: var(--info-fg); background: var(--info-bg); }
+  .pri-nice-to-have { color: var(--mist); background: rgba(136,153,170,0.16); }
+  .journey-body { min-width: 0; }
+  .journey-kind {
+    font-family: 'Sora', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--deep-water);
+    text-transform: capitalize;
+    letter-spacing: -0.01em;
+    margin-bottom: 3px;
+  }
+  .journey-blurb { color: var(--graphite); font-size: 13.5px; line-height: 1.55; margin-bottom: 4px; }
+  .journey-meta { font-family: 'Fira Code', monospace; font-size: 11px; color: var(--mist); letter-spacing: 0.04em; }
+  .journey-meta code { color: var(--deep-water); }
+  .journey-steps {
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--copper);
+    text-align: center;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .journey-steps small { display: block; font-family: 'Fira Code', monospace; font-size: 9px; color: var(--mist); letter-spacing: 0.10em; text-transform: uppercase; margin-top: 4px; }
+
+  /* TABLE for crawled pages */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--white); border: 1px solid var(--border-warm); border-radius: 10px; overflow: hidden; }
+  thead th { text-align: left; padding: 11px 14px; background: var(--copper-soft); color: var(--copper); font-family: 'Fira Code', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; border-bottom: 1px solid var(--border-warm); }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border-warm); color: var(--graphite); }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--copper-soft); }
+  tbody td code { background: var(--copper-soft); color: var(--deep-water); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+  /* NEXT STEPS CHECKLIST */
+  .next-steps { display: flex; flex-direction: column; gap: 12px; }
+  .next-step {
+    background: var(--white);
+    border: 1px solid var(--border-warm);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+  .next-step .n { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 22px; color: var(--copper); line-height: 1; letter-spacing: -0.03em; }
+  .next-step h4 { font-family: 'Sora', sans-serif; font-weight: 600; font-size: 15px; color: var(--deep-water); letter-spacing: -0.01em; margin-bottom: 4px; }
+  .next-step p { font-size: 13.5px; line-height: 1.55; color: var(--graphite); margin: 0; }
+  .next-step code { background: var(--copper-soft); color: var(--deep-water); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+  /* FOOTER */
+  footer { background: var(--ink); color: rgba(255,255,255,0.6); padding: 22px 56px; margin-top: 56px; font-family: 'Fira Code', monospace; font-size: 11px; letter-spacing: 0.04em; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px; }
+  footer a { color: var(--copper); }
+  footer code { color: rgba(255,255,255,0.85); }
+
+  @media (max-width: 760px) {
+    .coverage-grid { grid-template-columns: 1fr 1fr; }
+    .journey-card { grid-template-columns: 1fr; gap: 10px; }
+    .journey-card .pri { justify-self: start; }
+    .journey-steps { text-align: left; }
+    .cover { padding: 32px 24px 24px; }
+    main { padding: 32px 24px 48px; }
+    footer { padding: 18px 24px; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="cover">
+    <div class="cover-head">
+      <span class="label">quail · stakeholder summary</span>
+      <span class="wm"><span class="s">sprite</span><span class="c">Cloud</span></span>
+    </div>
+    <h1>Coverage map for ing.</h1>
+    <span class="origin">https://www.ing.nl</span>
+    <div class="cover-meta">
+      <span>Generated </span>
+      <span class="dot">·</span>
+      <span class="pill">standard coverage</span>
+    </div>
+  </header>
+
+  <section class="risk-strip" aria-label="Risk snapshot">
+    <div class="risk-tile">
+      <span class="label">Gated on release</span>
+      <div class="num">1</div>
+      <div class="sub">critical journey the suite blocks shipping on</div>
+    </div>
+    <div class="risk-tile">
+      <span class="label">Standard regression</span>
+      <div class="num">2</div>
+      <div class="sub">standard journeys monitored every nightly</div>
+    </div>
+    <div class="risk-tile">
+      <span class="label">Awaiting wireup</span>
+      <div class="num">1</div>
+      <div class="sub">Integration layer is scaffold-only until `quail.yml` wires the backing resource</div>
+    </div>
+  </section>
+
+  <div class="pixel-rail" aria-hidden="true">
+    <div class="pixel-rail-inner">
+      <span class="pr-1"></span><span class="pr-2"></span><span class="pr-3"></span>
+      <span class="pr-4"></span><span class="pr-5"></span><span class="pr-6"></span>
+      <span class="pr-7"></span><span class="pr-8"></span><span class="pr-9"></span>
+      <span class="pr-10"></span><span class="pr-11"></span><span class="pr-12"></span>
+      <span class="pr-13"></span><span class="pr-14"></span><span class="pr-15"></span>
+    </div>
+  </div>
+
+  <main>
+    <section class="section">
+      <div class="section-head">
+        <span class="label">At a glance</span>
+        <h2>What's green-lit, what's gated, what's unverified.</h2>
+      </div>
+      <div class="glance">
+        <p>
+          quail observed <span class="num">30</span> pages
+          on this surface and translated them into <span class="num">3</span> user
+          journeys. <strong>1</strong> gates the release &mdash; every PR must pass these before merge. <strong>2</strong> run on nightly regression &mdash; the early-warning net.
+        </p>
+        <p>
+          Beyond the journey suite, every crawled page is checked for accessibility
+          (5 axe-core gates, 5 landmark, 5 keyboard), mobile rendering on 4 devices ×
+          2 orientations, network resilience, security headers, and performance budgets. <span class="num">5</span> adversarial fuzz specs hammer the discovered forms with 9 negative payloads each.
+        </p>
+        <p>
+          <strong>Unverified surface:</strong> the Integration layer (DB / cache / auth /
+          observability) ships as scaffolds that skip until <code>quail.yml</code> binds them
+          to the backing resources. Until then, the suite cannot prove cross-system contracts.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="label">Coverage map</span>
+        <h2>What test layers fired against this surface.</h2>
+        <p class="lede">Six layers can be exercised from a live-URL probe. Unit, Component, Backend, and Data require a PR diff and are not in scope for a probe-only run.</p>
+      </div>
+      <div class="coverage-grid">
+        <div class="layer-card">
+          <div class="layer-head">
+            <h3>UI</h3>
+            <span class="pill-state state-yes">exercised</span>
+          </div>
+          <div class="layer-desc">A11y trio (5+5+5 tests) on every crawled page, plus responsive / performance / visual / security / health / observability quality specs.</div>
+        </div>
+        <div class="layer-card">
+          <div class="layer-head">
+            <h3>API</h3>
+            <span class="pill-state state-yes">exercised</span>
+          </div>
+          <div class="layer-desc">10 tests per discovered form (happy path + 9 adversarial negatives). When no form was discovered, this layer is dormant.</div>
+        </div>
+        <div class="layer-card">
+          <div class="layer-head">
+            <h3>Contract</h3>
+            <span class="pill-state state-stub">always-attempt stubs</span>
+          </div>
+          <div class="layer-desc">OpenAPI / GraphQL / Webhook stubs always probed (6 tests per origin). When the site advertises a schema, full 9-tests-per-endpoint contract specs are emitted.</div>
+        </div>
+        <div class="layer-card">
+          <div class="layer-head">
+            <h3>Integration</h3>
+            <span class="pill-state state-stub">scaffold only</span>
+          </div>
+          <div class="layer-desc">5 scaffolds (api / db / cache / observability / auth) × 3 wireable blocks each. Tests skip until <code>quail.yml</code> wires the backing resource.</div>
+        </div>
+        <div class="layer-card">
+          <div class="layer-head">
+            <h3>Mobile</h3>
+            <span class="pill-state state-yes">exercised</span>
+          </div>
+          <div class="layer-desc">4 devices (iPhone 13, Pixel 5, iPad Pro 11, Galaxy S9+) × 2 orientations on every crawled page, plus 5 touch-gesture families.</div>
+        </div>
+        <div class="layer-card">
+          <div class="layer-head">
+            <h3>Non-functional</h3>
+            <span class="pill-state state-yes">exercised</span>
+          </div>
+          <div class="layer-desc">17+ quality layers including network throttle, race conditions, storage, zoom, print, clipboard, http-chains, file-upload, history-depth, and locale-switch.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="label">Priority mix</span>
+        <h2>How the work splits across 3 journeys.</h2>
+      </div>
+      <div class="pri-bar" aria-label="Priority distribution bar">
+        <span style="width: 33%; background: var(--bad-fg)"></span>
+        <span style="width: 66%; background: var(--deep-water)"></span>
+        <span style="width: 0%; background: var(--mist)"></span>
+      </div>
+      <div class="pri-legend">
+        <span><i style="background: var(--bad-fg)"></i>critical (1)</span>
+        <span><i style="background: var(--deep-water)"></i>standard (2)</span>
+        <span><i style="background: var(--mist)"></i>nice-to-have (0)</span>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-head">
+        <span class="label">Journeys</span>
+        <h2>Each identified user journey, by priority.</h2>
+        <p class="lede">Steps = number of Given / When / Then lines in the journey's <code>.feature</code> file. Higher step count generally means a richer scenario; not necessarily a longer wall-clock run.</p>
+      </div>
+      <div class="journey-list">
+        <div class="journey-card">
+          <span class="pri pri-critical">critical</span>
+          <div class="journey-body">
+            <div class="journey-kind">contact</div>
+            <div class="journey-blurb">users reach a support / contact channel.</div>
+            <div class="journey-meta">→ <code>tests/e2e/features/contact-particulier-hypotheek-contact.feature</code></div>
+          </div>
+          <div class="journey-steps">2<small>steps</small></div>
+        </div>
+        <div class="journey-card">
+          <span class="pri pri-standard">standard</span>
+          <div class="journey-body">
+            <div class="journey-kind">browse</div>
+            <div class="journey-blurb">users navigate marketing content.</div>
+            <div class="journey-meta">→ <code>tests/e2e/features/browse-zakelijk.feature</code></div>
+          </div>
+          <div class="journey-steps">3<small>steps</small></div>
+        </div>
+        <div class="journey-card">
+          <span class="pri pri-standard">standard</span>
+          <div class="journey-body">
+            <div class="journey-kind">browse</div>
+            <div class="journey-blurb">users navigate marketing content.</div>
+            <div class="journey-meta">→ <code>tests/e2e/features/browse-private-banking.feature</code></div>
+          </div>
+          <div class="journey-steps">3<small>steps</small></div>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-head">
+        <span class="label">Pages crawled</span>
+        <h2>30 pages quail observed on this site.</h2>
+      </div>
+      <table>
+        <thead><tr><th>URL</th><th>Title</th></tr></thead>
+        <tbody>
+          <tr><td><code>https://www.ing.nl/particulier/hypotheek/hypotheek-berekenen</code></td><td>Hypotheek berekenen juni 2026 - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier</code></td><td>Particulier - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/zakelijk</code></td><td>ING Zakelijk voor ondernemers, bedrijven en organisaties - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/private-banking</code></td><td>ING Private Banking | Beste en meest klantgerichte bank van Nederland</td></tr>
+          <tr><td><code>https://www.ing.nl/en/personal/mortgage/mortgage-calculator</code></td><td>Mortgage calculator Netherlands June 2026 - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/betalen/bankrekeningen/betaalrekening-openen</code></td><td>Bankrekening openen - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/betalen</code></td><td>Alles over betalen - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/sparen</code></td><td>Sparen bij ING. Bekijk de verschillende spaarrekeningen</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/beleggen</code></td><td>Beleggen: alles wat je moet weten over beleggen - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/hypotheek</code></td><td>Hypotheken - Alles over een ING hypotheek - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/lenen</code></td><td>Geld lenen: Bereken je lening en vraag online aan - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/verzekeren</code></td><td>Verzekering - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/pensioenen</code></td><td>Alles over je pensioen</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/digitaal-bankieren</code></td><td>Digitaal bankieren - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/kind</code></td><td>Ouders en Kinderen - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/student</code></td><td>Bankieren voor studenten</td></tr>
+          <tr><td><code>https://www.ing.nl/en/personal/expats</code></td><td>Expats in the Netherlands</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/wonen</code></td><td>Alles over wonen - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/financieel-gezond</code></td><td>Financiële gezondheid voor iedereen</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/vermogen</code></td><td>Alles over je vermogen</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/ing-punten</code></td><td>Spaar punten en bespaar op je uitgaven</td></tr>
+          <tr><td><code>https://www.ing.nl/de-ing/afspraak-maken</code></td><td>Afspraak maken met een ING adviseur - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/klantenservice</code></td><td>Contact met klantenservice van ING</td></tr>
+          <tr><td><code>https://www.ing.nl/de-ing/over-ing/disclaimer</code></td><td>Disclaimer - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/de-ing/toegankelijkheid</code></td><td>Toegankelijkheid | ING</td></tr>
+          <tr><td><code>https://www.ing.nl/de-ing</code></td><td>Over ING - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/de-ing/veilig-bankieren</code></td><td>Veilig bankieren - ING</td></tr>
+          <tr><td><code>https://www.ing.nl/de-ing/duurzaamheid</code></td><td>ING en een duurzame samenleving</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/hypotheek/contact</code></td><td>Een gratis oriënterend hypotheekgesprek? Voor nieuwe hypotheken en oversluiten</td></tr>
+          <tr><td><code>https://www.ing.nl/particulier/hypotheek/contact/open-algemeen</code></td><td>Bel me terug - ING - Hypotheek</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="label">Recommended next steps</span>
+        <h2>How to put this suite to work.</h2>
+      </div>
+      <div class="next-steps">
+        <div class="next-step">
+          <span class="n">1</span>
+          <div>
+            <h4>Install dependencies</h4>
+            <p>Run <code>npm install</code> in this directory to pull <code>@playwright/test</code> and <code>playwright-bdd</code>, then <code>npx playwright install</code> to fetch the browser binaries.</p>
+          </div>
+        </div>
+        <div class="next-step">
+          <span class="n">2</span>
+          <div>
+            <h4>Execute the suite</h4>
+            <p><code>npx bddgen</code> generates the executable specs from the <code>.feature</code> files. Then <code>npx playwright test</code> runs the full suite. Tag-filter with <code>--grep @priority:critical</code> on every PR; nightly the full set.</p>
+          </div>
+        </div>
+        <div class="next-step">
+          <span class="n">3</span>
+          <div>
+            <h4>Triage failures</h4>
+            <p>Open <code>tests/e2e/docs/findings.md</code> after each run. <code>quail ledger update --report playwright-report.json</code> deduplicates failures by (spec, test) and surfaces them risk-weighted by priority — survives across runs.</p>
+          </div>
+        </div>
+        <div class="next-step">
+          <span class="n">4</span>
+          <div>
+            <h4>Re-probe on change</h4>
+            <p>Re-run <code>quail probe</code> after feature merges to track coverage drift — new pages and new forms get picked up automatically; removed surfaces drop out.</p>
+          </div>
+        </div>
+        <div class="next-step">
+          <span class="n">5</span>
+          <div>
+            <h4>Tailor in the browser</h4>
+            <p><code>quail serve --workdir .</code> opens a local UI where stakeholders can delete journeys, refine Scenarios via chat, suggest locators from the live DOM, and run individual Scenarios — no IDE required.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Re-generate with <code>quail probe</code> · published by quail &mdash; by spriteCloud.</span>
+    <a href="https://github.com/spriteCloud/quail">github.com/spriteCloud/quail</a>
+  </footer>
+</body>
+</html>
