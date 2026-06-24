@@ -333,6 +333,9 @@
 
   <header class="hero">
     <div class="container">
+      <div style="margin-bottom: 16px;">
+        <a href="https://spritecloud.github.io/quail/" style="font-family: 'Fira Code', monospace; font-size: 12px; color: var(--mist); letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid var(--border-warm); padding-bottom: 2px;" data-testid="suite-breadcrumb">↩ part of the quail suite</a>
+      </div>
       <span class="label">quail-review · OSS PR bot · by spriteCloud</span>
       <h1 data-testid="hero-title">
         Pull request opens.<br>
@@ -458,45 +461,29 @@
     <div class="container">
       <div class="section-head">
         <span class="label">Live examples</span>
-        <h2>See it on six real sites.</h2>
+        <h2>See it on three real sites.</h2>
       </div>
       <p style="max-width:720px; margin-bottom:20px; color:var(--mist);">
-        Output from the v1.0.0 binary, committed to the repo.
-        Each example is a complete Playwright + Gherkin project: features,
-        step definitions, the Steps API, API + Contract + Integration specs,
-        a11y trio on every crawled page (30 pages × 3 sub-templates × 5 tests),
-        catalogue, summary HTML, ledger seed, and the Playwright config.
+        Three live bot-PR demos — one mid-tier marketing site, one
+        Akamai-class WAF (firefox engine slips past), and one
+        try-it-yourself starter for your own repo. Click through to
+        the live GitHub artefacts.
       </p>
       <div class="grid" data-testid="examples-grid">
         <div class="card">
           <div class="num">01</div>
-          <h3><a href="https://github.com/spriteCloud/quail-review/tree/main/examples/playwright-dev">playwright.dev</a></h3>
-          <p>SaaS docs, JS-heavy. <strong>183 files</strong> · 3 Gherkin journeys · 30 pages with the a11y trio · full v0.41+ template family (integration stubs, mobile matrix, network, edge cases).</p>
+          <h3><a href="https://github.com/spriteCloud/quail-review/pulls?q=is%3Apr+spritecloud+in%3Atitle">spritecloud.com</a></h3>
+          <p>Marketing + lead-gen. Bot PR covers the 9 main pages with the a11y trio, contact-form negatives, perf SLO, visual baselines per viewport. <strong>chromium · stealth on</strong>.</p>
         </div>
         <div class="card copper">
           <div class="num">02</div>
-          <h3><a href="https://github.com/spriteCloud/quail-review/tree/main/examples/gohugo-io">gohugo.io</a></h3>
-          <p>OSS marketing + content. <strong>196 files</strong> · 3 Gherkin · 30 pages with a11y trio.</p>
+          <h3><a href="https://github.com/spriteCloud/quail-review/pull/233">ing.nl — hardened anti-bot</a></h3>
+          <p>Open PR #233: <strong>147 passed / 52 failed</strong> (real a11y findings, not infra) on a site that drops chromium at the TLS layer. Firefox engine baked in by <code>browsers: firefox</code>.</p>
         </div>
         <div class="card">
           <div class="num">03</div>
-          <h3><a href="https://github.com/spriteCloud/quail-review/tree/main/examples/books-toscrape-com">books.toscrape.com</a></h3>
-          <p>E-commerce list-and-detail. <strong>186 files</strong> · 3 Gherkin · 30 pages with a11y trio.</p>
-        </div>
-        <div class="card copper">
-          <div class="num">04</div>
-          <h3><a href="https://github.com/spriteCloud/quail-review/tree/main/examples/es-wikipedia-org-madrid">es.wikipedia.org / Madrid</a></h3>
-          <p>Non-English content. <strong>201 files</strong> · 4 Gherkin · 30 pages with a11y trio.</p>
-        </div>
-        <div class="card">
-          <div class="num">05</div>
-          <h3><a href="https://github.com/spriteCloud/quail-review/tree/main/examples/spritecloud-com-dgx">spritecloud.com</a></h3>
-          <p>Marketing + lead-gen, deterministic baseline plus the optional LLM composer (any OpenAI-compatible base URL). <strong>197 files</strong> · 10 Gherkin journeys.</p>
-        </div>
-        <div class="card copper">
-          <div class="num">06</div>
-          <h3><a href="https://github.com/spriteCloud/quail-review/tree/main/examples/petstore-swagger-io-dgx">petstore.swagger.io</a></h3>
-          <p>API service with OpenAPI 3. <strong>46 files</strong> · <strong>12 Contract specs × 9 tests = 108 contract-layer assertions</strong> auto-derived from the OpenAPI doc. Lights up Layer 4 like no marketing site can.</p>
+          <h3><a href="https://github.com/marketplace/actions/quail-review">your repo, in three lines</a></h3>
+          <p>Add the <code>spriteCloud/quail-review@v1</code> action to a workflow, set <code>openai-api-key</code> (optional), open a PR — the bot opens a follow-up PR with the suite. Linux + macOS + Windows.</p>
         </div>
       </div>
     </div>
