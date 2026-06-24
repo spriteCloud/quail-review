@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>quail — by spriteCloud</title>
-  <meta name="description" content="A Go binary + GitHub Action that watches a PR (or any URL) and opens a follow-up PR with Gherkin features (via playwright-bdd), API contract / GraphQL / webhook tests, visual regression baselines, accessibility / responsive / performance / security / health / observability specs, gRPC contracts from .proto diffs, a stakeholder catalogue, a bug-discovery ledger, and self-healing locators.">
+  <title>quail-review — every PR opens with the tests · by spriteCloud</title>
+  <meta name="description" content="Open-source PR bot. Point it at a URL or a PR, get a Playwright suite that covers UI, API, accessibility, performance, mobile — opens as a follow-up PR, heals itself when the page moves.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
@@ -342,18 +342,16 @@
         Tests <em>write themselves.</em>
       </h1>
       <p class="lead">
-        Give it a PR or a URL. Get back a Playwright + Gherkin suite covering
-        every layer of the 10-layer taxonomy that applies to the surface —
-        UI, API, Contract, Integration, Mobile, Non-functional — plus
-        per-form adversarial negatives, an a11y trio on every crawled page,
-        the stakeholder catalogue, a bug-discovery ledger, and locator
-        self-heal when the DOM drifts. One Go binary, AGPL-3.0,
-        Linux + macOS + Windows. <strong>v1.0.0</strong>.
+        Point it at a URL or a PR. Get a Playwright suite that covers
+        UI, API, accessibility, performance, mobile — opens as a
+        follow-up PR, heals itself when the page moves.
       </p>
       <p class="lead" style="margin-top: -16px; font-size: 14px; color: var(--graphite);">
-        Local UI, on-prem / data-sovereign deploy, and named SLA live in the
-        <a href="https://spritecloud.github.io/quail/" style="color: var(--copper); border-bottom: 1px solid var(--copper);"><strong>quail</strong> commercial edition</a>
-        — coming soon.
+        Want it run for you? Our QA team runs quail on your project,
+        hosted inside spriteCloud, on our models — you watch progress
+        in the
+        <a href="https://spritecloud.github.io/quail/" style="color: var(--copper); border-bottom: 1px solid var(--copper);"><strong>quail-platform</strong></a>
+        dashboard. Seats opening soon.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/marketplace/actions/quail-review" data-testid="cta-install">Add to your repo</a>
