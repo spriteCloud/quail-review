@@ -748,6 +748,11 @@ func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []
 		}
 		return fmt.Errorf("probe: no items produced (%s)", hint)
 	}
+	// v0.10.13: page-intent classifier — strictly opt-in via --llm.
+	// Mutates Symbol.PageIntent in-place. Runs BEFORE composeScenarios
+	// so intent-aware templates can branch on it during gen.Render.
+	// LLM-off → no-op; cache-warm → ~free.
+	items = classifyPageIntents(ctx, cfg, items)
 	// v0.25: LLM scenario composer — strictly opt-in via --llm.
 	// Mutates feature items in-place to attach ExtraScenarios.
 	items = composeScenarios(ctx, cfg, items)
