@@ -97,3 +97,60 @@ func TestEnforceReviewFormat_WellFormedPassesThrough(t *testing.T) {
 		t.Errorf("well-formed response mutated:\ngot:  %q\nwant: %q", got, in)
 	}
 }
+
+func TestRenderVerdictMarkdown_ShapesOutput(t *testing.T) {
+	got := renderVerdictMarkdown(reviewVerdict{
+		CoreChanges: []string{"Bumps foo v1 → v2", "Refactors bar"},
+		Verdict:     "Approve",
+		Rationale:   "safe upgrade.",
+	})
+	for _, want := range []string{"## Core Changes", "- Bumps foo v1 → v2", "- Refactors bar", "## Verdict", "**Approve**: safe upgrade."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestNormaliseVerdictTag_HandlesMangledSpellings(t *testing.T) {
+	cases := map[string]string{
+		"Approve":              "Approve",
+		"APPROVE":              "Approve",
+		"approve!":             "Approve",
+		"Request changes":      "Request changes",
+		"request-changes":      "Request changes",
+		"blocking":             "Request changes",
+		"changes needed":       "Request changes",
+		"Comment":              "Comment",
+		"observation":          "Comment",
+		"":                     "Comment",
+		"Definitely-not-valid": "Comment",
+	}
+	for in, want := range cases {
+		if got := normaliseVerdictTag(in); got != want {
+			t.Errorf("normaliseVerdictTag(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestRenderVerdictMarkdown_EmptyChangesFallback(t *testing.T) {
+	got := renderVerdictMarkdown(reviewVerdict{
+		CoreChanges: nil,
+		Verdict:     "Comment",
+		Rationale:   "diff was blank.",
+	})
+	if !strings.Contains(got, "(no meaningful changes surfaced)") {
+		t.Errorf("expected placeholder bullet for empty changes:\n%s", got)
+	}
+}
+
+func TestRenderVerdictMarkdown_StripsLeadingDashes(t *testing.T) {
+	// Models sometimes ignore the "no leading dashes" rule and prefix
+	// items with `- ` themselves; the renderer must not emit `- - X`.
+	got := renderVerdictMarkdown(reviewVerdict{
+		CoreChanges: []string{"- Adds X", "* Adds Y"},
+		Verdict:     "Approve",
+	})
+	if strings.Contains(got, "- - ") || strings.Contains(got, "- * ") {
+		t.Errorf("dashes doubled up:\n%s", got)
+	}
+}

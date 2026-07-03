@@ -12,6 +12,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -137,27 +138,135 @@ func runReview(ctx context.Context, cfg config.Config) error {
 	if truncated {
 		userPrompt = "NOTE: this diff was truncated to the first " +
 			fmt.Sprintf("%d KB", maxDiffBytes/1024) +
-			" because it exceeded the inline review budget. Base your review on what's below; " +
-			"mention in the Verdict that the review is partial.\n\n" + userPrompt
+			" because it exceeded the inline review budget. Reflect this partial coverage in your rationale.\n\n" +
+			userPrompt
 	}
+	// v0.10.16 — ask the LLM for a structured JSON verdict, then render
+	// the markdown ourselves. Ollama-compat `response_format: json_object`
+	// forces valid JSON regardless of how rambly the underlying model
+	// (looking at you, qwen3-coder-next) tends to be. Falls back to the
+	// free-text prompt + salvager if the JSON layer errors.
+	body, err := reviewViaJSON(ctx, lm, userPrompt)
+	if err != nil {
+		rlog.Warn("review: JSON mode failed, falling back to prose", "err", err)
+		body, err = reviewViaProse(ctx, lm, userPrompt)
+		if err != nil {
+			return fmt.Errorf("llm chat: %w", err)
+		}
+	}
+
+	return postAndLog(ctx, client, cfg.PRNumber, body)
+}
+
+// reviewVerdict is the shape the LLM MUST return under JSON mode. Keys
+// are lowercase-snake because rambly models mangle CamelCase into
+// half-typed alternatives more often than they mangle snake_case.
+type reviewVerdict struct {
+	CoreChanges []string `json:"core_changes"`
+	Verdict     string   `json:"verdict"`
+	Rationale   string   `json:"rationale"`
+}
+
+const reviewJSONSystemPrompt = `You are a senior code reviewer commenting on a GitHub pull request.
+
+Respond with ONLY a JSON object matching this exact schema — no prose, no code fences, no THOUGHT, no plan-of-action:
+
+{
+  "core_changes": ["3 to 8 short imperative-voice bullet points naming meaningful changes"],
+  "verdict": "Approve" | "Request changes" | "Comment",
+  "rationale": "One short paragraph explaining why you chose this verdict"
+}
+
+Rules:
+- core_changes: 3-8 items, each a single sentence, no numbering, no leading dashes.
+- Group by subsystem when it clarifies — do not enumerate every file.
+- verdict must be one of the three literal strings above (spelled exactly).
+- Trivial diff (typo, whitespace, comment) → Approve.
+- Correctness risk, security issue, breaking change → Request changes; name the risk in the rationale.
+- Otherwise → Comment.
+- If the diff is truncated, note the partial coverage in the rationale.
+
+Return ONLY the JSON object. Nothing before, nothing after.`
+
+func reviewViaJSON(ctx context.Context, lm *llm.Client, userPrompt string) (string, error) {
+	raw, err := lm.ChatJSON(ctx, reviewJSONSystemPrompt, userPrompt)
+	if err != nil {
+		return "", err
+	}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", fmt.Errorf("empty JSON response")
+	}
+	// Some models still wrap JSON in ```json ... ``` even under
+	// json_object mode. Strip a full-message fence just in case.
+	raw = stripFullMessageCodeFence(raw)
+	var v reviewVerdict
+	if err := json.Unmarshal([]byte(raw), &v); err != nil {
+		return "", fmt.Errorf("parse JSON verdict: %w — raw=%.200q", err, raw)
+	}
+	return renderVerdictMarkdown(v), nil
+}
+
+// renderVerdictMarkdown converts a structured verdict into the standard
+// `## Core Changes` + `## Verdict` markdown shape. Normalises the
+// verdict tag to one of the three known values; anything else is
+// treated as a Comment.
+func renderVerdictMarkdown(v reviewVerdict) string {
+	tag := normaliseVerdictTag(v.Verdict)
+	var b strings.Builder
+	b.WriteString("## Core Changes\n\n")
+	if len(v.CoreChanges) == 0 {
+		b.WriteString("- (no meaningful changes surfaced)\n")
+	}
+	for _, c := range v.CoreChanges {
+		c = strings.TrimSpace(strings.TrimLeft(c, "-* \t"))
+		if c == "" {
+			continue
+		}
+		b.WriteString("- ")
+		b.WriteString(c)
+		b.WriteByte('\n')
+	}
+	b.WriteString("\n---\n\n## Verdict\n\n**")
+	b.WriteString(tag)
+	b.WriteString("**")
+	rationale := strings.TrimSpace(v.Rationale)
+	if rationale != "" {
+		b.WriteString(": ")
+		b.WriteString(rationale)
+	}
+	return b.String()
+}
+
+func normaliseVerdictTag(s string) string {
+	s = strings.TrimSpace(s)
+	low := strings.ToLower(s)
+	switch {
+	case strings.Contains(low, "approve"):
+		return "Approve"
+	case strings.Contains(low, "request") || strings.Contains(low, "changes needed") || strings.Contains(low, "block"):
+		return "Request changes"
+	default:
+		return "Comment"
+	}
+}
+
+// reviewViaProse is the pre-v0.10.16 free-text path — reused when JSON
+// mode errors (endpoint doesn't support response_format, transport
+// failure, etc.). Runs the LLM through the original strict prompt +
+// salvager pipeline.
+func reviewViaProse(ctx context.Context, lm *llm.Client, userPrompt string) (string, error) {
 	body, err := lm.Chat(ctx, reviewSystemPrompt, userPrompt)
 	if err != nil {
-		return fmt.Errorf("llm chat: %w", err)
+		return "", err
 	}
 	body = strings.TrimSpace(body)
 	if body == "" {
-		return fmt.Errorf("llm returned empty verdict")
+		return "", fmt.Errorf("llm returned empty verdict")
 	}
-	// Trim a leading ```markdown or ``` fence the model sometimes emits
-	// despite the system prompt, plus the matching trailing fence.
 	body = stripFullMessageCodeFence(body)
-	// Salvage well-formed content when the model rambles: strip
-	// pre-`## Core Changes` preamble, cut anything past the Verdict.
-	// If neither anchor is present, wrap the whole response as a
-	// Comment verdict so the reader still gets a usable payload.
 	body = enforceReviewFormat(body)
-
-	return postAndLog(ctx, client, cfg.PRNumber, body)
+	return body, nil
 }
 
 // enforceReviewFormat salvages the well-formed portion of an LLM
