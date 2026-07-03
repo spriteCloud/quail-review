@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -259,21 +260,29 @@ func extractCoreChanges(ctx context.Context, lm *llm.Client, prTitle, rawDiff st
 	}
 	raw = strings.TrimSpace(stripFullMessageCodeFence(raw))
 	rlog.Info("review: core_changes raw", "bytes", len(raw), "head", firstN(raw, 300))
-	jsonBlock := extractJSONObject(raw)
-	if jsonBlock == "" {
-		return nil, fmt.Errorf("no JSON object in response: raw=%.200q", raw)
-	}
-	var s coreChangesShape
-	if err := json.Unmarshal([]byte(jsonBlock), &s); err != nil {
-		return nil, fmt.Errorf("parse core_changes: %w — raw=%.200q", err, jsonBlock)
-	}
-	var out []string
-	for _, c := range s.CoreChanges {
-		if c = strings.TrimSpace(c); c != "" {
-			out = append(out, c)
+	// Try the strict path first — JSON object with `core_changes` key.
+	if jsonBlock := extractJSONObject(raw); jsonBlock != "" {
+		var s coreChangesShape
+		if err := json.Unmarshal([]byte(jsonBlock), &s); err == nil && len(s.CoreChanges) > 0 {
+			var out []string
+			for _, c := range s.CoreChanges {
+				if c = strings.TrimSpace(c); c != "" {
+					out = append(out, c)
+				}
+			}
+			if len(out) > 0 {
+				return out, nil
+			}
 		}
 	}
-	return out, nil
+	// Fallback — qwen2.5:7b and similar 7B instruct models default to
+	// markdown even when told to return JSON. Extract numbered items
+	// with bold labels: `1. **Section**: description...`.
+	if bullets := extractNumberedBullets(raw); len(bullets) > 0 {
+		rlog.Info("review: recovered bullets from markdown prose", "count", len(bullets))
+		return bullets, nil
+	}
+	return nil, fmt.Errorf("no JSON object or numbered bullets in response: raw=%.200q", raw)
 }
 
 func computeVerdict(ctx context.Context, lm *llm.Client, prTitle, rawDiff string, bullets []string, truncated bool) (verdictShape, error) {
@@ -302,13 +311,24 @@ func computeVerdict(ctx context.Context, lm *llm.Client, prTitle, rawDiff string
 	}
 	raw = strings.TrimSpace(stripFullMessageCodeFence(raw))
 	rlog.Info("review: verdict raw", "bytes", len(raw), "head", firstN(raw, 300))
-	jsonBlock := extractJSONObject(raw)
-	if jsonBlock == "" {
-		return verdictShape{}, fmt.Errorf("no JSON object in verdict response: raw=%.200q", raw)
+	// Strict path — JSON with verdict + rationale.
+	if jsonBlock := extractJSONObject(raw); jsonBlock != "" {
+		var v verdictShape
+		if err := json.Unmarshal([]byte(jsonBlock), &v); err == nil &&
+			(strings.TrimSpace(v.Verdict) != "" || strings.TrimSpace(v.Rationale) != "") {
+			return v, nil
+		}
 	}
-	var v verdictShape
-	if err := json.Unmarshal([]byte(jsonBlock), &v); err != nil {
-		return verdictShape{}, fmt.Errorf("parse verdict: %w — raw=%.200q", err, jsonBlock)
+	// Fallback — infer verdict from keywords in the raw prose, use the
+	// prose itself as the rationale. The tag normaliser downstream
+	// handles anything not spelling exactly "Approve" / "Request
+	// changes" / "Comment".
+	v := verdictShape{
+		Verdict:   normaliseVerdictTag(inferVerdictFromProse(raw)),
+		Rationale: strings.TrimSpace(raw),
+	}
+	if v.Rationale != "" {
+		return v, nil
 	}
 	if strings.TrimSpace(v.Verdict) == "" && strings.TrimSpace(v.Rationale) == "" {
 		return verdictShape{}, fmt.Errorf("verdict step returned empty object: %.200q", raw)
@@ -385,6 +405,79 @@ func firstN(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+// inferVerdictFromProse guesses one of the three verdict tags from a
+// prose response. Ordered: Request changes > Approve > Comment, so a
+// response that mentions both "approve" and "request changes"
+// (unlikely but possible) leans toward the stricter reading.
+func inferVerdictFromProse(s string) string {
+	low := strings.ToLower(s)
+	switch {
+	case strings.Contains(low, "request changes") ||
+		strings.Contains(low, "requesting changes") ||
+		strings.Contains(low, "block this") ||
+		strings.Contains(low, "should not merge"):
+		return "Request changes"
+	case strings.Contains(low, "lgtm") ||
+		strings.Contains(low, "approve") ||
+		strings.Contains(low, "looks good"):
+		return "Approve"
+	default:
+		return "Comment"
+	}
+}
+
+// reNumberedBoldItem matches `1. **Header**: description` (both `.`
+// and `)` numeric separators; `**` or `__` bold markers). The label
+// group ends at the first `:` after `**`.
+var reNumberedBoldItem = regexp.MustCompile(`(?m)^\s*\d+[.)]\s+(?:\*\*|__)([^*_]+)(?:\*\*|__)\s*:?\s*(.*)$`)
+
+// reBulletBoldItem matches `- **Header**: description` (bullet lines
+// with a bold label). Same output shape as numbered.
+var reBulletBoldItem = regexp.MustCompile(`(?m)^\s*[-*]\s+(?:\*\*|__)([^*_]+)(?:\*\*|__)\s*:?\s*(.*)$`)
+
+// extractNumberedBullets pulls "1. **Header**: description" (and its
+// bulleted twin) items out of a markdown prose response. Each item
+// becomes a single "Header: description" bullet, or just "Header"
+// when there's no description. Deduped; capped at 8 to match the
+// expected core_changes range.
+func extractNumberedBullets(s string) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	appendMatch := func(m []string) {
+		if len(m) < 3 {
+			return
+		}
+		label := strings.TrimSpace(m[1])
+		desc := strings.TrimSpace(m[2])
+		if label == "" {
+			return
+		}
+		var line string
+		if desc == "" {
+			line = label
+		} else {
+			line = label + ": " + desc
+		}
+		// Trim trailing markdown list markers / punctuation drift.
+		line = strings.TrimRight(line, " .,")
+		if _, dup := seen[line]; dup {
+			return
+		}
+		seen[line] = struct{}{}
+		out = append(out, line)
+	}
+	for _, m := range reNumberedBoldItem.FindAllStringSubmatch(s, -1) {
+		appendMatch(m)
+	}
+	for _, m := range reBulletBoldItem.FindAllStringSubmatch(s, -1) {
+		appendMatch(m)
+	}
+	if len(out) > 8 {
+		out = out[:8]
+	}
+	return out
 }
 
 // extractJSONObject returns the outermost balanced `{...}` block in s,
