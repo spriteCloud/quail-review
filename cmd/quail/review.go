@@ -249,15 +249,23 @@ func extractCoreChanges(ctx context.Context, lm *llm.Client, prTitle, rawDiff st
 			fmt.Sprintf("%d KB", maxDiffBytes/1024) +
 			" — summarise from what's below.\n\n" + prompt
 	}
-	raw, err := lm.ChatJSON(ctx, coreChangesSystemPrompt, prompt)
+	// Ollama's `format: json_object` strict mode makes qwen2.5:7b (and
+	// similar 7B instruct models) take the escape hatch and return
+	// literal `{}`. Plain Chat with a prompt asking for JSON gets
+	// non-empty responses. We extract the JSON block via regex.
+	raw, err := lm.Chat(ctx, coreChangesSystemPrompt, prompt)
 	if err != nil {
 		return nil, err
 	}
 	raw = strings.TrimSpace(stripFullMessageCodeFence(raw))
 	rlog.Info("review: core_changes raw", "bytes", len(raw), "head", firstN(raw, 300))
+	jsonBlock := extractJSONObject(raw)
+	if jsonBlock == "" {
+		return nil, fmt.Errorf("no JSON object in response: raw=%.200q", raw)
+	}
 	var s coreChangesShape
-	if err := json.Unmarshal([]byte(raw), &s); err != nil {
-		return nil, fmt.Errorf("parse core_changes: %w — raw=%.200q", err, raw)
+	if err := json.Unmarshal([]byte(jsonBlock), &s); err != nil {
+		return nil, fmt.Errorf("parse core_changes: %w — raw=%.200q", err, jsonBlock)
 	}
 	var out []string
 	for _, c := range s.CoreChanges {
@@ -288,15 +296,19 @@ func computeVerdict(ctx context.Context, lm *llm.Client, prTitle, rawDiff string
 	}
 	b.WriteString("\nUnified diff (may be truncated):\n\n")
 	b.WriteString(rawDiff)
-	raw, err := lm.ChatJSON(ctx, verdictSystemPrompt, b.String())
+	raw, err := lm.Chat(ctx, verdictSystemPrompt, b.String())
 	if err != nil {
 		return verdictShape{}, err
 	}
 	raw = strings.TrimSpace(stripFullMessageCodeFence(raw))
 	rlog.Info("review: verdict raw", "bytes", len(raw), "head", firstN(raw, 300))
+	jsonBlock := extractJSONObject(raw)
+	if jsonBlock == "" {
+		return verdictShape{}, fmt.Errorf("no JSON object in verdict response: raw=%.200q", raw)
+	}
 	var v verdictShape
-	if err := json.Unmarshal([]byte(raw), &v); err != nil {
-		return verdictShape{}, fmt.Errorf("parse verdict: %w — raw=%.200q", err, raw)
+	if err := json.Unmarshal([]byte(jsonBlock), &v); err != nil {
+		return verdictShape{}, fmt.Errorf("parse verdict: %w — raw=%.200q", err, jsonBlock)
 	}
 	if strings.TrimSpace(v.Verdict) == "" && strings.TrimSpace(v.Rationale) == "" {
 		return verdictShape{}, fmt.Errorf("verdict step returned empty object: %.200q", raw)
@@ -373,6 +385,49 @@ func firstN(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+// extractJSONObject returns the outermost balanced `{...}` block in s,
+// or "" if none. Handles nested braces and quoted strings (including
+// escaped quotes). Used to pull a JSON object out of a model's prose
+// response when we can't force `response_format:json_object` because
+// the model returns `{}` under that constraint.
+func extractJSONObject(s string) string {
+	start := strings.IndexByte(s, '{')
+	if start < 0 {
+		return ""
+	}
+	depth := 0
+	inString := false
+	escape := false
+	for i := start; i < len(s); i++ {
+		c := s[i]
+		if escape {
+			escape = false
+			continue
+		}
+		if inString {
+			switch c {
+			case '\\':
+				escape = true
+			case '"':
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inString = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return s[start : i+1]
+			}
+		}
+	}
+	return ""
 }
 
 // renderVerdictMarkdown converts a structured verdict into the standard
