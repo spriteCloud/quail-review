@@ -24,11 +24,12 @@ import (
 	rlog "github.com/spriteCloud/quail-core/log"
 )
 
-// maxDiffBytes gates the LLM call. Above this, the review comment is a
-// short bailout — the diff is too big for a useful single-shot review.
-// Ponytail: raise when a real PR hits it; add chunking if the pattern
-// repeats.
-const maxDiffBytes = 200 * 1024
+// maxDiffBytes is the soft cap on how much diff we send to the LLM.
+// Above this we truncate to the head + a note; below it we send the
+// diff whole. 512 KB (~130k tokens at ~4 chars/token) fits comfortably
+// in modern chat-completion context windows with headroom for the
+// system prompt + response.
+const maxDiffBytes = 512 * 1024
 
 const reviewSystemPrompt = `You are a senior code reviewer commenting on a GitHub pull request.
 
@@ -98,10 +99,16 @@ func runReview(ctx context.Context, cfg config.Config) error {
 		return postAndLog(ctx, client, cfg.PRNumber,
 			"## Verdict\n\n**Comment**: the PR diff is empty — nothing to review.")
 	}
+	// v0.10.16 — truncate instead of bailing when the diff is
+	// oversized. A truncated head + a clear note beats no review at
+	// all; the model still gets enough signal for a Core Changes
+	// summary and a directional Verdict.
+	truncated := false
 	if len(rawDiff) > maxDiffBytes {
-		return postAndLog(ctx, client, cfg.PRNumber, fmt.Sprintf(
-			"## Verdict\n\n**Comment**: this diff is %d KB — beyond the inline review budget. "+
-				"Split into smaller PRs or run a manual review.", len(rawDiff)/1024))
+		rawDiff = rawDiff[:maxDiffBytes]
+		truncated = true
+		rlog.Info("review: truncated oversized diff",
+			"kept_bytes", maxDiffBytes, "cap_kb", maxDiffBytes/1024)
 	}
 
 	lm := llm.New(cfg)
@@ -110,6 +117,12 @@ func runReview(ctx context.Context, cfg config.Config) error {
 	}
 
 	userPrompt := buildReviewUserPrompt(prObj.GetTitle(), rawDiff)
+	if truncated {
+		userPrompt = "NOTE: this diff was truncated to the first " +
+			fmt.Sprintf("%d KB", maxDiffBytes/1024) +
+			" because it exceeded the inline review budget. Base your review on what's below; " +
+			"mention in the Verdict that the review is partial.\n\n" + userPrompt
+	}
 	body, err := lm.Chat(ctx, reviewSystemPrompt, userPrompt)
 	if err != nil {
 		return fmt.Errorf("llm chat: %w", err)
