@@ -567,6 +567,15 @@ func deriveAffectedURLs(items []plan.Item, _ plan.Layout, probeURLs []string) []
 		paths[p] = struct{}{}
 	}
 	if len(paths) == 0 {
+		// QUAIL_DIFF_ONLY=1 — refuse to fall back to probeURLs when the
+		// diff yielded no paths. Callers that only want tests generated
+		// from what the PR actually changed can set this env; keeps
+		// target-urls useful for the diff-with-paths case (resolving
+		// relative paths against an origin) without leaking a whole-site
+		// probe on PRs that don't touch a page.
+		if os.Getenv("QUAIL_DIFF_ONLY") == "1" {
+			return nil
+		}
 		return probeURLs
 	}
 	if len(probeURLs) == 0 {
