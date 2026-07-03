@@ -31,30 +31,31 @@ import (
 // system prompt + response.
 const maxDiffBytes = 512 * 1024
 
-const reviewSystemPrompt = `You are a senior code reviewer commenting on a GitHub pull request.
-
-Produce ONLY a markdown comment with exactly two sections, in this order:
-
-## Core Changes
-
-- 3 to 8 bullet points, imperative voice, each naming a meaningful change
-- Group by subsystem or feature when it helps clarity
-- Do NOT enumerate every file — summarise
-
----
-
-## Verdict
-
-**Approve** | **Request changes** | **Comment**: <one short paragraph explaining why>
-
-Rules:
-- No preamble, no closing sign-off, no code fences around the whole message
-- Do not invent context you cannot infer from the diff
-- Do not suggest additions the diff does not need
-- If the diff is trivial (typo, comment tweak, whitespace), Approve concisely
-- If the diff introduces a correctness risk, security issue, or breaking change, Request changes and name it specifically
-- Otherwise use Comment for observational feedback that isn't blocking
-`
+const reviewSystemPrompt = "You are a senior code reviewer commenting on a GitHub pull request.\n" +
+	"\n" +
+	"Your ENTIRE response must be a markdown comment with EXACTLY these two sections and nothing else:\n" +
+	"\n" +
+	"## Core Changes\n" +
+	"\n" +
+	"- 3 to 8 bullet points, imperative voice, each naming a meaningful change\n" +
+	"- Group by subsystem or feature when it helps clarity\n" +
+	"- Do NOT enumerate every file — summarise\n" +
+	"\n" +
+	"---\n" +
+	"\n" +
+	"## Verdict\n" +
+	"\n" +
+	"**Approve** | **Request changes** | **Comment**: <one short paragraph explaining why>\n" +
+	"\n" +
+	"HARD RULES — violations mean the review is unusable:\n" +
+	"- Your FIRST characters MUST be `## Core Changes` — no THOUGHT:, no preamble, no meta-commentary, no chain-of-thought, no \"Let me…\", no \"First,…\", no plan-of-action.\n" +
+	"- Your LAST content MUST be the Verdict line — no closing sign-off, no next-step list, no \"Let's do it\".\n" +
+	"- Do NOT propose running workflows, committing, pushing, or taking any action — you are ONLY writing a review comment.\n" +
+	"- Do NOT wrap the whole message in a code fence.\n" +
+	"- Do not invent context you cannot infer from the diff.\n" +
+	"- Trivial diff (typo, comment, whitespace) → Approve concisely.\n" +
+	"- Correctness risk, security issue, or breaking change → Request changes and name it specifically.\n" +
+	"- Otherwise → Comment.\n"
 
 func newReviewCmd() *cobra.Command {
 	var pr int
@@ -134,8 +135,70 @@ func runReview(ctx context.Context, cfg config.Config) error {
 	// Trim a leading ```markdown or ``` fence the model sometimes emits
 	// despite the system prompt, plus the matching trailing fence.
 	body = stripFullMessageCodeFence(body)
+	// Salvage well-formed content when the model rambles: strip
+	// pre-`## Core Changes` preamble, cut anything past the Verdict.
+	// If neither anchor is present, wrap the whole response as a
+	// Comment verdict so the reader still gets a usable payload.
+	body = enforceReviewFormat(body)
 
 	return postAndLog(ctx, client, cfg.PRNumber, body)
+}
+
+// enforceReviewFormat salvages the well-formed portion of an LLM
+// response that ignored the "start with ## Core Changes, end with the
+// Verdict line" contract:
+//   - If the response contains a `## Core Changes` header, everything
+//     before it is discarded (drops THOUGHT: / plan-of-action preamble).
+//   - After that, everything from the Verdict's Approve/Request/Comment
+//     line onwards is kept up to the next h2 (drops trailing "next
+//     steps" lists the model sometimes tacks on).
+//   - If no `## Core Changes` anchor is present at all, wrap the whole
+//     response as a fallback Comment verdict so the reader still gets
+//     the model's take, just labelled.
+func enforceReviewFormat(s string) string {
+	s = strings.TrimSpace(s)
+	coreIdx := strings.Index(s, "## Core Changes")
+	if coreIdx < 0 {
+		// No Core Changes anchor at all — treat the whole response as
+		// commentary and wrap it.
+		return "## Verdict\n\n**Comment**: " + s
+	}
+	s = s[coreIdx:]
+	// Trim trailing action-plan content after the Verdict paragraph.
+	// The Verdict line starts with **Approve** / **Request changes** /
+	// **Comment**; keep from the first Verdict header onward, but cut
+	// at the next h2/h3 that looks like a section the model invented
+	// (e.g. "## Final Workflow Step").
+	if v := strings.Index(s, "## Verdict"); v >= 0 {
+		tail := s[v:]
+		// Find the next top-level heading after the Verdict header
+		// itself. Skip past the "## Verdict" line first.
+		if nl := strings.IndexByte(tail, '\n'); nl > 0 {
+			rest := tail[nl+1:]
+			if nextH := findNextH2(rest); nextH >= 0 {
+				tail = tail[:nl+1+nextH]
+			}
+		}
+		s = s[:v] + strings.TrimRight(tail, "\n")
+	}
+	return strings.TrimSpace(s)
+}
+
+// findNextH2 returns the offset of the next `## ` header in s (start of
+// line), or -1 if none.
+func findNextH2(s string) int {
+	i := 0
+	for i < len(s) {
+		if strings.HasPrefix(s[i:], "## ") {
+			return i
+		}
+		if nl := strings.IndexByte(s[i:], '\n'); nl >= 0 {
+			i += nl + 1
+			continue
+		}
+		return -1
+	}
+	return -1
 }
 
 func buildReviewUserPrompt(prTitle, rawDiff string) string {
