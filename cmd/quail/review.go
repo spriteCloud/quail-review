@@ -620,12 +620,23 @@ func renderVerdictMarkdownWithModel(v reviewVerdict, modelName string) string {
 	b.WriteString("**")
 	rationale := strings.TrimSpace(v.Rationale)
 	if rationale != "" {
+		// Cut off at the first list marker — the model wrote a list?
+		// Keep only the intro sentence before the list. This usually
+		// preserves a real one-sentence assessment.
+		if idx := reFirstListStart.FindStringIndex(rationale); idx != nil {
+			rationale = strings.TrimSpace(rationale[:idx[0]])
+		}
 		rationale = collapseWhitespace(rationale)
 		rationale = stripRationalePreamble(rationale)
-		// Model went off-script and wrote a nested list as the
-		// rationale — replace with a terse pointer at the bullets.
+		// If the model still wrote list-shaped content (e.g. opened
+		// with a list, no intro sentence), fall back to first sentence
+		// of what's left.
 		if reRationaleLooksLikeList.MatchString(rationale) {
-			rationale = "See core changes above."
+			rationale = firstSentence(rationale)
+		}
+		// If nothing readable survived, use a terse honest fallback.
+		if strings.TrimSpace(rationale) == "" {
+			rationale = "No critical issues surfaced in the diff."
 		}
 		rationale = capLine(rationale, maxRationaleLen)
 		b.WriteString(": ")
@@ -658,6 +669,31 @@ var rePreamble = regexp.MustCompile(`^(?i)(wow[!,.]?\s+|sure[!,.]?\s+|great[!,.]
 // model went full summary mode instead of writing a one-sentence
 // verdict rationale.
 var reRationaleLooksLikeList = regexp.MustCompile(`(?m)(^|\s)(\d+[.)]\s+|[-*•]\s+)\*\*[^*]+\*\*`)
+
+// reFirstListStart matches the FIRST place a list starts — used to
+// truncate a rationale down to just its intro sentence before the
+// model drifted into enumeration. Looks for `<space>N. **Header**`
+// (numbered) or `<space>- **Header**` (bulleted).
+var reFirstListStart = regexp.MustCompile(`\s+(\d+[.)]\s+\*\*[^*]+\*\*|[-*•]\s+\*\*[^*]+\*\*|###\s+|##\s+)`)
+
+// firstSentence returns everything up to the first sentence-ending
+// punctuation (`.`, `!`, `?`) followed by a space or end-of-string.
+// Falls back to the whole string when no sentence boundary is found.
+func firstSentence(s string) string {
+	s = strings.TrimSpace(s)
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c != '.' && c != '!' && c != '?' {
+			continue
+		}
+		// Skip abbreviations like "e.g." / "i.e." — need a space
+		// after the punctuation to count as a sentence break.
+		if i+1 == len(s) || s[i+1] == ' ' || s[i+1] == '\n' {
+			return strings.TrimSpace(s[:i+1])
+		}
+	}
+	return s
+}
 
 // stripRationalePreamble removes conversational openers so the
 // rationale opens on the actual review content.
