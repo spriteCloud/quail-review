@@ -248,6 +248,7 @@ runs:
         OPENAI_BASE_URL: ${{ inputs.openai-base-url }}
         OPENAI_API_KEY: ${{ inputs.openai-api-key }}
         QUAIL_MODEL: ${{ inputs.model }}
+        QUAIL_LLM_TIMEOUT: ${{ inputs.llm-timeout }}
         QUAIL_PR: ${{ inputs.pr }}
         QUAIL_LOG_LEVEL: ${{ inputs.log-level }}
       run: |
