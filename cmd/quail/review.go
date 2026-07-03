@@ -141,21 +141,167 @@ func runReview(ctx context.Context, cfg config.Config) error {
 			" because it exceeded the inline review budget. Reflect this partial coverage in your rationale.\n\n" +
 			userPrompt
 	}
-	// v0.10.16 — ask the LLM for a structured JSON verdict, then render
-	// the markdown ourselves. Ollama-compat `response_format: json_object`
-	// forces valid JSON regardless of how rambly the underlying model
-	// (looking at you, qwen3-coder-next) tends to be. Falls back to the
-	// free-text prompt + salvager if the JSON layer errors.
-	body, err := reviewViaJSON(ctx, lm, userPrompt)
+	// v0.10.17 — two-step LLM: one focused call for the bullet list of
+	// core changes, one focused call for the verdict + rationale. Each
+	// prompt is simpler (small models handle simple schemas better) and
+	// we control the section headers ourselves — so `## Core Changes`
+	// and `## Verdict` are always right regardless of what the model
+	// does with formatting. Falls back to single-shot JSON, then prose
+	// + salvager, so a working model swap doesn't lose the reliability.
+	body, err := reviewViaTwoStep(ctx, lm, prObj.GetTitle(), rawDiff, truncated)
 	if err != nil {
-		rlog.Warn("review: JSON mode failed, falling back to prose", "err", err)
-		body, err = reviewViaProse(ctx, lm, userPrompt)
+		rlog.Warn("review: two-step mode failed, falling back to single JSON", "err", err)
+		body, err = reviewViaJSON(ctx, lm, userPrompt)
 		if err != nil {
-			return fmt.Errorf("llm chat: %w", err)
+			rlog.Warn("review: JSON mode failed, falling back to prose", "err", err)
+			body, err = reviewViaProse(ctx, lm, userPrompt)
+			if err != nil {
+				return fmt.Errorf("llm chat: %w", err)
+			}
 		}
 	}
 
 	return postAndLog(ctx, client, cfg.PRNumber, body)
+}
+
+// reviewViaTwoStep issues TWO focused LLM calls — one for the bullet
+// list of core changes, one for the verdict + rationale — and renders
+// the two `##` headers ourselves. Small chat-tuned models (qwen2.5:7b,
+// llama3.1:8b) reliably follow narrow JSON schemas but often ignore
+// section headers when asked to produce a whole review in one go; this
+// split keeps each ask small and puts the presentation contract on
+// our side, not theirs.
+func reviewViaTwoStep(ctx context.Context, lm *llm.Client, prTitle, rawDiff string, truncated bool) (string, error) {
+	bullets, err := extractCoreChanges(ctx, lm, prTitle, rawDiff, truncated)
+	if err != nil {
+		return "", fmt.Errorf("core-changes step: %w", err)
+	}
+	if len(bullets) == 0 {
+		return "", fmt.Errorf("core-changes step returned no bullets")
+	}
+	rlog.Info("review: extracted core changes", "count", len(bullets))
+	v, err := computeVerdict(ctx, lm, prTitle, rawDiff, bullets, truncated)
+	if err != nil {
+		return "", fmt.Errorf("verdict step: %w", err)
+	}
+	rlog.Info("review: computed verdict", "verdict", v.Verdict)
+	return renderVerdictMarkdown(reviewVerdict{
+		CoreChanges: bullets,
+		Verdict:     v.Verdict,
+		Rationale:   v.Rationale,
+	}), nil
+}
+
+const coreChangesSystemPrompt = `You are a senior code reviewer summarising a GitHub pull request.
+
+Respond with a JSON object containing exactly ONE key: "core_changes".
+
+EXAMPLE — a valid response:
+
+{
+  "core_changes": [
+    "Bumps @playwright/test from 1.44 to 1.47 in package.json",
+    "Replaces deprecated page.waitForTimeout with page.waitForLoadState in 4 specs",
+    "Adds a retry wrapper around the flaky login step in tests/auth/login.spec.ts"
+  ]
+}
+
+Rules:
+- "core_changes" must be a JSON array of 3 to 8 strings.
+- Each string is a single sentence in imperative voice describing ONE meaningful change.
+- Do not number the items, do not include a leading dash or bullet, do not repeat the array key inside the strings.
+- Group by subsystem when it clarifies. Do NOT enumerate every file — summarise.
+- Return the JSON object and NOTHING else. Empty {} is invalid.`
+
+const verdictSystemPrompt = `You are a senior code reviewer deciding an overall verdict for a GitHub pull request.
+
+Respond with a JSON object containing exactly TWO keys: "verdict" and "rationale".
+
+EXAMPLE — a valid response:
+
+{
+  "verdict": "Approve",
+  "rationale": "The bump is a minor version with no known breaking changes for this suite. The retry wrapper caps at 2 attempts so it can't mask a real regression."
+}
+
+Rules:
+- "verdict" must be exactly one of: "Approve", "Request changes", "Comment".
+  - Trivial diff (typo, comment, whitespace) → "Approve".
+  - Correctness risk, security issue, breaking change → "Request changes" and name the risk in the rationale.
+  - Otherwise → "Comment".
+- "rationale" is a single paragraph explaining the verdict — never empty.
+- If the diff was truncated, note the partial coverage in the rationale.
+- Return the JSON object and NOTHING else. Empty {} is invalid.`
+
+type coreChangesShape struct {
+	CoreChanges []string `json:"core_changes"`
+}
+
+type verdictShape struct {
+	Verdict   string `json:"verdict"`
+	Rationale string `json:"rationale"`
+}
+
+func extractCoreChanges(ctx context.Context, lm *llm.Client, prTitle, rawDiff string, truncated bool) ([]string, error) {
+	prompt := buildReviewUserPrompt(prTitle, rawDiff)
+	if truncated {
+		prompt = "NOTE: this diff was truncated to " +
+			fmt.Sprintf("%d KB", maxDiffBytes/1024) +
+			" — summarise from what's below.\n\n" + prompt
+	}
+	raw, err := lm.ChatJSON(ctx, coreChangesSystemPrompt, prompt)
+	if err != nil {
+		return nil, err
+	}
+	raw = strings.TrimSpace(stripFullMessageCodeFence(raw))
+	rlog.Info("review: core_changes raw", "bytes", len(raw), "head", firstN(raw, 300))
+	var s coreChangesShape
+	if err := json.Unmarshal([]byte(raw), &s); err != nil {
+		return nil, fmt.Errorf("parse core_changes: %w — raw=%.200q", err, raw)
+	}
+	var out []string
+	for _, c := range s.CoreChanges {
+		if c = strings.TrimSpace(c); c != "" {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+func computeVerdict(ctx context.Context, lm *llm.Client, prTitle, rawDiff string, bullets []string, truncated bool) (verdictShape, error) {
+	var b strings.Builder
+	if prTitle != "" {
+		b.WriteString("PR title: ")
+		b.WriteString(prTitle)
+		b.WriteString("\n\n")
+	}
+	b.WriteString("Summary of the changes (from a prior pass):\n")
+	for _, c := range bullets {
+		b.WriteString("- ")
+		b.WriteString(c)
+		b.WriteByte('\n')
+	}
+	if truncated {
+		b.WriteString("\nNOTE: the diff was truncated to ")
+		b.WriteString(fmt.Sprintf("%d KB", maxDiffBytes/1024))
+		b.WriteString(" — note partial coverage in your rationale.\n")
+	}
+	b.WriteString("\nUnified diff (may be truncated):\n\n")
+	b.WriteString(rawDiff)
+	raw, err := lm.ChatJSON(ctx, verdictSystemPrompt, b.String())
+	if err != nil {
+		return verdictShape{}, err
+	}
+	raw = strings.TrimSpace(stripFullMessageCodeFence(raw))
+	rlog.Info("review: verdict raw", "bytes", len(raw), "head", firstN(raw, 300))
+	var v verdictShape
+	if err := json.Unmarshal([]byte(raw), &v); err != nil {
+		return verdictShape{}, fmt.Errorf("parse verdict: %w — raw=%.200q", err, raw)
+	}
+	if strings.TrimSpace(v.Verdict) == "" && strings.TrimSpace(v.Rationale) == "" {
+		return verdictShape{}, fmt.Errorf("verdict step returned empty object: %.200q", raw)
+	}
+	return v, nil
 }
 
 // reviewVerdict is the shape the LLM MUST return under JSON mode. Keys
