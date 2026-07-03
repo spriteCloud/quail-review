@@ -683,7 +683,7 @@ func collapseWhitespace(s string) string {
 // rePreamble matches the chatty openers qwen2.5 (and other instruct
 // models) can't help but add to rationales — "Wow, that's a…",
 // "Sure! Here's my take…", "Great changes overall,…". Drop them.
-var rePreamble = regexp.MustCompile(`^(?i)(wow[!,.]?\s+|sure[!,.]?\s+|great[!,.]?\s+|okay[!,.]?\s+|alright[!,.]?\s+|here'?s\s+(a\s+|my\s+|the\s+)?(brief|quick|short|overview|summary|take)[,.:]?\s+|below\s+is\s+.*?[:.]\s+|let\s+me\s+(break|walk|summar)[^.]*\.\s*|thanks?\s+for\s+.*?[!.]\s+|this\s+(pr|pull\s+request|commit|update|change|changeset|patch|diff)\s+(is|includes|introduces|appears|looks|shows|adds|contains|expands|enhances|refactors|improves|updates|modifies)\s+.*?[,.:]\s+|it\s+(appears|looks|seems)\s+(that|like)\s+(you'?ve\s+)?.*?[:.]\s+|you'?ve\s+(added|introduced|created|written|updated|modified|changed)\s+.*?[:.]\s+|the\s+diff\s+(shows|contains|introduces|adds)\s+.*?[:.]\s+|overall[,.:]?\s+.*?[:.]\s+)`)
+var rePreamble = regexp.MustCompile(`^(?i)(wow[!,.]?\s+|sure[!,.]?\s+|great[!,.]?\s+|okay[!,.]?\s+|alright[!,.]?\s+|here[’']?s\s+(a\s+|my\s+|the\s+)?(brief|quick|short|overview|summary|take)[,.:]?\s+|below\s+is\s+.*?[:.]\s+|let\s+me\s+(break|walk|summar)[^.]*\.\s*|thanks?\s+for\s+.*?[!.]\s+|this\s+(pr|pull\s+request|commit|update|change|changeset|patch|diff)\s+(is|includes|introduces|appears|looks|shows|adds|contains|expands|enhances|refactors|improves|updates|modifies)\s+.*?[,.:]\s+|it\s+(appears|looks|seems)\s+(that|like)\s+(you[’']?ve\s+)?.*?[:.]\s+|you[’']?ve\s+(added|introduced|created|written|updated|modified|changed)\s+.*?[:.]\s+|the\s+diff\s+(shows|contains|introduces|adds)\s+.*?[:.]\s+|overall[,.:]?\s+.*?[:.]\s+)`)
 
 // reRationaleLooksLikeList detects a rationale that starts drifting
 // into a numbered/bulleted list ("1. …", "- …", "* …") — a sign the
@@ -695,7 +695,7 @@ var reRationaleLooksLikeList = regexp.MustCompile(`(?m)(^|\s)(\d+[.)]\s+|[-*•]
 // into a list: "Here's a summary of the key changes:" / "Below are
 // the highlights:" / "Let me break down…". Trimmed from the tail of
 // the rationale so these don't dangle when the list itself was cut.
-var reTrailingIntroToList = regexp.MustCompile(`(?i)[\s.,]+(here'?s\s+(a\s+|my\s+|the\s+)?(brief\s+|quick\s+|short\s+)?(summary|overview|breakdown|list|rundown|take|take-?away)[^.]*[:.]?\s*$|below\s+(are\s+|is\s+)[^.]*[:.]?\s*$|let\s+me\s+(break|walk|summar)[^.]*[:.]?\s*$|as\s+follows\s*[:.]?\s*$|the\s+(key\s+|main\s+|major\s+)?(changes|highlights|updates)\s+(are|include)[^.]*[:.]?\s*$)`)
+var reTrailingIntroToList = regexp.MustCompile(`(?i)[\s.,]+(here[’']?s\s+(a\s+|my\s+|the\s+)?(brief\s+|quick\s+|short\s+)?(summary|overview|breakdown|list|rundown|take|take-?away)[^.]*[:.]?\s*$|below\s+(are\s+|is\s+)[^.]*[:.]?\s*$|let\s+me\s+(break|walk|summar)[^.]*[:.]?\s*$|as\s+follows\s*[:.]?\s*$|the\s+(key\s+|main\s+|major\s+)?(changes|highlights|updates)\s+(are|include)[^.]*[:.]?\s*$)`)
 
 // reFirstListStart matches the FIRST place a list starts — used to
 // truncate a rationale down to just its intro sentence before the
