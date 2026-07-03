@@ -116,6 +116,17 @@ inputs:
     description: debug | info | warn | error
     required: false
     default: info
+  mode:
+    description: |
+      Which quail flow to run:
+        - auto (default): current behaviour — generate + heal
+        - generate: only run `quail generate`
+        - heal: only run `quail heal`
+        - review: run `quail review` (@quail PR reviewer, posts a
+          markdown verdict comment) — pair with a workflow whose
+          trigger is `issue_comment` filtered on `@quail`.
+    required: false
+    default: auto
   version:
     description: quail-review release tag to install. Defaults to "latest".
     required: false
@@ -158,7 +169,7 @@ runs:
     - name: quail generate
       # Diff-driven generation needs a PR. Skip when there's none but a probe
       # target is set — the standalone probe step below covers that case.
-      if: inputs.run-generate == 'true' && inputs.pr != ''
+      if: (inputs.mode == 'auto' || inputs.mode == 'generate') && inputs.run-generate == 'true' && inputs.pr != ''
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token != '' && inputs.github-token || github.token }}
@@ -186,7 +197,7 @@ runs:
     - name: quail probe (standalone, no PR)
       # Fires when target-urls is set AND no PR is available (workflow_dispatch
       # or push runs). The PR-attached probe path already runs inside `generate`.
-      if: inputs.target-urls != '' && inputs.pr == ''
+      if: (inputs.mode == 'auto' || inputs.mode == 'generate') && inputs.target-urls != '' && inputs.pr == ''
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token != '' && inputs.github-token || github.token }}
@@ -208,7 +219,7 @@ runs:
         export QUAIL_ENGINE="${QUAIL_BROWSERS%%,*}"
         quail probe
     - name: quail heal
-      if: inputs.run-heal == 'true' && inputs.heal-mode != 'off'
+      if: (inputs.mode == 'auto' || inputs.mode == 'heal') && inputs.run-heal == 'true' && inputs.heal-mode != 'off'
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token != '' && inputs.github-token || github.token }}
@@ -225,3 +236,19 @@ runs:
           exit 0
         fi
         quail heal
+    - name: quail review (@quail PR reviewer)
+      # Pairs with an issue_comment workflow filtered on `@quail` in the
+      # comment body. Fetches the PR diff, asks the LLM to summarise as
+      # `## Core Changes` + `## Verdict`, and posts the result as a
+      # single markdown comment.
+      if: inputs.mode == 'review'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token != '' && inputs.github-token || github.token }}
+        OPENAI_BASE_URL: ${{ inputs.openai-base-url }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        QUAIL_MODEL: ${{ inputs.model }}
+        QUAIL_PR: ${{ inputs.pr }}
+        QUAIL_LOG_LEVEL: ${{ inputs.log-level }}
+      run: |
+        quail review
