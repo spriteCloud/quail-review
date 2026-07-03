@@ -200,11 +200,26 @@ func reviewViaJSON(ctx context.Context, lm *llm.Client, userPrompt string) (stri
 	// Some models still wrap JSON in ```json ... ``` even under
 	// json_object mode. Strip a full-message fence just in case.
 	raw = stripFullMessageCodeFence(raw)
+	rlog.Info("review: JSON raw response", "bytes", len(raw), "head", firstN(raw, 400))
 	var v reviewVerdict
 	if err := json.Unmarshal([]byte(raw), &v); err != nil {
 		return "", fmt.Errorf("parse JSON verdict: %w — raw=%.200q", err, raw)
 	}
+	// The model sometimes returns valid-but-empty JSON when it can't
+	// figure out the diff (or ignores the schema and returns `{}`).
+	// Treat that as failure so the caller falls back to prose mode,
+	// which at least routes through the salvager.
+	if len(v.CoreChanges) == 0 && strings.TrimSpace(v.Rationale) == "" && strings.TrimSpace(v.Verdict) == "" {
+		return "", fmt.Errorf("JSON verdict was empty (all fields blank): %.200q", raw)
+	}
 	return renderVerdictMarkdown(v), nil
+}
+
+func firstN(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }
 
 // renderVerdictMarkdown converts a structured verdict into the standard
