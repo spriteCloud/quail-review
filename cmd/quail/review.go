@@ -609,6 +609,11 @@ func renderVerdictMarkdownWithModel(v reviewVerdict, modelName string) string {
 	if rationale != "" {
 		rationale = collapseWhitespace(rationale)
 		rationale = stripRationalePreamble(rationale)
+		// Model went off-script and wrote a nested list as the
+		// rationale — replace with a terse pointer at the bullets.
+		if reRationaleLooksLikeList.MatchString(rationale) {
+			rationale = "See core changes above."
+		}
 		rationale = capLine(rationale, maxRationaleLen)
 		b.WriteString(": ")
 		b.WriteString(rationale)
@@ -633,7 +638,13 @@ func collapseWhitespace(s string) string {
 // rePreamble matches the chatty openers qwen2.5 (and other instruct
 // models) can't help but add to rationales — "Wow, that's a…",
 // "Sure! Here's my take…", "Great changes overall,…". Drop them.
-var rePreamble = regexp.MustCompile(`^(?i)(wow[!,.]?\s+|sure[!,.]?\s+|great[!,.]?\s+|okay[!,.]?\s+|alright[!,.]?\s+|here'?s\s+(a\s+|my\s+|the\s+)?(brief|quick|short|overview|summary|take)[,.:]?\s+|below\s+is\s+.*?[:.]\s+|let\s+me\s+(break|walk|summar)[^.]*\.\s*|thanks?\s+for\s+.*?[!.]\s+|this\s+(pr|pull\s+request|commit)\s+(is|includes|introduces|appears|looks|shows|adds|contains)\s+.*?[,.:]\s+|it\s+(appears|looks|seems)\s+(that|like)\s+(you'?ve\s+)?.*?[:.]\s+|you'?ve\s+(added|introduced|created|written|updated|modified|changed)\s+.*?[:.]\s+|the\s+diff\s+(shows|contains|introduces|adds)\s+.*?[:.]\s+|overall[,.:]?\s+.*?[:.]\s+)`)
+var rePreamble = regexp.MustCompile(`^(?i)(wow[!,.]?\s+|sure[!,.]?\s+|great[!,.]?\s+|okay[!,.]?\s+|alright[!,.]?\s+|here'?s\s+(a\s+|my\s+|the\s+)?(brief|quick|short|overview|summary|take)[,.:]?\s+|below\s+is\s+.*?[:.]\s+|let\s+me\s+(break|walk|summar)[^.]*\.\s*|thanks?\s+for\s+.*?[!.]\s+|this\s+(pr|pull\s+request|commit|update|change|changeset|patch|diff)\s+(is|includes|introduces|appears|looks|shows|adds|contains|expands|enhances|refactors|improves|updates|modifies)\s+.*?[,.:]\s+|it\s+(appears|looks|seems)\s+(that|like)\s+(you'?ve\s+)?.*?[:.]\s+|you'?ve\s+(added|introduced|created|written|updated|modified|changed)\s+.*?[:.]\s+|the\s+diff\s+(shows|contains|introduces|adds)\s+.*?[:.]\s+|overall[,.:]?\s+.*?[:.]\s+)`)
+
+// reRationaleLooksLikeList detects a rationale that starts drifting
+// into a numbered/bulleted list ("1. …", "- …", "* …") — a sign the
+// model went full summary mode instead of writing a one-sentence
+// verdict rationale.
+var reRationaleLooksLikeList = regexp.MustCompile(`(?m)(^|\s)(\d+[.)]\s+|[-*•]\s+)\*\*[^*]+\*\*`)
 
 // stripRationalePreamble removes conversational openers so the
 // rationale opens on the actual review content.
