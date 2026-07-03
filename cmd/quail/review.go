@@ -169,24 +169,31 @@ type reviewVerdict struct {
 
 const reviewJSONSystemPrompt = `You are a senior code reviewer commenting on a GitHub pull request.
 
-Respond with ONLY a JSON object matching this exact schema — no prose, no code fences, no THOUGHT, no plan-of-action:
+Respond with a JSON object using EXACTLY these three keys: "core_changes", "verdict", "rationale". No other keys. No prose outside the JSON. No code fences.
+
+EXAMPLE — a valid response for a hypothetical PR:
 
 {
-  "core_changes": ["3 to 8 short imperative-voice bullet points naming meaningful changes"],
-  "verdict": "Approve" | "Request changes" | "Comment",
-  "rationale": "One short paragraph explaining why you chose this verdict"
+  "core_changes": [
+    "Bumps @playwright/test from 1.44 to 1.47 in package.json",
+    "Replaces deprecated page.waitForTimeout with page.waitForLoadState in 4 specs",
+    "Adds a retry wrapper around the flaky login step in tests/auth/login.spec.ts"
+  ],
+  "verdict": "Approve",
+  "rationale": "The bump is a minor version with no known breaking changes for this suite, and the deprecation swap is mechanical. The retry wrapper caps at 2 attempts so it can't mask a real regression."
 }
 
-Rules:
-- core_changes: 3-8 items, each a single sentence, no numbering, no leading dashes.
-- Group by subsystem when it clarifies — do not enumerate every file.
-- verdict must be one of the three literal strings above (spelled exactly).
-- Trivial diff (typo, whitespace, comment) → Approve.
-- Correctness risk, security issue, breaking change → Request changes; name the risk in the rationale.
-- Otherwise → Comment.
-- If the diff is truncated, note the partial coverage in the rationale.
+Now write YOUR response for the actual PR diff below, in the same JSON shape.
 
-Return ONLY the JSON object. Nothing before, nothing after.`
+Rules:
+- "core_changes" must be a JSON array of 3-8 strings, each a single sentence describing one meaningful change. No numbering. No leading dashes or bullets. Group by subsystem when it clarifies.
+- "verdict" must be exactly one of: "Approve", "Request changes", "Comment".
+  - Trivial diff (typo, whitespace, comment) → "Approve".
+  - Correctness risk, security issue, or breaking change → "Request changes" and name the risk in the rationale.
+  - Otherwise → "Comment".
+- "rationale" must be a single paragraph string explaining the verdict. Not empty.
+- If the diff was truncated, mention partial coverage in the rationale.
+- An empty object {} is NOT a valid response. Every field must be populated based on the diff.`
 
 func reviewViaJSON(ctx context.Context, lm *llm.Client, userPrompt string) (string, error) {
 	raw, err := lm.ChatJSON(ctx, reviewJSONSystemPrompt, userPrompt)
