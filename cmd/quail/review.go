@@ -55,7 +55,23 @@ const reviewSystemPrompt = "You are a senior code reviewer commenting on a GitHu
 	"- Do not invent context you cannot infer from the diff.\n" +
 	"- Trivial diff (typo, comment, whitespace) → Approve concisely.\n" +
 	"- Correctness risk, security issue, or breaking change → Request changes and name it specifically.\n" +
-	"- Otherwise → Comment.\n"
+	"- Otherwise → Comment.\n" +
+	"\n" +
+	"EXAMPLE — this is EXACTLY the shape your response must take:\n" +
+	"\n" +
+	"## Core Changes\n" +
+	"\n" +
+	"- Bumps @playwright/test from 1.44 → 1.47 in package.json\n" +
+	"- Replaces deprecated `page.waitForTimeout` with `page.waitForLoadState` in 4 specs\n" +
+	"- Adds a retry wrapper around the flaky login step in `tests/auth/login.spec.ts`\n" +
+	"\n" +
+	"---\n" +
+	"\n" +
+	"## Verdict\n" +
+	"\n" +
+	"**Approve**: The bump is a minor version with no known breaking changes for this suite, and the deprecation swap is mechanical. The retry wrapper caps at 2 attempts so it can't mask a real regression.\n" +
+	"\n" +
+	"END OF EXAMPLE. Now write YOUR review of the actual PR diff below, in exactly that shape.\n"
 
 func newReviewCmd() *cobra.Command {
 	var pr int
