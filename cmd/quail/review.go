@@ -478,6 +478,11 @@ func extractNumberedBullets(s string) []string {
 		if genericBulletLabels[strings.ToLower(strings.TrimRight(label, ": "))] {
 			return
 		}
+		// Strip leading list markers and stray colons from the
+		// description — qwen2.5 sometimes writes `**Header**: - text`
+		// which would render as "Header: - text" and read awkwardly.
+		desc = strings.TrimLeft(desc, "-*•: \t")
+		desc = strings.TrimSpace(desc)
 		var line string
 		if desc == "" {
 			line = label
@@ -602,7 +607,9 @@ func renderVerdictMarkdownWithModel(v reviewVerdict, modelName string) string {
 	b.WriteString("**")
 	rationale := strings.TrimSpace(v.Rationale)
 	if rationale != "" {
-		rationale = capLine(collapseWhitespace(rationale), maxRationaleLen)
+		rationale = collapseWhitespace(rationale)
+		rationale = stripRationalePreamble(rationale)
+		rationale = capLine(rationale, maxRationaleLen)
 		b.WriteString(": ")
 		b.WriteString(rationale)
 	}
@@ -621,6 +628,25 @@ func renderVerdictMarkdownWithModel(v reviewVerdict, modelName string) string {
 func collapseWhitespace(s string) string {
 	fields := strings.Fields(s)
 	return strings.Join(fields, " ")
+}
+
+// rePreamble matches the chatty openers qwen2.5 (and other instruct
+// models) can't help but add to rationales — "Wow, that's a…",
+// "Sure! Here's my take…", "Great changes overall,…". Drop them.
+var rePreamble = regexp.MustCompile(`^(?i)(wow[!,.]?\s+|sure[!,.]?\s+|great[!,.]?\s+|here'?s\s+(a\s+|my\s+|the\s+)?(brief|quick|short|overview|summary|take)[,.:]?\s+|below\s+is\s+.*?[:.]\s+|let\s+me\s+(break|walk|summar)[^.]*\.\s*|thanks?\s+for\s+.*?[!.]\s+|this\s+pr\s+(is|includes|introduces)\s+)`)
+
+// stripRationalePreamble removes conversational openers so the
+// rationale opens on the actual review content.
+func stripRationalePreamble(s string) string {
+	// Apply repeatedly — the model sometimes stacks two openers.
+	for i := 0; i < 3; i++ {
+		trimmed := rePreamble.ReplaceAllString(s, "")
+		if trimmed == s {
+			break
+		}
+		s = strings.TrimSpace(trimmed)
+	}
+	return s
 }
 
 func normaliseVerdictTag(s string) string {
