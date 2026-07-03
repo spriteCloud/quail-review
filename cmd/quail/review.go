@@ -149,7 +149,7 @@ func runReview(ctx context.Context, cfg config.Config) error {
 	// and `## Verdict` are always right regardless of what the model
 	// does with formatting. Falls back to single-shot JSON, then prose
 	// + salvager, so a working model swap doesn't lose the reliability.
-	body, err := reviewViaTwoStep(ctx, lm, prObj.GetTitle(), rawDiff, truncated)
+	body, err := reviewViaTwoStep(ctx, lm, prObj.GetTitle(), rawDiff, truncated, cfg.Model)
 	if err != nil {
 		rlog.Warn("review: two-step mode failed, falling back to single JSON", "err", err)
 		body, err = reviewViaJSON(ctx, lm, userPrompt)
@@ -172,7 +172,7 @@ func runReview(ctx context.Context, cfg config.Config) error {
 // section headers when asked to produce a whole review in one go; this
 // split keeps each ask small and puts the presentation contract on
 // our side, not theirs.
-func reviewViaTwoStep(ctx context.Context, lm *llm.Client, prTitle, rawDiff string, truncated bool) (string, error) {
+func reviewViaTwoStep(ctx context.Context, lm *llm.Client, prTitle, rawDiff string, truncated bool, modelName string) (string, error) {
 	bullets, err := extractCoreChanges(ctx, lm, prTitle, rawDiff, truncated)
 	if err != nil {
 		return "", fmt.Errorf("core-changes step: %w", err)
@@ -186,14 +186,14 @@ func reviewViaTwoStep(ctx context.Context, lm *llm.Client, prTitle, rawDiff stri
 		return "", fmt.Errorf("verdict step: %w", err)
 	}
 	rlog.Info("review: computed verdict", "verdict", v.Verdict)
-	return renderVerdictMarkdown(reviewVerdict{
+	return renderVerdictMarkdownWithModel(reviewVerdict{
 		CoreChanges: bullets,
 		Verdict:     v.Verdict,
 		Rationale:   v.Rationale,
-	}), nil
+	}, modelName), nil
 }
 
-const coreChangesSystemPrompt = `You are a senior code reviewer summarising a GitHub pull request.
+const coreChangesSystemPrompt = `You are a senior code reviewer summarising a GitHub pull request. You produce SHORT, SCANNABLE bullets — the reader spends 10 seconds on your comment.
 
 Respond with a JSON object containing exactly ONE key: "core_changes".
 
@@ -201,20 +201,20 @@ EXAMPLE — a valid response:
 
 {
   "core_changes": [
-    "Bumps @playwright/test from 1.44 to 1.47 in package.json",
-    "Replaces deprecated page.waitForTimeout with page.waitForLoadState in 4 specs",
-    "Adds a retry wrapper around the flaky login step in tests/auth/login.spec.ts"
+    "Removed the ReviewForge.yml reusable workflow, addressing cosmetic failures in the Actions tab.",
+    "Added github-token to the releaseforge action in the release.yml workflow to enable contributor username resolution.",
+    "Updated the binary download and extraction logic in action.yml for the reviewforge executable."
   ]
 }
 
 Rules:
-- "core_changes" must be a JSON array of 3 to 8 strings.
-- Each string is a single sentence in imperative voice describing ONE meaningful change.
-- Do not number the items, do not include a leading dash or bullet, do not repeat the array key inside the strings.
-- Group by subsystem when it clarifies. Do NOT enumerate every file — summarise.
+- "core_changes" must be a JSON array of 3 to 5 strings — NO MORE THAN 5.
+- Each string is ONE sentence, MAX 25 words. Start with an imperative verb (Adds/Removes/Updates/Refactors/Renames/Fixes/Bumps).
+- Do not number the items, do not include a leading dash or bullet, do not add sub-headers like "Purpose:" or "Coverage:".
+- Summarise by subsystem — do NOT enumerate every file, do NOT quote diff content, do NOT include code snippets.
 - Return the JSON object and NOTHING else. Empty {} is invalid.`
 
-const verdictSystemPrompt = `You are a senior code reviewer deciding an overall verdict for a GitHub pull request.
+const verdictSystemPrompt = `You are a senior code reviewer deciding an overall verdict for a GitHub pull request. You are TERSE.
 
 Respond with a JSON object containing exactly TWO keys: "verdict" and "rationale".
 
@@ -222,16 +222,16 @@ EXAMPLE — a valid response:
 
 {
   "verdict": "Approve",
-  "rationale": "The bump is a minor version with no known breaking changes for this suite. The retry wrapper caps at 2 attempts so it can't mask a real regression."
+  "rationale": "The changes align with the PR description and do not introduce any critical issues or regressions."
 }
 
 Rules:
 - "verdict" must be exactly one of: "Approve", "Request changes", "Comment".
   - Trivial diff (typo, comment, whitespace) → "Approve".
-  - Correctness risk, security issue, breaking change → "Request changes" and name the risk in the rationale.
+  - Correctness risk, security issue, breaking change → "Request changes" and name the risk.
   - Otherwise → "Comment".
-- "rationale" is a single paragraph explaining the verdict — never empty.
-- If the diff was truncated, note the partial coverage in the rationale.
+- "rationale" is ONE sentence, MAX 30 words. No bullet lists, no code snippets, no "Summary of Changes" headers.
+- If the diff was truncated, add "partial review" to the rationale.
 - Return the JSON object and NOTHING else. Empty {} is invalid.`
 
 type coreChangesShape struct {
@@ -428,14 +428,32 @@ func inferVerdictFromProse(s string) string {
 	}
 }
 
-// reNumberedBoldItem matches `1. **Header**: description` (both `.`
-// and `)` numeric separators; `**` or `__` bold markers). The label
-// group ends at the first `:` after `**`.
-var reNumberedBoldItem = regexp.MustCompile(`(?m)^\s*\d+[.)]\s+(?:\*\*|__)([^*_]+)(?:\*\*|__)\s*:?\s*(.*)$`)
+// reNumberedBoldItem matches `1. **Header**: description` at the START
+// of a line (no leading whitespace) — top-level items only. Nested
+// sub-items (indented) are skipped so we don't pull generic "Purpose:"
+// / "Coverage:" labels out of qwen2.5's sub-bullets.
+var reNumberedBoldItem = regexp.MustCompile(`(?m)^\d+[.)]\s+(?:\*\*|__)([^*_]+)(?:\*\*|__)\s*:?\s*(.*)$`)
 
-// reBulletBoldItem matches `- **Header**: description` (bullet lines
-// with a bold label). Same output shape as numbered.
-var reBulletBoldItem = regexp.MustCompile(`(?m)^\s*[-*]\s+(?:\*\*|__)([^*_]+)(?:\*\*|__)\s*:?\s*(.*)$`)
+// reBulletBoldItem matches `- **Header**: description` at line start.
+var reBulletBoldItem = regexp.MustCompile(`(?m)^[-*]\s+(?:\*\*|__)([^*_]+)(?:\*\*|__)\s*:?\s*(.*)$`)
+
+// genericBulletLabels are meta-labels qwen2.5 emits inside sub-bullets
+// (Purpose:/Coverage:/Description:/…) that carry no information on
+// their own — the sibling description does. Skip these.
+var genericBulletLabels = map[string]bool{
+	"purpose":     true,
+	"coverage":    true,
+	"description": true,
+	"details":     true,
+	"context":     true,
+	"summary":     true,
+	"overview":    true,
+	"notes":       true,
+	"impact":      true,
+	"rationale":   true,
+	"reason":      true,
+	"scope":       true,
+}
 
 // extractNumberedBullets pulls "1. **Header**: description" (and its
 // bulleted twin) items out of a markdown prose response. Each item
@@ -454,6 +472,12 @@ func extractNumberedBullets(s string) []string {
 		if label == "" {
 			return
 		}
+		// Skip generic meta-labels — the sibling description is the
+		// real content, but at this line we don't have it. Better to
+		// drop the item than emit "Purpose: …".
+		if genericBulletLabels[strings.ToLower(strings.TrimRight(label, ": "))] {
+			return
+		}
 		var line string
 		if desc == "" {
 			line = label
@@ -462,6 +486,7 @@ func extractNumberedBullets(s string) []string {
 		}
 		// Trim trailing markdown list markers / punctuation drift.
 		line = strings.TrimRight(line, " .,")
+		line = capLine(line, maxBulletChars)
 		if _, dup := seen[line]; dup {
 			return
 		}
@@ -474,10 +499,26 @@ func extractNumberedBullets(s string) []string {
 	for _, m := range reBulletBoldItem.FindAllStringSubmatch(s, -1) {
 		appendMatch(m)
 	}
-	if len(out) > 8 {
-		out = out[:8]
+	if len(out) > maxBullets {
+		out = out[:maxBullets]
 	}
 	return out
+}
+
+const (
+	maxBullets      = 5
+	maxBulletChars  = 220
+	maxRationaleLen = 300
+)
+
+// capLine trims s to at most n runes, appending "…" on truncation.
+// Rune-safe so we don't split multibyte characters.
+func capLine(s string, n int) string {
+	if len([]rune(s)) <= n {
+		return s
+	}
+	rs := []rune(s)
+	return strings.TrimRight(string(rs[:n-1]), " ,;:") + "…"
 }
 
 // extractJSONObject returns the outermost balanced `{...}` block in s,
@@ -528,30 +569,58 @@ func extractJSONObject(s string) string {
 // verdict tag to one of the three known values; anything else is
 // treated as a Comment.
 func renderVerdictMarkdown(v reviewVerdict) string {
+	return renderVerdictMarkdownWithModel(v, "")
+}
+
+// renderVerdictMarkdownWithModel emits the standard `## Core Changes`
+// + `## Verdict` shape and, if modelName is set, adds a
+// `Code review performed by MODEL — <name>.` footer.
+func renderVerdictMarkdownWithModel(v reviewVerdict, modelName string) string {
 	tag := normaliseVerdictTag(v.Verdict)
 	var b strings.Builder
 	b.WriteString("## Core Changes\n\n")
+	emitted := 0
 	if len(v.CoreChanges) == 0 {
 		b.WriteString("- (no meaningful changes surfaced)\n")
 	}
 	for _, c := range v.CoreChanges {
+		if emitted >= maxBullets {
+			break
+		}
 		c = strings.TrimSpace(strings.TrimLeft(c, "-* \t"))
 		if c == "" {
 			continue
 		}
+		c = capLine(c, maxBulletChars)
 		b.WriteString("- ")
 		b.WriteString(c)
 		b.WriteByte('\n')
+		emitted++
 	}
 	b.WriteString("\n---\n\n## Verdict\n\n**")
 	b.WriteString(tag)
 	b.WriteString("**")
 	rationale := strings.TrimSpace(v.Rationale)
 	if rationale != "" {
+		rationale = capLine(collapseWhitespace(rationale), maxRationaleLen)
 		b.WriteString(": ")
 		b.WriteString(rationale)
 	}
+	if strings.TrimSpace(modelName) != "" {
+		b.WriteString("\n\n---\n\n")
+		b.WriteString("_Code review performed by MODEL — `")
+		b.WriteString(strings.TrimSpace(modelName))
+		b.WriteString("`._")
+	}
 	return b.String()
+}
+
+// collapseWhitespace flattens runs of whitespace (including newlines)
+// to a single space so a multi-paragraph model response fits on one
+// line as a rationale.
+func collapseWhitespace(s string) string {
+	fields := strings.Fields(s)
+	return strings.Join(fields, " ")
 }
 
 func normaliseVerdictTag(s string) string {
