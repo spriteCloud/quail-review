@@ -496,6 +496,22 @@ func extractNumberedBullets(s string) []string {
 		// model sometimes runs items together on one line.
 		desc = reTrailingItemStart.ReplaceAllString(desc, "")
 		desc = strings.TrimSpace(desc)
+		// Drop bullets whose description trails off with a colon and
+		// nothing after it — the model was about to open a sub-list
+		// that never came (or got trimmed). Better to skip the whole
+		// item than emit `Header: Introduced tests for:`.
+		if strings.HasSuffix(desc, ":") {
+			desc = strings.TrimRight(strings.TrimSuffix(desc, ":"), " \t,")
+			// If cutting the trailing colon leaves a bare "for" /
+			// "including" / "such as" — a preposition dangling — drop
+			// the whole description; keep only the label.
+			lower := strings.ToLower(desc)
+			if strings.HasSuffix(lower, " for") || strings.HasSuffix(lower, " including") ||
+				strings.HasSuffix(lower, " such as") || strings.HasSuffix(lower, " like") ||
+				strings.HasSuffix(lower, " with") || strings.HasSuffix(lower, " to") {
+				desc = ""
+			}
+		}
 		var line string
 		if desc == "" {
 			line = label
@@ -628,6 +644,11 @@ func renderVerdictMarkdownWithModel(v reviewVerdict, modelName string) string {
 		}
 		rationale = collapseWhitespace(rationale)
 		rationale = stripRationalePreamble(rationale)
+		// Drop a trailing "Here's a summary of the key changes:" /
+		// "Below are the highlights:" style intro-to-list — those
+		// phrases dangle when the list itself got cut above.
+		rationale = reTrailingIntroToList.ReplaceAllString(rationale, "")
+		rationale = strings.TrimSpace(rationale)
 		// If the model still wrote list-shaped content (e.g. opened
 		// with a list, no intro sentence), fall back to first sentence
 		// of what's left.
@@ -669,6 +690,12 @@ var rePreamble = regexp.MustCompile(`^(?i)(wow[!,.]?\s+|sure[!,.]?\s+|great[!,.]
 // model went full summary mode instead of writing a one-sentence
 // verdict rationale.
 var reRationaleLooksLikeList = regexp.MustCompile(`(?m)(^|\s)(\d+[.)]\s+|[-*•]\s+)\*\*[^*]+\*\*`)
+
+// reTrailingIntroToList matches phrases the model uses to hand off
+// into a list: "Here's a summary of the key changes:" / "Below are
+// the highlights:" / "Let me break down…". Trimmed from the tail of
+// the rationale so these don't dangle when the list itself was cut.
+var reTrailingIntroToList = regexp.MustCompile(`(?i)[\s.,]+(here'?s\s+(a\s+|my\s+|the\s+)?(brief\s+|quick\s+|short\s+)?(summary|overview|breakdown|list|rundown|take|take-?away)[^.]*[:.]?\s*$|below\s+(are\s+|is\s+)[^.]*[:.]?\s*$|let\s+me\s+(break|walk|summar)[^.]*[:.]?\s*$|as\s+follows\s*[:.]?\s*$|the\s+(key\s+|main\s+|major\s+)?(changes|highlights|updates)\s+(are|include)[^.]*[:.]?\s*$)`)
 
 // reFirstListStart matches the FIRST place a list starts — used to
 // truncate a rationale down to just its intro sentence before the
