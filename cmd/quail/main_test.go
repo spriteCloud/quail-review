@@ -188,6 +188,24 @@ func TestSiblingPath(t *testing.T) {
 	}
 }
 
+// QUAIL_DIFF_ONLY=1: when the diff has no journey-bearing paths, do NOT
+// fall back to probeURLs — return nil so the caller skips the probe.
+// Without the env, the current fallback is preserved (target-urls act
+// as the "always probe this" configuration).
+func TestDeriveAffectedURLs_DiffOnlyEnv_SuppressesProbeURLsFallback(t *testing.T) {
+	probeURLs := []string{"https://www.example.com"}
+	// No items → paths map is empty → fallback path taken.
+	t.Setenv("QUAIL_DIFF_ONLY", "1")
+	if got := deriveAffectedURLs(nil, plan.Layout{}, probeURLs); got != nil {
+		t.Errorf("QUAIL_DIFF_ONLY=1 must return nil; got %v", got)
+	}
+	t.Setenv("QUAIL_DIFF_ONLY", "")
+	got := deriveAffectedURLs(nil, plan.Layout{}, probeURLs)
+	if len(got) != 1 || got[0] != "https://www.example.com" {
+		t.Errorf("QUAIL_DIFF_ONLY empty must fall back to probeURLs; got %v", got)
+	}
+}
+
 func TestWriteStepSummary(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "summary.md")
