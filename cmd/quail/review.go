@@ -437,6 +437,11 @@ var reNumberedBoldItem = regexp.MustCompile(`(?m)^\d+[.)]\s+(?:\*\*|__)([^*_]+)(
 // reBulletBoldItem matches `- **Header**: description` at line start.
 var reBulletBoldItem = regexp.MustCompile(`(?m)^[-*]\s+(?:\*\*|__)([^*_]+)(?:\*\*|__)\s*:?\s*(.*)$`)
 
+// reTrailingItemStart trims a `N. **Header:**` (or `N) **Header:**`)
+// suffix off a bullet description when the model ran two items
+// together on one line.
+var reTrailingItemStart = regexp.MustCompile(`\s+\d+[.)]\s+(?:\*\*|__).*$`)
+
 // genericBulletLabels are meta-labels qwen2.5 emits inside sub-bullets
 // (Purpose:/Coverage:/Description:/…) that carry no information on
 // their own — the sibling description does. Skip these.
@@ -468,6 +473,9 @@ func extractNumberedBullets(s string) []string {
 			return
 		}
 		label := strings.TrimSpace(m[1])
+		// Model sometimes writes `**Header:**` — strip trailing `:` so
+		// we don't emit `Header:: desc`.
+		label = strings.TrimRight(label, ": \t")
 		desc := strings.TrimSpace(m[2])
 		if label == "" {
 			return
@@ -482,6 +490,11 @@ func extractNumberedBullets(s string) []string {
 		// description — qwen2.5 sometimes writes `**Header**: - text`
 		// which would render as "Header: - text" and read awkwardly.
 		desc = strings.TrimLeft(desc, "-*•: \t")
+		desc = strings.TrimSpace(desc)
+		// Cut trailing content that looks like the start of the NEXT
+		// numbered item ("5. **Header:**" or "5) **Header:**") — the
+		// model sometimes runs items together on one line.
+		desc = reTrailingItemStart.ReplaceAllString(desc, "")
 		desc = strings.TrimSpace(desc)
 		var line string
 		if desc == "" {
