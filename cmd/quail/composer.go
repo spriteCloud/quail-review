@@ -255,20 +255,36 @@ func appendSuiteJourneys(ctx context.Context, cfg config.Config, items []plan.It
 		return items
 	}
 	existing := existingJourneyTitles(items)
+	// Persona-rotation: one ComposeSuite call per persona per origin.
+	// Each persona reshapes what the LLM finds valuable. Dedup by
+	// title across rounds so overlapping proposals collapse.
+	seen := map[string]bool{}
+	for _, t := range existing {
+		seen[strings.ToLower(t)] = true
+	}
 	added := 0
 	for origin, m := range maps {
 		if m == nil {
 			continue
 		}
-		extras, err := oplist.ComposeSuite(ctx, client, m, existing)
-		if err != nil {
-			rlog.Warn("oplist: suite compose failed", "origin", origin, "err", err)
-			continue
-		}
-		for i := range extras {
-			j := extras[i]
-			items = append(items, suiteJourneyItem(j, origin))
-			added++
+		for _, persona := range oplist.DefaultPersonas {
+			extras, err := oplist.ComposeSuite(ctx, client, m, existing, persona)
+			if err != nil {
+				rlog.Warn("oplist: suite compose failed",
+					"origin", origin, "persona", persona, "err", err)
+				continue
+			}
+			for i := range extras {
+				j := extras[i]
+				key := strings.ToLower(j.Title)
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				existing = append(existing, j.Title)
+				items = append(items, suiteJourneyItem(j, origin))
+				added++
+			}
 		}
 	}
 	if added > 0 {
