@@ -203,9 +203,10 @@ func newGenerateCmd() *cobra.Command {
 // v0.99.
 func addKindFlags(cmd *cobra.Command, kinds, excludeKinds *string) {
 	cmd.Flags().StringVar(kinds, "kinds", "",
-		"Comma-separated allow-list of test kinds (e.g. a11y,perf,journey). "+
-			"Empty = all kinds. Env: QUAIL_KINDS. "+
-			"Scaffolding (config/README/package.json), docs, and sentinels are always kept.")
+		"Comma-separated allow-list of test kinds. Empty = the safe default "+
+			"(journey only — LLM-composed functional tests). Opt in to the "+
+			"rest with e.g. --kinds=journey,a11y,perf,visual. Env: QUAIL_KINDS. "+
+			"Scaffolding and docs are always kept.")
 	cmd.Flags().StringVar(excludeKinds, "exclude-kinds", "",
 		"Comma-separated deny-list of test kinds (applied after --kinds). "+
 			"Env: QUAIL_EXCLUDE_KINDS.")
@@ -607,8 +608,12 @@ func deriveAffectedURLs(items []plan.Item, _ plan.Layout, probeURLs []string) []
 func applyKindFilter(items []plan.Item) []plan.Item {
 	allow := plan.ParseKinds(os.Getenv("QUAIL_KINDS"))
 	deny := plan.ParseKinds(os.Getenv("QUAIL_EXCLUDE_KINDS"))
-	if len(allow) == 0 && len(deny) == 0 {
-		return items
+	// Default: journey-only. Everything else (a11y, visual, perf, ...)
+	// is opt-in via --kinds because typical PRs don't need 200+ files
+	// of orthogonal quality-audit specs on every change. Scaffolding +
+	// docs stay kept regardless — they're structural prerequisites.
+	if len(allow) == 0 {
+		allow = []string{plan.KindJourney}
 	}
 	before := len(items)
 	items = plan.FilterByKinds(items, allow, deny)
