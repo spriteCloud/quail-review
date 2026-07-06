@@ -21,9 +21,8 @@
 # Env overrides:
 #   URL      target-url the probe visits           (default: spritecloud)
 #   KINDS    QUAIL_KINDS filter                    (default: journey,touch,responsive,visual)
-#   OLLAMA   http://.../v1 base for humanize       (default: DGX via netbird)
+#   OLLAMA   http://.../v1 base for the LLM        (default: DGX via netbird)
 #   MODEL    model id                              (default: qwen3-coder-next:latest)
-#   NO_LLM=1 skip LLM humanize entirely (fastest)
 #   NO_TSC=1 skip the playwright --list step (probe mode only)
 
 set -euo pipefail
@@ -57,7 +56,6 @@ case "$MODE" in
       OPENAI_BASE_URL="${OLLAMA}" \
       OPENAI_API_KEY=ollama \
       QUAIL_MODEL="$MODEL" \
-      ${NO_LLM:+QUAIL_HUMANIZE=0} \
       "$BIN" probe --url "$URL" --local 2>&1 | tee "$WORKDIR/probe.log" | tail -40
 
     if [[ "${NO_TSC:-0}" == "1" ]]; then

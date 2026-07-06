@@ -505,9 +505,7 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return fmt.Errorf("render: %w", err)
 	}
-	llmClient := llm.New(cfg)
-	pingLLMEndpoint(ctx, llmClient, cfg.OpenAIBaseURL)
-	humanizeWithBudget(ctx, llmClient, rendered)
+	pingLLMEndpoint(ctx, llm.New(cfg), cfg.OpenAIBaseURL)
 	if cfg.DryRun || client == nil {
 		printRendered(rendered)
 		return nil
@@ -552,7 +550,7 @@ func deriveAffectedURLs(items []plan.Item, _ plan.Layout, probeURLs []string) []
 	}
 	paths := map[string]struct{}{}
 	for _, it := range items {
-		if it.Template != plan.TmplPlaywrightFeature {
+		if it.Template != plan.TmplPlaywrightHappyFlow {
 			continue
 		}
 		file := it.Symbol.File
@@ -731,7 +729,7 @@ func runProbe(ctx context.Context, cfg config.Config, urls []string, c probe.Cov
 	return finishProbe(ctx, cfg, urls, items, errs, local)
 }
 
-// finishProbe shares the post-probe pipeline (render, humanize, dry-run
+// finishProbe shares the post-probe pipeline (compose, render, dry-run
 // vs local-write vs PR-open) between runProbe and runProbeWithFilter
 // so neither path drifts from the other.
 //
@@ -757,18 +755,17 @@ func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []
 		}
 		return fmt.Errorf("probe: no items produced (%s)", hint)
 	}
-	// v0.25: LLM scenario composer — strictly opt-in via --llm.
-	// Mutates feature items in-place to attach ExtraScenarios.
-	items = composeScenarios(ctx, cfg, items)
+	// Op-list composer — asks the LLM to compose one journey per
+	// TmplPlaywrightHappyFlow item, attaching a plan.Journey the
+	// renderer reads.
+	items = composeOpListJourneys(ctx, cfg, items)
 	// v0.99 — same taxonomy gate as runGenerate.
 	items = applyKindFilter(items)
 	rendered, err := gen.Render(items, cfg.WorkDir)
 	if err != nil {
 		return fmt.Errorf("probe render: %w", err)
 	}
-	llmClient := llm.New(cfg)
-	pingLLMEndpoint(ctx, llmClient, cfg.OpenAIBaseURL)
-	humanizeWithBudget(ctx, llmClient, rendered)
+	pingLLMEndpoint(ctx, llm.New(cfg), cfg.OpenAIBaseURL)
 	if cfg.DryRun {
 		printRendered(rendered)
 		return nil
@@ -1004,21 +1001,6 @@ type prSummary struct {
 	URL        string
 }
 
-// humanizeWithBudget walks `rendered` and calls Humanize on each
-// entry, but stops early once the wall-clock budget is exhausted
-// — leaving remaining files at their deterministic content.
-//
-// v0.87.1 — without this cap, a slow local Ollama with many
-// generated files (a probe of a sprawling site easily emits 150+
-// per-page artifacts × per-call latency of 5-30s = an hour+).
-// The user reported a probe that never finished; v0.87.1 caps
-// the phase.
-//
-// Budget defaults to 5 minutes; override via
-// QUAIL_HUMANIZE_BUDGET (Go duration string, e.g. "10m",
-// "30s"). Set "0" or "" to disable the cap (legacy behaviour).
-// QUAIL_HUMANIZE=0 still short-circuits before any LLM call,
-// same as before.
 // pingLLMEndpoint logs a one-line visible health-check of the LLM
 // chat endpoint at run start. For api.openai.com we skip the probe
 // (assumed reachable); for self-hosted endpoints (DGX via Netbird,
@@ -1046,63 +1028,6 @@ func pingLLMEndpoint(ctx context.Context, client *llm.Client, baseURL string) {
 				"endpoint", baseURL, "status", status)
 		}
 	})
-}
-
-func humanizeWithBudget(ctx context.Context, client *llm.Client, rendered []gen.Rendered) {
-	if len(rendered) == 0 || client == nil {
-		return
-	}
-	if os.Getenv("QUAIL_HUMANIZE") == "0" {
-		// Humanize() short-circuits itself in this mode; just call
-		// it once to surface the announce log line.
-		client.Humanize(ctx, rendered[0].Symbol.Language, rendered[0].Symbol.Name, rendered[0].Content)
-		return
-	}
-	budget := 5 * time.Minute
-	if raw := strings.TrimSpace(os.Getenv("QUAIL_HUMANIZE_BUDGET")); raw != "" {
-		if d, err := time.ParseDuration(raw); err == nil {
-			budget = d
-		}
-	}
-	deadline := time.Now().Add(budget)
-	skipped := 0
-
-	// v0.95 — humanize the BDD pair (features + matching .steps.ts) as
-	// one paired LLM call so step phrasing and step-def pattern stay in
-	// lockstep. Per-file humanize couldn't safely rephrase steps
-	// because the deterministic step-def patterns are frozen, so any
-	// natural rewrite of step text broke the binding and reverted.
-	bdd, leftover := gen.GroupBDDPair(rendered)
-	if bdd != nil {
-		if budget > 0 && time.Now().After(deadline) {
-			skipped += len(bdd.FeatureIdx) + 1
-		} else {
-			features := make([]llm.SuiteFile, len(bdd.FeatureIdx))
-			for i, idx := range bdd.FeatureIdx {
-				features[i] = llm.SuiteFile{Path: rendered[idx].Path, Body: rendered[idx].Content}
-			}
-			steps := llm.SuiteFile{Path: rendered[bdd.StepsIdx].Path, Body: rendered[bdd.StepsIdx].Content}
-			symbol := rendered[bdd.StepsIdx].Symbol.Name
-			newFeatures, newSteps := client.HumanizeSuite(ctx, symbol, features, steps)
-			for i, idx := range bdd.FeatureIdx {
-				rendered[idx].Content = newFeatures[i].Body
-			}
-			rendered[bdd.StepsIdx].Content = newSteps.Body
-		}
-	}
-
-	for k, i := range leftover {
-		if budget > 0 && time.Now().After(deadline) {
-			skipped += len(leftover) - k
-			break
-		}
-		rendered[i].Content = client.Humanize(ctx, rendered[i].Symbol.Language, rendered[i].Symbol.Name, rendered[i].Content)
-	}
-	if skipped > 0 {
-		rlog.Warn("llm humanize budget exhausted; skipping remaining files",
-			"skipped", skipped, "of", len(rendered), "budget", budget,
-			"hint", "extend with QUAIL_HUMANIZE_BUDGET=10m or disable with QUAIL_HUMANIZE=0")
-	}
 }
 
 func printRendered(rs []gen.Rendered) {
