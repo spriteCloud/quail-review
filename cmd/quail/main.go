@@ -1166,7 +1166,7 @@ func genPRBody(pr *prSummary, rs []gen.Rendered) string {
 	b.WriteString(fmt.Sprintf("**%d files** organised by kind:\n\n", len(rs)))
 	b.WriteString("Files:\n")
 	writeKindSummary(&b, rs)
-	b.WriteString("\nEach spec is either an LLM-composed journey (in the `journey` kind) or a deterministic primitive-composed check (a11y, visual, perf, etc.). Review and extend with edge cases.\n")
+	b.WriteString("\nJourney breakdown: `journey:composed` = per-page LLM walks; `journey:suite` = mindmap-aware persona rotation; `journey:negative` = form-validation error variants; `journey:coverage` = 1 journey per crawled-but-untouched page. Everything else is a deterministic primitive-composed check (a11y, visual, perf, ...).\n")
 	appendQualityNotes(&b, rs)
 	writeFullFileList(&b, rs)
 	return b.String()
@@ -1187,6 +1187,15 @@ func writeKindSummary(b *strings.Builder, rs []gen.Rendered) {
 		k := plan.KindOf(r.Template)
 		if k == "" {
 			k = "unknown"
+		}
+		// Split the `journey` bucket by its provenance — filenames the
+		// composer wrote get a `suite-`, `negative-`, or `coverage-`
+		// prefix. Composed journeys have neither, so they read as
+		// `journey:composed`. Split matches @journey:<kind> tags in
+		// each spec so reviewers can see origin at a glance without
+		// opening a file.
+		if k == "journey" {
+			k = "journey:" + journeySubKind(r.Path)
 		}
 		bk := buckets[k]
 		if bk == nil {
@@ -1217,6 +1226,28 @@ func writeKindSummary(b *strings.Builder, rs []gen.Rendered) {
 		}
 		fmt.Fprintf(b, "- **%s** — %d %s (e.g. `%s`)\n", k, bk.count, unit, bk.sample)
 	}
+}
+
+// journeySubKind reads a rendered spec path and returns which of the
+// four composer passes produced it: suite / negative / coverage, or
+// composed for everything else (per-page composed items land at
+// tests/e2e/<slug>.spec.ts without a compose-authored prefix). Kept
+// prefix-based rather than reading the Journey.Kind field because
+// gen.Rendered doesn't carry the source Item pointer.
+func journeySubKind(path string) string {
+	base := path
+	if slash := strings.LastIndex(base, "/"); slash >= 0 {
+		base = base[slash+1:]
+	}
+	switch {
+	case strings.HasPrefix(base, "suite-"):
+		return "suite"
+	case strings.HasPrefix(base, "negative-"):
+		return "negative"
+	case strings.HasPrefix(base, "coverage-"):
+		return "coverage"
+	}
+	return "composed"
 }
 
 // writeFullFileList appends a GitHub-collapsible <details> block with
