@@ -27,6 +27,7 @@ import (
 	"github.com/spriteCloud/quail-core/config"
 	"github.com/spriteCloud/quail-core/diff"
 	"github.com/spriteCloud/quail-core/gen"
+	"github.com/spriteCloud/quail-core/gen/prims"
 	"github.com/spriteCloud/quail-core/gh"
 	"github.com/spriteCloud/quail-core/heal"
 	"github.com/spriteCloud/quail-core/integration"
@@ -508,6 +509,7 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 	llmClient := llm.New(cfg)
 	pingLLMEndpoint(ctx, llmClient, cfg.OpenAIBaseURL)
 	humanizeWithBudget(ctx, llmClient, rendered)
+	rendered = injectPrimsScaffoldIfNeeded(rendered)
 	if cfg.DryRun || client == nil {
 		printRendered(rendered)
 		return nil
@@ -1046,6 +1048,30 @@ func pingLLMEndpoint(ctx context.Context, client *llm.Client, baseURL string) {
 				"endpoint", baseURL, "status", status)
 		}
 	})
+}
+
+// injectPrimsScaffoldIfNeeded prepends a gen.Rendered item for
+// tests/e2e/prims.ts when the render output contains a kind that
+// imports from '../prims'. IfMissingOnly so a project's local edits
+// survive subsequent generate runs. Spike: touch kind only.
+func injectPrimsScaffoldIfNeeded(rendered []gen.Rendered) []gen.Rendered {
+	needsPrims := false
+	for _, r := range rendered {
+		if r.Template == plan.TmplPlaywrightTouch {
+			needsPrims = true
+			break
+		}
+	}
+	if !needsPrims {
+		return rendered
+	}
+	scaffold := gen.Rendered{
+		Path:          prims.PrimsRelPath,
+		Content:       prims.PrimsContent(),
+		IfMissingOnly: true,
+		Template:      plan.TmplRaw,
+	}
+	return append([]gen.Rendered{scaffold}, rendered...)
 }
 
 func humanizeWithBudget(ctx context.Context, client *llm.Client, rendered []gen.Rendered) {
