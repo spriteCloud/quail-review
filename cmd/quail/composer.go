@@ -175,6 +175,88 @@ func trim(s string) string {
 	return s[i:j]
 }
 
+// appendCoverageJourneys asks the LLM to write journeys for pages the
+// mindmap crawled but no existing journey visited. Runs AFTER
+// composeOpListJourneys + appendSuiteJourneys + appendNegativeJourneys
+// so it sees the fullest possible "touched URLs" set. Silent no-op
+// when the LLM is disabled, no map available, or every page already
+// covered.
+func appendCoverageJourneys(ctx context.Context, cfg config.Config, items []plan.Item, maps map[string]*mindmap.Map) []plan.Item {
+	client := llm.New(cfg)
+	if !client.Enabled() || len(maps) == 0 {
+		return items
+	}
+	touched := collectTouchedURLs(items)
+	existing := existingJourneyTitles(items)
+	added := 0
+	for origin, m := range maps {
+		if m == nil {
+			continue
+		}
+		extras, err := oplist.ComposeCoverageGaps(ctx, client, m, touched, existing)
+		if err != nil {
+			rlog.Warn("oplist: coverage compose failed", "origin", origin, "err", err)
+			continue
+		}
+		for i := range extras {
+			j := extras[i]
+			items = append(items, coverageJourneyItem(j, origin))
+			added++
+		}
+	}
+	if added > 0 {
+		rlog.Info("oplist: coverage compose done", "added", added)
+	}
+	return items
+}
+
+// collectTouchedURLs walks every attached Journey and returns the set
+// of URLs referenced by any goto step. Used by the coverage-gap pass
+// to decide what to skip.
+func collectTouchedURLs(items []plan.Item) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, it := range items {
+		if it.Journey == nil {
+			continue
+		}
+		for _, s := range it.Journey.Steps {
+			if s.Op != "goto" || s.Path == "" {
+				continue
+			}
+			if seen[s.Path] {
+				continue
+			}
+			seen[s.Path] = true
+			out = append(out, s.Path)
+		}
+	}
+	return out
+}
+
+// coverageJourneyItem wraps a coverage-gap Journey the same way suite
+// and negative wrappers do — a synthetic Symbol carrying the title,
+// OutPath under tests/e2e/coverage-<slug>.spec.ts.
+func coverageJourneyItem(j plan.Journey, origin string) plan.Item {
+	stem := jsSlug(j.Title)
+	sym := ast.Symbol{
+		Name:      stem,
+		Kind:      ast.KindComponent,
+		File:      origin,
+		Language:  "ts",
+		PageTitle: j.Title,
+	}
+	return plan.Item{
+		Symbol:      sym,
+		Symbols:     []ast.Symbol{sym},
+		PageURL:     firstGotoPath(j),
+		Template:    plan.TmplPlaywrightHappyFlow,
+		OutPath:     "tests/e2e/coverage-" + stem + ".spec.ts",
+		JourneyKind: "coverage",
+		Journey:     &j,
+	}
+}
+
 // appendNegativeJourneys asks the LLM to shadow every form-submit
 // journey in `items` with a negative-path variant (empty submit,
 // invalid email, etc.). New items are appended tagged Kind="negative"
@@ -268,29 +350,57 @@ func appendSuiteJourneys(ctx context.Context, cfg config.Config, items []plan.It
 			continue
 		}
 		for _, persona := range oplist.DefaultPersonas {
-			extras, err := oplist.ComposeSuite(ctx, client, m, existing, persona)
-			if err != nil {
-				rlog.Warn("oplist: suite compose failed",
-					"origin", origin, "persona", persona, "err", err)
-				continue
-			}
-			for i := range extras {
-				j := extras[i]
-				key := strings.ToLower(j.Title)
-				if seen[key] {
-					continue
-				}
-				seen[key] = true
-				existing = append(existing, j.Title)
-				items = append(items, suiteJourneyItem(j, origin))
-				added++
-			}
+			added += runSuitePersona(ctx, client, m, persona, origin, &existing, seen, &items)
 		}
 	}
 	if added > 0 {
 		rlog.Info("oplist: suite compose done", "added", added)
 	}
 	return items
+}
+
+// runSuitePersona iterates ComposeSuite for one persona in loop-until-
+// dry mode: each round the LLM sees the growing `existing` list, so it
+// must propose fresh titles or nothing. Stop when a round adds fewer
+// than 2 unseen journeys or after 3 rounds (cost cap). Returns the
+// number of items appended for this persona.
+func runSuitePersona(
+	ctx context.Context,
+	client *llm.Client,
+	m *mindmap.Map,
+	persona, origin string,
+	existing *[]string,
+	seen map[string]bool,
+	items *[]plan.Item,
+) int {
+	const maxRounds = 3
+	const freshFloor = 2
+	added := 0
+	for round := 0; round < maxRounds; round++ {
+		extras, err := oplist.ComposeSuite(ctx, client, m, *existing, persona)
+		if err != nil {
+			rlog.Warn("oplist: suite compose failed",
+				"origin", origin, "persona", persona, "round", round, "err", err)
+			return added
+		}
+		freshThisRound := 0
+		for i := range extras {
+			j := extras[i]
+			key := strings.ToLower(j.Title)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			*existing = append(*existing, j.Title)
+			*items = append(*items, suiteJourneyItem(j, origin))
+			freshThisRound++
+			added++
+		}
+		if freshThisRound < freshFloor {
+			return added
+		}
+	}
+	return added
 }
 
 // existingJourneyTitles collects the composed titles the LLM already

@@ -516,14 +516,16 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 			items, maps = appendProbeAndMark(ctx, urls, items)
 		}
 	}
-	// v1.4.0 — same three-pass composition pipeline runProbe uses:
+	// v1.4.0 — three-pass composition pipeline runProbe uses:
 	// per-page compose (chain-aware), suite-wide compose (mindmap-
-	// aware), then negative-path shadows. Each pass is a silent no-op
-	// when the LLM is disabled or has nothing to work with, so the
-	// non-LLM CI path is unchanged.
+	// aware, persona-rotated), negative-path shadows. Each pass is a
+	// silent no-op when the LLM is disabled or has nothing to work with.
+	// v1.6.0 — plus coverage-gap sweep: journeys for pages the mindmap
+	// crawled but no existing journey touched.
 	items = appendSuiteJourneys(ctx, cfg, items, maps)
 	items = composeOpListJourneys(ctx, cfg, items)
 	items = appendNegativeJourneys(ctx, cfg, items)
+	items = appendCoverageJourneys(ctx, cfg, items, maps)
 	// v0.99 — taxonomy gate. QUAIL_KINDS narrows emission to the listed
 	// families (allow-list); QUAIL_EXCLUDE_KINDS drops them
 	// (deny-list). Scaffolding / docs / sentinel items are never
@@ -756,9 +758,11 @@ func siblingPath(p string) string {
 
 // runProbeWithFilter is the prompt-driven variant: same probe pipeline
 // as runProbe but with a journey-filter applied before generation.
+// Filter-driven probes don't get the site-wide suite / coverage pass
+// (nil maps) — the filter already narrows what should be tested.
 func runProbeWithFilter(ctx context.Context, cfg config.Config, urls []string, f prompt.Filter, c probe.CoverageMode) error {
 	items, errs := probe.RunAllWithCoverage(ctx, urls, f, c)
-	return finishProbe(ctx, cfg, urls, items, errs, false)
+	return finishProbe(ctx, cfg, urls, items, errs, nil, false)
 }
 
 // runProbe fetches each URL, renders a Playwright happy-flow per URL,
@@ -766,8 +770,7 @@ func runProbeWithFilter(ctx context.Context, cfg config.Config, urls []string, f
 // opens a PR with the new specs.
 func runProbe(ctx context.Context, cfg config.Config, urls []string, c probe.CoverageMode, local bool) error {
 	items, errs, maps := probe.RunAllCollectingMindmaps(ctx, urls, c)
-	items = appendSuiteJourneys(ctx, cfg, items, maps)
-	return finishProbe(ctx, cfg, urls, items, errs, local)
+	return finishProbe(ctx, cfg, urls, items, errs, maps, local)
 }
 
 // finishProbe shares the post-probe pipeline (compose, render, dry-run
@@ -778,7 +781,7 @@ func runProbe(ctx context.Context, cfg config.Config, urls []string, c probe.Cov
 // HOME probe form) writes rendered files into cfg.WorkDir directly
 // and skips the gh.New/OpenPR path entirely — no GITHUB_TOKEN
 // required.
-func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []plan.Item, errs []error, local bool) error {
+func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []plan.Item, errs []error, maps map[string]*mindmap.Map, local bool) error {
 	for _, e := range errs {
 		rlog.Warn("probe url failed", "err", e)
 	}
@@ -796,14 +799,13 @@ func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []
 		}
 		return fmt.Errorf("probe: no items produced (%s)", hint)
 	}
-	// Op-list composer — asks the LLM to compose one journey per
-	// TmplPlaywrightHappyFlow item, attaching a plan.Journey the
-	// renderer reads.
+	// Full composition pipeline. Each pass is a silent no-op when the
+	// LLM is disabled or has nothing to work with, so the non-LLM
+	// path stays intact.
+	items = appendSuiteJourneys(ctx, cfg, items, maps)
 	items = composeOpListJourneys(ctx, cfg, items)
-	// Negative-path pass — shadow every form-submit positive with an
-	// error-variant. Universal edge-case coverage: form validation is
-	// where most SUT quality regressions live.
 	items = appendNegativeJourneys(ctx, cfg, items)
+	items = appendCoverageJourneys(ctx, cfg, items, maps)
 	// v0.99 — same taxonomy gate as runGenerate.
 	items = applyKindFilter(items)
 	rendered, err := gen.Render(items, cfg.WorkDir)
