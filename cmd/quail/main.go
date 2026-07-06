@@ -34,6 +34,7 @@ import (
 	"github.com/spriteCloud/quail-core/llm"
 	rlog "github.com/spriteCloud/quail-core/log"
 	"github.com/spriteCloud/quail-core/merge"
+	"github.com/spriteCloud/quail-core/mindmap"
 	"github.com/spriteCloud/quail-core/plan"
 	"github.com/spriteCloud/quail-core/probe"
 	"github.com/spriteCloud/quail-core/prompt"
@@ -505,15 +506,24 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 	// re-probe. QUAIL_FORCE_PROBE=1 bypasses that cache.
 	probeURLs := nonEmptyURLs(os.Getenv("QUAIL_TARGET_URLS"))
 	urls := deriveAffectedURLs(items, layout, probeURLs)
+	var maps map[string]*mindmap.Map
 	if len(urls) > 0 {
 		force := os.Getenv("QUAIL_FORCE_PROBE") == "1"
 		if !force && probe.SuiteAlreadyCovers(cfg.WorkDir, urls, time.Now()) {
 			rlog.Info("skipping probe — suite already covers target URLs (set QUAIL_FORCE_PROBE=1 to override)",
 				"urls", urls)
 		} else {
-			items = appendProbeAndMark(ctx, urls, items)
+			items, maps = appendProbeAndMark(ctx, urls, items)
 		}
 	}
+	// v1.4.0 — same three-pass composition pipeline runProbe uses:
+	// per-page compose (chain-aware), suite-wide compose (mindmap-
+	// aware), then negative-path shadows. Each pass is a silent no-op
+	// when the LLM is disabled or has nothing to work with, so the
+	// non-LLM CI path is unchanged.
+	items = appendSuiteJourneys(ctx, cfg, items, maps)
+	items = composeOpListJourneys(ctx, cfg, items)
+	items = appendNegativeJourneys(ctx, cfg, items)
 	// v0.99 — taxonomy gate. QUAIL_KINDS narrows emission to the listed
 	// families (allow-list); QUAIL_EXCLUDE_KINDS drops them
 	// (deny-list). Scaffolding / docs / sentinel items are never
@@ -658,8 +668,10 @@ func applyKindFilter(items []plan.Item) []plan.Item {
 // Split out so the gated-probe switch in runGenerate stays readable.
 //
 // v0.96.3.
-func appendProbeAndMark(ctx context.Context, probeURLs []string, items []plan.Item) []plan.Item {
-	probeItems, probeErrs := probe.RunAll(ctx, probeURLs)
+// v1.4.0 — return the per-origin mindmaps too so the caller can run
+// oplist.ComposeSuite over the graph, matching the runProbe path.
+func appendProbeAndMark(ctx context.Context, probeURLs []string, items []plan.Item) ([]plan.Item, map[string]*mindmap.Map) {
+	probeItems, probeErrs, maps := probe.RunAllCollectingMindmaps(ctx, probeURLs, probe.CoverageStandard)
 	for _, e := range probeErrs {
 		rlog.Warn("probe url failed", "err", e)
 	}
@@ -668,7 +680,7 @@ func appendProbeAndMark(ctx context.Context, probeURLs []string, items []plan.It
 	if err := probe.WriteState(wd, probeURLs, version); err != nil {
 		rlog.Warn("could not write probe-state marker", "err", err)
 	}
-	return items
+	return items, maps
 }
 
 // runGenerateStandalone handles the no-PR path — only target URLs are
