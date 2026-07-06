@@ -788,6 +788,10 @@ func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []
 	// TmplPlaywrightHappyFlow item, attaching a plan.Journey the
 	// renderer reads.
 	items = composeOpListJourneys(ctx, cfg, items)
+	// Negative-path pass — shadow every form-submit positive with an
+	// error-variant. Universal edge-case coverage: form validation is
+	// where most SUT quality regressions live.
+	items = appendNegativeJourneys(ctx, cfg, items)
 	// v0.99 — same taxonomy gate as runGenerate.
 	items = applyKindFilter(items)
 	rendered, err := gen.Render(items, cfg.WorkDir)

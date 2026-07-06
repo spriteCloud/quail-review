@@ -107,10 +107,17 @@ func symbolHints(s ast.Symbol) []string {
 		}
 	}
 	for _, in := range s.Inputs {
-		label := firstNonEmpty(in.LabelText, in.Aria, in.Placeholder, in.Name)
-		if label != "" {
-			hints = append(hints, "input: "+label)
+		// Prefer real label/aria (getByLabel-resolvable). Fall back
+		// to placeholder — opFill now tries getByLabel first and
+		// getByPlaceholder second, so passing a placeholder-only hint
+		// as the fill label still works. Skip inputs whose only
+		// signal is the raw `name` attribute — that never resolves
+		// to a Playwright-visible target.
+		label := firstNonEmpty(in.LabelText, in.Aria, in.Placeholder)
+		if label == "" {
+			continue
 		}
+		hints = append(hints, "input: "+label)
 		if len(hints) >= 8 {
 			break
 		}
@@ -166,6 +173,76 @@ func trim(s string) string {
 		j--
 	}
 	return s[i:j]
+}
+
+// appendNegativeJourneys asks the LLM to shadow every form-submit
+// journey in `items` with a negative-path variant (empty submit,
+// invalid email, etc.). New items are appended tagged Kind="negative"
+// so the emitted spec title reads `@journey:negative`. No-op when the
+// LLM is disabled or no form-submit positive is present.
+//
+// Must run AFTER composeOpListJourneys + appendSuiteJourneys — the
+// pass reads the composed Journey fields on happyflow items, so
+// nothing to shadow until those are populated.
+func appendNegativeJourneys(ctx context.Context, cfg config.Config, items []plan.Item) []plan.Item {
+	client := llm.New(cfg)
+	if !client.Enabled() {
+		return items
+	}
+	positives := collectComposedJourneys(items)
+	if len(positives) == 0 {
+		return items
+	}
+	extras, err := oplist.ComposeNegatives(ctx, client, positives)
+	if err != nil {
+		rlog.Warn("oplist: negatives compose failed", "err", err)
+		return items
+	}
+	for i := range extras {
+		j := extras[i]
+		items = append(items, negativeJourneyItem(j))
+	}
+	if len(extras) > 0 {
+		rlog.Info("oplist: negatives compose done", "added", len(extras))
+	}
+	return items
+}
+
+// collectComposedJourneys returns the positive Journeys already
+// attached to happyflow items — both per-page composed and suite
+// additions. Excludes fallback journeys (Kind unset AND Journey nil)
+// since those never touch a form.
+func collectComposedJourneys(items []plan.Item) []plan.Journey {
+	var out []plan.Journey
+	for _, it := range items {
+		if it.Template != plan.TmplPlaywrightHappyFlow || it.Journey == nil {
+			continue
+		}
+		out = append(out, *it.Journey)
+	}
+	return out
+}
+
+// negativeJourneyItem wraps a negative-path Journey in a plan.Item
+// whose OutPath sits alongside its positive siblings but is tagged
+// distinctly. Same synthetic-symbol pattern as suite additions.
+func negativeJourneyItem(j plan.Journey) plan.Item {
+	stem := jsSlug(j.Title)
+	sym := ast.Symbol{
+		Name:      stem,
+		Kind:      ast.KindComponent,
+		Language:  "ts",
+		PageTitle: j.Title,
+	}
+	return plan.Item{
+		Symbol:      sym,
+		Symbols:     []ast.Symbol{sym},
+		PageURL:     firstGotoPath(j),
+		Template:    plan.TmplPlaywrightHappyFlow,
+		OutPath:     "tests/e2e/negative-" + stem + ".spec.ts",
+		JourneyKind: "negative",
+		Journey:     &j,
+	}
 }
 
 // appendSuiteJourneys asks the LLM once per crawled origin for extra
