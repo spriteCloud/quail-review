@@ -273,24 +273,17 @@ func newProbeCmd() *cobra.Command {
 		Short: "Fetch live URL(s), generate a Playwright happy-flow per URL, open a PR.",
 		Long: `Probe a live URL and generate a full Playwright + Gherkin suite.
 
-LLM scenario composer (OPTIONAL):
-  --llm <url>   Enable the scenario composer against an OpenAI-compatible
+LLM op-list composer (OPTIONAL):
+  --llm <url>   Enable the op-list composer against an OpenAI-compatible
                 endpoint (e.g. http://100.82.34.115:11434 for a local
-                Ollama). Adds up to 3 extra @llm-composed Scenarios per
-                journey. STRICTLY local-only — the DGX is on Netbird and
-                unreachable from public CI; the generated .feature files
-                still run anywhere because they're plain Gherkin.
+                Ollama). Produces one composed journey per happy-flow
+                item; falls back to a canned "goto + main visible"
+                journey when disabled or when the compose call errors.
 
   QUAIL_LLM env var is the equivalent of --llm.
   QUAIL_MODEL overrides the model id (default: qwen3-coder-next:latest
                  when --llm is set).
-  QUAIL_LLM_TIMEOUT bounds each LLM call (default 60s — bump on
-                 slower hardware; e.g. 120s for a local model that
-                 takes longer to respond).
-  QUAIL_HUMANIZE=0 skips the per-file humanization pass while
-                 keeping the composer active. Useful when the
-                 generator is many specs deep and per-file LLM
-                 calls would saturate your wall-clock budget.`,
+  QUAIL_LLM_TIMEOUT bounds each LLM call (default 60s).`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg := config.FromEnv()
 			if len(urls) == 0 {
@@ -1006,7 +999,7 @@ type prSummary struct {
 // (assumed reachable); for self-hosted endpoints (DGX via Netbird,
 // local Ollama, vLLM, etc.) we GET /models with a 5s timeout so a
 // misrouted endpoint surfaces immediately instead of after the full
-// LLMTimeout on the first Humanize call.
+// LLMTimeout on the first Compose call.
 //
 // v0.96.0.
 var pingLLMOnce sync.Once
@@ -1024,7 +1017,7 @@ func pingLLMEndpoint(ctx context.Context, client *llm.Client, baseURL string) {
 		if ok {
 			rlog.Info("llm: self-hosted endpoint reachable", "endpoint", baseURL, "status", status)
 		} else {
-			rlog.Warn("llm: self-hosted endpoint UNREACHABLE; humanization will fall back to deterministic",
+			rlog.Warn("llm: self-hosted endpoint UNREACHABLE; op-list compose will fall back to canned journeys",
 				"endpoint", baseURL, "status", status)
 		}
 	})
@@ -1119,7 +1112,7 @@ func genPRBody(pr *prSummary, rs []gen.Rendered) string {
 	b.WriteString(fmt.Sprintf("**%d files** organised by kind:\n\n", len(rs)))
 	b.WriteString("Files:\n")
 	writeKindSummary(&b, rs)
-	b.WriteString("\nEach scaffold contains one or more deterministic happy-path scenarios per component or symbol. Review and extend with edge cases.\n")
+	b.WriteString("\nEach spec is either an LLM-composed journey (in the `journey` kind) or a deterministic primitive-composed check (a11y, visual, perf, etc.). Review and extend with edge cases.\n")
 	appendQualityNotes(&b, rs)
 	writeFullFileList(&b, rs)
 	return b.String()
