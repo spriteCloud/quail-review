@@ -771,6 +771,7 @@ func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []
 	llmClient := llm.New(cfg)
 	pingLLMEndpoint(ctx, llmClient, cfg.OpenAIBaseURL)
 	humanizeWithBudget(ctx, llmClient, rendered)
+	rendered = injectPrimsScaffoldIfNeeded(rendered)
 	if cfg.DryRun {
 		printRendered(rendered)
 		return nil
