@@ -7,6 +7,10 @@ require (
 	github.com/spriteCloud/quail-core v0.10.23
 )
 
+// Dev-only: consume the sibling quail-core work-tree so unreleased
+// cleanup work is available. Drop before cutting a release.
+replace github.com/spriteCloud/quail-core => ../quail-core
+
 require (
 	github.com/evanw/esbuild v0.28.1 // indirect
 	github.com/google/go-github/v66 v66.0.0 // indirect
