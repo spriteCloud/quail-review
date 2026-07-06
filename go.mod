@@ -4,7 +4,7 @@ go 1.25.10
 
 require (
 	github.com/spf13/cobra v1.10.2
-	github.com/spriteCloud/quail-core v0.11.2
+	github.com/spriteCloud/quail-core v0.12.0
 )
 
 require (

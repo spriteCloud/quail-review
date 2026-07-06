@@ -165,6 +165,7 @@ func newGenerateCmd() *cobra.Command {
 	var pr int
 	var dryRun bool
 	var kinds, excludeKinds string
+	var emit string
 	cmd := &cobra.Command{
 		Use:   "generate",
 		Short: "Scan a PR's diff, emit test scaffolds, and open a follow-up PR.",
@@ -187,12 +188,17 @@ func newGenerateCmd() *cobra.Command {
 			cfg.PRNumber = pr
 			cfg.DryRun = dryRun
 			applyKindFlagsToEnv(kinds, excludeKinds)
+			applyEmitFlagToEnv(emit)
+			cfg = config.FromEnv() // re-read so QUAIL_EMIT/QUAIL_KINDS overrides land
+			cfg.PRNumber = pr
+			cfg.DryRun = dryRun
 			return runGenerate(cmd.Context(), cfg)
 		},
 	}
 	cmd.Flags().IntVar(&pr, "pr", 0, "PR number")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print plan instead of opening a PR")
 	addKindFlags(cmd, &kinds, &excludeKinds)
+	addEmitFlag(cmd, &emit)
 	return cmd
 }
 
@@ -210,6 +216,24 @@ func addKindFlags(cmd *cobra.Command, kinds, excludeKinds *string) {
 	cmd.Flags().StringVar(excludeKinds, "exclude-kinds", "",
 		"Comma-separated deny-list of test kinds (applied after --kinds). "+
 			"Env: QUAIL_EXCLUDE_KINDS.")
+}
+
+// addEmitFlag wires --emit onto a cobra command. Controls which view
+// of each journey ships: imperative (.spec.ts op-list), declarative
+// (.feature + shared _steps.ts), or both.
+func addEmitFlag(cmd *cobra.Command, emit *string) {
+	cmd.Flags().StringVar(emit, "emit", "",
+		"Journey emission mode: imperative (default; .spec.ts), "+
+			"declarative (.feature + tests/e2e/_steps.ts), or both. "+
+			"Env: QUAIL_EMIT.")
+}
+
+// applyEmitFlagToEnv promotes the --emit flag value into QUAIL_EMIT
+// so config.FromEnv sees it. Flag wins over pre-existing env.
+func applyEmitFlagToEnv(emit string) {
+	if emit != "" {
+		os.Setenv("QUAIL_EMIT", emit)
+	}
 }
 
 // applyKindFlagsToEnv promotes flag values into the QUAIL_KINDS /
@@ -269,6 +293,7 @@ func newProbeCmd() *cobra.Command {
 	var maxJourneys string
 	var projectName string
 	var kinds, excludeKinds string
+	var emit string
 	cmd := &cobra.Command{
 		Use:   "probe",
 		Short: "Fetch live URL(s), generate a Playwright happy-flow per URL, open a PR.",
@@ -304,6 +329,10 @@ LLM op-list composer (OPTIONAL):
 			ctx = probe.WithMaxJourneys(ctx, probe.ParseMaxJourneys(maxJourneys))
 			ctx = probe.WithProjectLabel(ctx, projectName)
 			applyKindFlagsToEnv(kinds, excludeKinds)
+			applyEmitFlagToEnv(emit)
+			cfg = config.FromEnv() // re-read after applying overrides
+			cfg.DryRun = dryRun
+			applyLLMOverride(&cfg, llm)
 			return runProbe(ctx, cfg, urls, probe.ParseCoverage(coverage), local)
 		},
 	}
@@ -319,6 +348,7 @@ LLM op-list composer (OPTIONAL):
 	cmd.Flags().StringVar(&maxJourneys, "max-journeys", "", "Override the per-kind journey cap (default: coverage mode decides — breadth 1, standard 3, depth 6, max 12). Set to a positive integer to force a specific cap. Env: QUAIL_MAX_JOURNEYS.")
 	cmd.Flags().StringVar(&projectName, "name", "", "Human-friendly project name. Drives the feature label inside emitted specs and (when serve creates a new sibling dir) the dir name. Empty falls back to the host-derived brand.")
 	addKindFlags(cmd, &kinds, &excludeKinds)
+	addEmitFlag(cmd, &emit)
 	return cmd
 }
 
@@ -723,7 +753,8 @@ func runProbeWithFilter(ctx context.Context, cfg config.Config, urls []string, f
 // and either prints them (dry-run), writes them locally (local), or
 // opens a PR with the new specs.
 func runProbe(ctx context.Context, cfg config.Config, urls []string, c probe.CoverageMode, local bool) error {
-	items, errs := probe.RunAllWithCoverage(ctx, urls, nil, c)
+	items, errs, maps := probe.RunAllCollectingMindmaps(ctx, urls, c)
+	items = appendSuiteJourneys(ctx, cfg, items, maps)
 	return finishProbe(ctx, cfg, urls, items, errs, local)
 }
 

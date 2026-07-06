@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"strings"
 
 	"github.com/spriteCloud/quail-core/ast"
 	"github.com/spriteCloud/quail-core/config"
 	"github.com/spriteCloud/quail-core/llm"
 	rlog "github.com/spriteCloud/quail-core/log"
+	"github.com/spriteCloud/quail-core/mindmap"
 	"github.com/spriteCloud/quail-core/oplist"
 	"github.com/spriteCloud/quail-core/plan"
 )
@@ -29,6 +31,13 @@ func composeOpListJourneys(ctx context.Context, cfg config.Config, items []plan.
 	composed := 0
 	for i := range items {
 		if items[i].Template != plan.TmplPlaywrightHappyFlow {
+			continue
+		}
+		// Skip items whose Journey is already set — the suite-wide
+		// pass in appendSuiteJourneys pre-populates its own additions,
+		// and re-composing over them would throw the strategic output
+		// away in favour of a title-only re-derivation.
+		if items[i].Journey != nil {
 			continue
 		}
 		in := composeInputFor(items[i])
@@ -54,11 +63,32 @@ func composeInputFor(it plan.Item) oplist.ComposeInput {
 	if len(it.Symbols) > 0 {
 		in.Title = it.Symbols[0].PageTitle
 		in.Hints = symbolHints(it.Symbols[0])
+		// Intermediate + terminal pages the mindmap already walked.
+		// Feeding these to the LLM lets it write a real multi-page
+		// journey instead of proposing steps from the landing alone.
+		for _, s := range it.Symbols[1:] {
+			in.Chain = append(in.Chain, oplist.StepHint{
+				URL:        symbolStepURL(s),
+				Title:      s.PageTitle,
+				EnteredVia: s.EnteredVia,
+				Hints:      symbolHints(s),
+			})
+		}
 	} else if it.Symbol.PageTitle != "" {
 		in.Title = it.Symbol.PageTitle
 		in.Hints = symbolHints(it.Symbol)
 	}
 	return in
+}
+
+// symbolStepURL prefers the resolved absolute URL when present (that's
+// what a `page.goto()` argument looks like); falls back to the raw
+// File field which the probe writes for pages reached via direct goto.
+func symbolStepURL(s ast.Symbol) string {
+	if s.AbsoluteURL != "" {
+		return s.AbsoluteURL
+	}
+	return s.File
 }
 
 // symbolHints returns a short observed-on-page list from a probed
@@ -86,14 +116,36 @@ func symbolHints(s ast.Symbol) []string {
 		}
 	}
 	for _, l := range s.Links {
-		if l.Aria != "" {
-			hints = append(hints, "link: "+l.Aria)
+		// Prefer visible text (matches Playwright's accessible name for
+		// a role='link' resolution). Fall back to aria-label. Skip
+		// hrefs-as-name entirely — the LLM previously copied "/work"
+		// into a click op and Playwright never resolves those.
+		label := firstNonEmpty(l.Text, l.Name)
+		if label == "" || looksLikeHref(label) {
+			continue
 		}
+		hints = append(hints, "link: "+label)
 		if len(hints) >= 12 {
 			break
 		}
 	}
 	return hints
+}
+
+// looksLikeHref is a cheap check to keep href-shaped strings out of
+// link-name hints. `/`, `#`-anchors, `mailto:`, absolute URLs — none
+// of them are what a `getByRole('link', {name})` matches.
+func looksLikeHref(s string) bool {
+	if s == "" {
+		return false
+	}
+	if s[0] == '/' || s[0] == '#' {
+		return true
+	}
+	return strings.HasPrefix(s, "http://") ||
+		strings.HasPrefix(s, "https://") ||
+		strings.HasPrefix(s, "mailto:") ||
+		strings.HasPrefix(s, "tel:")
 }
 
 func firstNonEmpty(vs ...string) string {
@@ -114,4 +166,108 @@ func trim(s string) string {
 		j--
 	}
 	return s[i:j]
+}
+
+// appendSuiteJourneys asks the LLM once per crawled origin for extra
+// journeys the graph-walker missed, then synthesises a plan.Item per
+// returned journey. No-op when the LLM is disabled or no maps were
+// captured.
+func appendSuiteJourneys(ctx context.Context, cfg config.Config, items []plan.Item, maps map[string]*mindmap.Map) []plan.Item {
+	client := llm.New(cfg)
+	if !client.Enabled() || len(maps) == 0 {
+		return items
+	}
+	existing := existingJourneyTitles(items)
+	added := 0
+	for origin, m := range maps {
+		if m == nil {
+			continue
+		}
+		extras, err := oplist.ComposeSuite(ctx, client, m, existing)
+		if err != nil {
+			rlog.Warn("oplist: suite compose failed", "origin", origin, "err", err)
+			continue
+		}
+		for i := range extras {
+			j := extras[i]
+			items = append(items, suiteJourneyItem(j, origin))
+			added++
+		}
+	}
+	if added > 0 {
+		rlog.Info("oplist: suite compose done", "added", added)
+	}
+	return items
+}
+
+// existingJourneyTitles collects the composed titles the LLM already
+// produced this run so the suite prompt can ask for ADDITIONAL ones.
+func existingJourneyTitles(items []plan.Item) []string {
+	var titles []string
+	for _, it := range items {
+		if it.Template == plan.TmplPlaywrightHappyFlow && it.Journey != nil {
+			titles = append(titles, it.Journey.Title)
+		}
+	}
+	return titles
+}
+
+// suiteJourneyItem wraps a suite-composed Journey in a plan.Item that
+// the gen layer's op-list renderer can pick up. A synthetic Symbol
+// carries the title so the fallback renderer still works if Journey
+// ever becomes nil downstream.
+func suiteJourneyItem(j plan.Journey, origin string) plan.Item {
+	stem := jsSlug(j.Title)
+	sym := ast.Symbol{
+		Name:      stem,
+		Kind:      ast.KindComponent,
+		File:      origin,
+		Language:  "ts",
+		PageTitle: j.Title,
+	}
+	return plan.Item{
+		Symbol:      sym,
+		Symbols:     []ast.Symbol{sym},
+		PageURL:     firstGotoPath(j),
+		Template:    plan.TmplPlaywrightHappyFlow,
+		OutPath:     "tests/e2e/suite-" + stem + ".spec.ts",
+		JourneyKind: "suite",
+		Journey:     &j,
+	}
+}
+
+func firstGotoPath(j plan.Journey) string {
+	for _, s := range j.Steps {
+		if s.Op == "goto" {
+			return s.Path
+		}
+	}
+	return "/"
+}
+
+// jsSlug turns a title into a filesystem-safe filename stem: lower,
+// non-alnum → dash, collapse dashes.
+func jsSlug(s string) string {
+	var b strings.Builder
+	prevDash := false
+	for _, r := range strings.ToLower(s) {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			prevDash = false
+		default:
+			if !prevDash {
+				b.WriteByte('-')
+				prevDash = true
+			}
+		}
+	}
+	out := strings.Trim(b.String(), "-")
+	if out == "" {
+		return "suite"
+	}
+	if len(out) > 60 {
+		out = out[:60]
+	}
+	return out
 }

@@ -29,7 +29,9 @@ set -euo pipefail
 
 MODE="${MODE:-probe}"
 URL="${URL:-https://www.spritecloud.com}"
-KINDS="${KINDS:-journey,touch,responsive,visual}"
+# v1.2.0+ the tool defaults to journey-only. Leave KINDS unset to
+# exercise that default; override to expand (e.g. KINDS=journey,a11y).
+KINDS="${KINDS-}"
 OLLAMA="${OLLAMA:-http://100.82.34.115:11434/v1}"
 MODEL="${MODEL:-qwen3-coder-next:latest}"
 
@@ -48,11 +50,11 @@ case "$MODE" in
     rsync -a --exclude .git --exclude node_modules --exclude .quail-history \
       "$DEMO_SRC/" "$WORKDIR/demo/"
 
-    echo "==> Probe $URL (kinds: $KINDS)"
+    echo "==> Probe $URL (kinds: ${KINDS:-<default: journey>})"
     cd "$WORKDIR/demo"
     env \
       QUAIL_TARGET_URLS="$URL" \
-      QUAIL_KINDS="$KINDS" \
+      ${KINDS:+QUAIL_KINDS="$KINDS"} \
       OPENAI_BASE_URL="${OLLAMA}" \
       OPENAI_API_KEY=ollama \
       QUAIL_MODEL="$MODEL" \
