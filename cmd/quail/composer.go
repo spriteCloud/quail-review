@@ -123,11 +123,18 @@ func symbolHints(s ast.Symbol) []string {
 		}
 	}
 	for _, l := range s.Links {
-		// Prefer visible text (matches Playwright's accessible name for
-		// a role='link' resolution). Fall back to aria-label. Skip
-		// hrefs-as-name entirely — the LLM previously copied "/work"
-		// into a click op and Playwright never resolves those.
-		label := firstNonEmpty(l.Text, l.Name)
+		// v1.8.1 — aria-label wins over visible text. Playwright's
+		// getByRole accessible-name computation resolves aria-label
+		// FIRST, so links like <a aria-label="Read more about our
+		// vCISO offer">Read more →</a> are matched by "Read more
+		// about our vCISO offer", not "Read more →". We used to feed
+		// the LLM the visible text and got specs that failed with
+		// "getByRole('link', {name: 'Read more →'}) not found" on
+		// aria-labelled links. Fall through order: aria → text → name.
+		// Skip hrefs-as-name entirely (looksLikeHref filter below) —
+		// the LLM previously copied "/work" into a click op and
+		// Playwright never resolves those.
+		label := firstNonEmpty(l.Aria, l.Text, l.Name)
 		if label == "" || looksLikeHref(label) {
 			continue
 		}
