@@ -123,18 +123,20 @@ func symbolHints(s ast.Symbol) []string {
 		}
 	}
 	for _, l := range s.Links {
-		// v1.8.1 — aria-label wins over visible text. Playwright's
-		// getByRole accessible-name computation resolves aria-label
-		// FIRST, so links like <a aria-label="Read more about our
-		// vCISO offer">Read more →</a> are matched by "Read more
-		// about our vCISO offer", not "Read more →". We used to feed
-		// the LLM the visible text and got specs that failed with
-		// "getByRole('link', {name: 'Read more →'}) not found" on
-		// aria-labelled links. Fall through order: aria → text → name.
-		// Skip hrefs-as-name entirely (looksLikeHref filter below) —
-		// the LLM previously copied "/work" into a click op and
-		// Playwright never resolves those.
-		label := firstNonEmpty(l.Aria, l.Text, l.Name)
+		// v1.9 — prefer the browser-computed accessible name (quail-core
+		// v0.19.0 emits it per link via aria-labelledby > aria-label >
+		// visible textContent, whitespace-collapsed). Playwright's
+		// getByRole('link', {name}) matches against that at test time.
+		// Fall back to raw visible text for anchors extracted without
+		// a probe run (older mindmap snapshots, TS extractor output).
+		//
+		// v1.8.1's "prefer l.Aria" attempt was a regression: on link
+		// records `LocatorAnchor.Aria` is overloaded to carry the href
+		// (browser_probe.go:279), so preferring l.Aria meant every
+		// label became an href → looksLikeHref filter dropped it →
+		// the LLM received NO link hints at all. Reverted here as a
+		// side-effect of moving the semantic to AccessibleName.
+		label := firstNonEmpty(l.AccessibleName, l.Text, l.Name)
 		if label == "" || looksLikeHref(label) {
 			continue
 		}
