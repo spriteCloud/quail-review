@@ -98,8 +98,16 @@ func symbolHints(s ast.Symbol) []string {
 	var hints []string
 	for _, c := range s.Contents {
 		if c.Tag == "h1" || c.Tag == "h2" {
-			if t := trim(c.Text); t != "" {
-				hints = append(hints, c.Tag+": "+t)
+			// v1.10 — prefer the probe-computed AccessibleName over
+			// raw innerText for heading hints. Playwright's
+			// getByRole('heading', {name}) matches by accessible name
+			// at test time, and aria-labelledby / aria-label overrides
+			// on hero headings routinely diverge from innerText on
+			// sites like spritecloud.com (innerText="Home", a11y-name=
+			// "Home - spriteCloud test your software, not your reputation").
+			name := trim(firstNonEmpty(c.AccessibleName, c.Text))
+			if name != "" {
+				hints = append(hints, c.Tag+": "+name)
 			}
 		}
 		if len(hints) >= 4 {
