@@ -158,8 +158,12 @@ func hasAssertion(steps []plan.Op) bool {
 }
 
 // anySymbolHasRoleName returns true when any page in the chain has an
-// anchor whose accessible name / visible text matches `name` for the
-// given `role`. Fuzzy: case-insensitive substring, either direction.
+// anchor whose accessible name / visible text matches `name` AND whose
+// role attribute matches `role`. Fuzzy match on name (case-insensitive
+// substring, either direction); STRICT match on role — v1.13 tightens
+// this so LLM emissions like `click role=menuitem name='Testing
+// Services'` don't slip through when the actual anchor is a plain
+// link (they'd fail at test time on `getByRole('menuitem', ...)`).
 // Empty `name` always matches (v0.19 opSeen fallback).
 func anySymbolHasRoleName(symbols []ast.Symbol, role, name string) bool {
 	if trim(name) == "" {
@@ -174,16 +178,54 @@ func anySymbolHasRoleName(symbols []ast.Symbol, role, name string) bool {
 					return true
 				}
 			}
-		case "link", "menuitem":
+		case "link":
+			// A link anchor may not carry an explicit Role attribute
+			// (implicit role on <a href> is 'link'). Accept anchors
+			// with no Role OR Role='link'.
 			for _, l := range s.Links {
+				if l.Role != "" && l.Role != "link" {
+					continue
+				}
 				if nameMatches(name, l.AccessibleName) ||
 					nameMatches(name, l.Text) ||
 					nameMatches(name, l.Name) {
 					return true
 				}
 			}
+		case "menuitem":
+			// v1.13 — menuitem is stricter: the anchor must have
+			// been explicitly role-tagged as menuitem. A plain link
+			// is NOT a menuitem for Playwright's getByRole purposes.
+			for _, l := range s.Links {
+				if l.Role != "menuitem" {
+					continue
+				}
+				if nameMatches(name, l.AccessibleName) ||
+					nameMatches(name, l.Text) ||
+					nameMatches(name, l.Name) {
+					return true
+				}
+			}
+			// Also try the general Anchors bucket (probe emits
+			// menuitem-role elements there too via probe.mjs's
+			// role-anchor loop).
+			for _, a := range s.Anchors {
+				if a.Role != "menuitem" {
+					continue
+				}
+				if nameMatches(name, a.AccessibleName) ||
+					nameMatches(name, a.Text) ||
+					nameMatches(name, a.Name) {
+					return true
+				}
+			}
 		case "button":
 			for _, a := range s.Anchors {
+				// v1.13 — accept implicit button role (empty Role,
+				// Tag=submit/button) OR explicit Role='button'.
+				if a.Role != "" && a.Role != "button" && a.Role != "submit" {
+					continue
+				}
 				if nameMatches(name, a.AccessibleName) ||
 					nameMatches(name, a.Text) ||
 					nameMatches(name, a.Name) {
@@ -191,8 +233,9 @@ func anySymbolHasRoleName(symbols []ast.Symbol, role, name string) bool {
 				}
 			}
 		default:
-			// Roles like 'alert', 'status', 'main', 'navigation' aren't
-			// backed by a specific anchor collection — trust the LLM.
+			// Roles like 'alert', 'status', 'main', 'navigation',
+			// 'dialog', 'tab' aren't backed by a specific anchor
+			// collection in probe output — trust the LLM.
 			return true
 		}
 	}

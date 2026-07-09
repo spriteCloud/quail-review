@@ -112,6 +112,48 @@ func TestGrounding_EmptyNameAlwaysMatches(t *testing.T) {
 	}
 }
 
+// TestGrounding_StrictRoleRejection verifies v1.13's tightening:
+// `click role=menuitem name=X` needs a menuitem-tagged anchor, not
+// just any link. This was the root cause of the 54% exhausted-heal
+// rate on v1.12 — the LLM emitted menuitem for what was actually a
+// link, grounding accepted, verify failed, heal burned an LLM call.
+func TestGrounding_StrictRoleRejection(t *testing.T) {
+	it := plan.Item{
+		Symbols: []ast.Symbol{{
+			// "Testing Services" exists as a plain link (Role empty).
+			Links: []ast.LocatorAnchor{{Text: "Testing Services", Role: ""}},
+			// A real menuitem exists but for a different label.
+			Anchors: []ast.LocatorAnchor{{Text: "Company", Role: "menuitem"}},
+			// A heading exists so seen() below can pass.
+			Contents: []ast.ContentAnchor{{Tag: "h1", Text: "Home"}},
+		}},
+	}
+	j := plan.Journey{
+		Steps: []plan.Op{
+			{Op: "goto", Path: "/"},
+			// Role mismatch: LLM said menuitem, but 'Testing Services'
+			// is a plain link. Must be dropped.
+			{Op: "click", Role: "menuitem", Name: "Testing Services"},
+			// Role match: 'Company' IS role-tagged menuitem.
+			{Op: "click", Role: "menuitem", Name: "Company"},
+			{Op: "seen", Role: "heading", Name: "Home"},
+		},
+	}
+	grounded, dropped, drop := groundJourney(j, it)
+	if drop {
+		t.Fatalf("expected journey to survive (Company menuitem grounds), was dropped")
+	}
+	if dropped != 1 {
+		t.Errorf("expected 1 dropped step (Testing Services as menuitem), got %d", dropped)
+	}
+	// Verify the DROPPED step is the menuitem-with-wrong-role.
+	for _, s := range grounded.Steps {
+		if s.Name == "Testing Services" {
+			t.Errorf("Testing Services (misrole'd menuitem) should have been dropped")
+		}
+	}
+}
+
 // TestGrounding_NoSymbolsSkipsFilter preserves historical behavior on
 // Item shapes without probe symbols — we can't ground without a
 // mindmap, so we trust the LLM.
