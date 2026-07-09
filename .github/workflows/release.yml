@@ -21,14 +21,13 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # v1.8.1 — quail-core is a private repo in the same org. Without
-      # this, `go test` and `go build` try to fetch the module via the
-      # public proxy, fail, then fall back to unauthenticated git
-      # ls-remote, fail again (exit 128). GITHUB_TOKEN has cross-repo
-      # read access within the org.
+      # v1.8.1 — quail-core is a private repo in the same org. Default
+      # GITHUB_TOKEN is scoped to THIS repo only; use QUAIL_PAT which
+      # has cross-repo read access. Without this, `go test` fails on
+      # `git ls-remote` at quail-core (exit 128, unauthenticated).
       - name: Auth for private quail-core module
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.QUAIL_PAT }}
         run: |
           git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
           echo "GOPRIVATE=github.com/spriteCloud" >> "$GITHUB_ENV"
