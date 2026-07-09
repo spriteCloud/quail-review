@@ -47,12 +47,188 @@ func composeOpListJourneys(ctx context.Context, cfg config.Config, items []plan.
 				"page", in.URL, "err", err)
 			continue
 		}
-		items[i].Journey = &j
+		// v1.12 — post-decode grounding filter. Drops steps whose
+		// (role, name) or (label) can't be found in ANY symbol's
+		// anchors/inputs/contents across the journey chain. The LLM
+		// routinely invents Contact-form fields, hero headings, and
+		// nav links that don't exist on the terminal page; those
+		// steps would fail verify with 'locator not found' at test
+		// time. Grounding drops them BEFORE emit. Returns the number
+		// of dropped steps + a boolean indicating whether the journey
+		// itself should be dropped (too few steps left).
+		grounded, dropped, drop := groundJourney(j, items[i])
+		if drop {
+			rlog.Info("oplist: dropped hallucinated journey", "page", in.URL, "dropped_steps", dropped)
+			continue
+		}
+		items[i].Journey = &grounded
 		composed++
-		rlog.Info("oplist: composed journey", "page", in.URL, "steps", len(j.Steps))
+		rlog.Info("oplist: composed journey",
+			"page", in.URL, "steps", len(grounded.Steps), "dropped_steps", dropped)
 	}
 	rlog.Info("oplist: composition done", "composed", composed)
 	return items
+}
+
+// groundJourney filters a composed Journey against the mindmap-observed
+// anchors carried by an Item's Symbols. For each step, verifies that
+// its (role, name) or (label) matches something ACTUALLY seen on some
+// page in the chain — heading text on Contents, link/button label on
+// Links/Anchors, form-input label on Inputs. Fuzzy match: case-
+// insensitive substring, either direction. Empty name matches everything
+// (v0.19 fallback for `seen('heading', '')` = "any heading visible").
+//
+// Returns:
+//   - filtered Journey (goto steps and grounded steps only)
+//   - count of dropped steps
+//   - drop bool: true if the journey should be discarded (too few
+//     steps left OR terminal step is a bare `goto` with no assertion)
+//
+// A grounding drop is a strong signal that the LLM hallucinated the
+// step; a whole-journey drop means the LLM's whole idea was off-page.
+func groundJourney(j plan.Journey, it plan.Item) (plan.Journey, int, bool) {
+	symbols := symbolsFor(it)
+	if len(symbols) == 0 {
+		// No mindmap context to ground against — trust the LLM and
+		// return the journey untouched. This preserves the historical
+		// behavior on Item shapes that don't carry probe symbols.
+		return j, 0, false
+	}
+	out := plan.Journey{Title: j.Title, Kind: j.Kind}
+	dropped := 0
+	for _, s := range j.Steps {
+		switch s.Op {
+		case "goto", "press":
+			// No content assertion — no grounding needed.
+			out.Steps = append(out.Steps, s)
+		case "click", "seen":
+			if anySymbolHasRoleName(symbols, s.Role, s.Name) {
+				out.Steps = append(out.Steps, s)
+			} else {
+				dropped++
+			}
+		case "fill":
+			if anySymbolHasInputLabel(symbols, s.Label) {
+				out.Steps = append(out.Steps, s)
+			} else {
+				dropped++
+			}
+		default:
+			// Unknown op verbs are already blocked by decodeJourney
+			// in quail-core; belt-and-suspenders here means we drop
+			// rather than emit.
+			dropped++
+		}
+	}
+	// Journey needs at least one navigation + one assertion. A single
+	// goto with everything else dropped is a smoke that asserts
+	// nothing — worse than no journey.
+	if len(out.Steps) < 2 {
+		return plan.Journey{}, dropped, true
+	}
+	if !hasAssertion(out.Steps) {
+		return plan.Journey{}, dropped, true
+	}
+	return out, dropped, false
+}
+
+// symbolsFor returns the flat slice of ast.Symbol carried by an Item,
+// preferring the multi-page chain (Symbols) over the single-page
+// legacy field (Symbol). Empty when neither is populated.
+func symbolsFor(it plan.Item) []ast.Symbol {
+	if len(it.Symbols) > 0 {
+		return it.Symbols
+	}
+	if it.Symbol.PageTitle != "" || len(it.Symbol.Contents) > 0 {
+		return []ast.Symbol{it.Symbol}
+	}
+	return nil
+}
+
+// hasAssertion returns true when the step list contains at least one
+// `seen` op — the terminal check that turns a spec into a smoke.
+// Journeys without a seen step are click-and-hope; drop them.
+func hasAssertion(steps []plan.Op) bool {
+	for _, s := range steps {
+		if s.Op == "seen" {
+			return true
+		}
+	}
+	return false
+}
+
+// anySymbolHasRoleName returns true when any page in the chain has an
+// anchor whose accessible name / visible text matches `name` for the
+// given `role`. Fuzzy: case-insensitive substring, either direction.
+// Empty `name` always matches (v0.19 opSeen fallback).
+func anySymbolHasRoleName(symbols []ast.Symbol, role, name string) bool {
+	if trim(name) == "" {
+		return true
+	}
+	for _, s := range symbols {
+		switch role {
+		case "heading":
+			for _, c := range s.Contents {
+				if (c.Tag == "h1" || c.Tag == "h2" || c.Tag == "title") &&
+					(nameMatches(name, c.AccessibleName) || nameMatches(name, c.Text)) {
+					return true
+				}
+			}
+		case "link", "menuitem":
+			for _, l := range s.Links {
+				if nameMatches(name, l.AccessibleName) ||
+					nameMatches(name, l.Text) ||
+					nameMatches(name, l.Name) {
+					return true
+				}
+			}
+		case "button":
+			for _, a := range s.Anchors {
+				if nameMatches(name, a.AccessibleName) ||
+					nameMatches(name, a.Text) ||
+					nameMatches(name, a.Name) {
+					return true
+				}
+			}
+		default:
+			// Roles like 'alert', 'status', 'main', 'navigation' aren't
+			// backed by a specific anchor collection — trust the LLM.
+			return true
+		}
+	}
+	return false
+}
+
+// anySymbolHasInputLabel returns true when any page's Inputs collection
+// has a field whose label/aria/placeholder matches `label`. Fuzzy match.
+func anySymbolHasInputLabel(symbols []ast.Symbol, label string) bool {
+	if trim(label) == "" {
+		return true
+	}
+	for _, s := range symbols {
+		for _, in := range s.Inputs {
+			if nameMatches(label, in.LabelText) ||
+				nameMatches(label, in.Aria) ||
+				nameMatches(label, in.Placeholder) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// nameMatches is the fuzzy substring check used by grounding. Both
+// directions: the step's name may be a shorter reference ("Contact")
+// to a longer accessible name ("Contact spriteCloud team"), or the
+// LLM may emit a slightly longer version of what's actually on the
+// page. Empty candidate never matches (avoid false positives).
+func nameMatches(stepName, candidate string) bool {
+	stepName = strings.ToLower(trim(stepName))
+	candidate = strings.ToLower(trim(candidate))
+	if stepName == "" || candidate == "" {
+		return false
+	}
+	return strings.Contains(candidate, stepName) || strings.Contains(stepName, candidate)
 }
 
 func composeInputFor(it plan.Item) oplist.ComposeInput {
