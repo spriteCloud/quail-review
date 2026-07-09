@@ -71,21 +71,25 @@ func composeOpListJourneys(ctx context.Context, cfg config.Config, items []plan.
 }
 
 // groundJourney filters a composed Journey against the mindmap-observed
-// anchors carried by an Item's Symbols. For each step, verifies that
-// its (role, name) or (label) matches something ACTUALLY seen on some
-// page in the chain — heading text on Contents, link/button label on
-// Links/Anchors, form-input label on Inputs. Fuzzy match: case-
-// insensitive substring, either direction. Empty name matches everything
-// (v0.19 fallback for `seen('heading', '')` = "any heading visible").
+// anchors carried by an Item's Symbols. v1.14 — grounds PER-PAGE: each
+// step's (role, name) or (label) must match an anchor on THE PAGE the
+// step actually lands on, tracked via preceding `goto` verbs, not just
+// "some page in the chain". Chain-wide grounding let LLM emissions
+// slip through where the terminal page couldn't back the assertion —
+// classic case: opGoto('/contact') then opSeen('heading', 'Performance
+// Testing'), where Performance Testing IS on the site but on a
+// different page. That test would emit, verify would fail, heal
+// would exhaust. Per-page grounding kills it at emit time.
+//
+// Falls back to chain-wide grounding when the current URL doesn't
+// resolve to a known symbol (LLM landed somewhere the mindmap
+// didn't crawl) — trust the LLM rather than drop everything.
 //
 // Returns:
 //   - filtered Journey (goto steps and grounded steps only)
 //   - count of dropped steps
 //   - drop bool: true if the journey should be discarded (too few
 //     steps left OR terminal step is a bare `goto` with no assertion)
-//
-// A grounding drop is a strong signal that the LLM hallucinated the
-// step; a whole-journey drop means the LLM's whole idea was off-page.
 func groundJourney(j plan.Journey, it plan.Item) (plan.Journey, int, bool) {
 	symbols := symbolsFor(it)
 	if len(symbols) == 0 {
@@ -94,21 +98,42 @@ func groundJourney(j plan.Journey, it plan.Item) (plan.Journey, int, bool) {
 		// behavior on Item shapes that don't carry probe symbols.
 		return j, 0, false
 	}
+
+	// Build a URL → *Symbol map so per-step grounding is a
+	// dictionary lookup keyed by the running "current URL".
+	byURL := make(map[string]*ast.Symbol, len(symbols))
+	for i := range symbols {
+		u := normalizeGroundURL(symbols[i].AbsoluteURL)
+		if u != "" {
+			byURL[u] = &symbols[i]
+		}
+	}
+
+	// Start URL: whichever URL the landing symbol carries. Empty
+	// string is legal — the chain-wide fallback kicks in for
+	// steps where the URL is unknown.
+	currentURL := normalizeGroundURL(symbols[0].AbsoluteURL)
+
 	out := plan.Journey{Title: j.Title, Kind: j.Kind}
 	dropped := 0
 	for _, s := range j.Steps {
 		switch s.Op {
-		case "goto", "press":
+		case "goto":
+			// Update the running URL. Absolute + relative paths both
+			// normalize to a leading-slash path so the byURL map hits.
+			currentURL = normalizeGroundURL(s.Path)
+			out.Steps = append(out.Steps, s)
+		case "press":
 			// No content assertion — no grounding needed.
 			out.Steps = append(out.Steps, s)
 		case "click", "seen":
-			if anySymbolHasRoleName(symbols, s.Role, s.Name) {
+			if pageBacksRoleName(byURL, currentURL, symbols, s.Role, s.Name) {
 				out.Steps = append(out.Steps, s)
 			} else {
 				dropped++
 			}
 		case "fill":
-			if anySymbolHasInputLabel(symbols, s.Label) {
+			if pageBacksInputLabel(byURL, currentURL, symbols, s.Label) {
 				out.Steps = append(out.Steps, s)
 			} else {
 				dropped++
@@ -130,6 +155,61 @@ func groundJourney(j plan.Journey, it plan.Item) (plan.Journey, int, bool) {
 		return plan.Journey{}, dropped, true
 	}
 	return out, dropped, false
+}
+
+// pageBacksRoleName checks the specific page (by URL) first; falls
+// back to chain-wide grounding when the URL doesn't resolve. The
+// fallback preserves v1.13 behavior for chains landing on pages the
+// probe didn't crawl.
+func pageBacksRoleName(
+	byURL map[string]*ast.Symbol, currentURL string, chain []ast.Symbol,
+	role, name string,
+) bool {
+	if sym, ok := byURL[currentURL]; ok && sym != nil {
+		return symbolHasRoleName(*sym, role, name)
+	}
+	return anySymbolHasRoleName(chain, role, name)
+}
+
+func pageBacksInputLabel(
+	byURL map[string]*ast.Symbol, currentURL string, chain []ast.Symbol,
+	label string,
+) bool {
+	if sym, ok := byURL[currentURL]; ok && sym != nil {
+		return symbolHasInputLabel(*sym, label)
+	}
+	return anySymbolHasInputLabel(chain, label)
+}
+
+// normalizeGroundURL strips protocol + host + trailing slash so the
+// byURL map can be keyed uniformly whether the source is a full
+// Symbol.AbsoluteURL ("https://www.spritecloud.com/contact") or a
+// relative goto step ("/contact" or just "contact").
+func normalizeGroundURL(u string) string {
+	u = trim(u)
+	if u == "" {
+		return ""
+	}
+	for _, prefix := range []string{"https://", "http://"} {
+		if strings.HasPrefix(u, prefix) {
+			u = u[len(prefix):]
+			if i := strings.Index(u, "/"); i >= 0 {
+				u = u[i:]
+			} else {
+				u = "/"
+			}
+			break
+		}
+	}
+	// Ensure leading slash (relative paths without one).
+	if !strings.HasPrefix(u, "/") {
+		u = "/" + u
+	}
+	// Strip trailing slash except for the root.
+	if len(u) > 1 && strings.HasSuffix(u, "/") {
+		u = u[:len(u)-1]
+	}
+	return u
 }
 
 // symbolsFor returns the flat slice of ast.Symbol carried by an Item,
@@ -157,104 +237,122 @@ func hasAssertion(steps []plan.Op) bool {
 	return false
 }
 
-// anySymbolHasRoleName returns true when any page in the chain has an
-// anchor whose accessible name / visible text matches `name` AND whose
-// role attribute matches `role`. Fuzzy match on name (case-insensitive
-// substring, either direction); STRICT match on role — v1.13 tightens
-// this so LLM emissions like `click role=menuitem name='Testing
-// Services'` don't slip through when the actual anchor is a plain
-// link (they'd fail at test time on `getByRole('menuitem', ...)`).
-// Empty `name` always matches (v0.19 opSeen fallback).
-func anySymbolHasRoleName(symbols []ast.Symbol, role, name string) bool {
+// symbolHasRoleName is the per-page grounding predicate — checks a
+// single symbol for a role+name match. v1.13 role-strict rules apply
+// (menuitem needs explicit role tag, buttons accept implicit).
+// Fuzzy match on name; empty name always matches. Composer callers:
+// use pageBacksRoleName which layers a chain-wide fallback around this.
+func symbolHasRoleName(s ast.Symbol, role, name string) bool {
 	if trim(name) == "" {
 		return true
 	}
-	for _, s := range symbols {
-		switch role {
-		case "heading":
-			for _, c := range s.Contents {
-				if (c.Tag == "h1" || c.Tag == "h2" || c.Tag == "title") &&
-					(nameMatches(name, c.AccessibleName) || nameMatches(name, c.Text)) {
-					return true
-				}
+	switch role {
+	case "heading":
+		for _, c := range s.Contents {
+			if (c.Tag == "h1" || c.Tag == "h2" || c.Tag == "title") &&
+				(nameMatches(name, c.AccessibleName) || nameMatches(name, c.Text)) {
+				return true
 			}
-		case "link":
-			// A link anchor may not carry an explicit Role attribute
-			// (implicit role on <a href> is 'link'). Accept anchors
-			// with no Role OR Role='link'.
-			for _, l := range s.Links {
-				if l.Role != "" && l.Role != "link" {
-					continue
-				}
-				if nameMatches(name, l.AccessibleName) ||
-					nameMatches(name, l.Text) ||
-					nameMatches(name, l.Name) {
-					return true
-				}
+		}
+	case "link":
+		// A link anchor may not carry an explicit Role attribute
+		// (implicit role on <a href> is 'link'). Accept anchors
+		// with no Role OR Role='link'.
+		for _, l := range s.Links {
+			if l.Role != "" && l.Role != "link" {
+				continue
 			}
-		case "menuitem":
-			// v1.13 — menuitem is stricter: the anchor must have
-			// been explicitly role-tagged as menuitem. A plain link
-			// is NOT a menuitem for Playwright's getByRole purposes.
-			for _, l := range s.Links {
-				if l.Role != "menuitem" {
-					continue
-				}
-				if nameMatches(name, l.AccessibleName) ||
-					nameMatches(name, l.Text) ||
-					nameMatches(name, l.Name) {
-					return true
-				}
+			if nameMatches(name, l.AccessibleName) ||
+				nameMatches(name, l.Text) ||
+				nameMatches(name, l.Name) {
+				return true
 			}
-			// Also try the general Anchors bucket (probe emits
-			// menuitem-role elements there too via probe.mjs's
-			// role-anchor loop).
-			for _, a := range s.Anchors {
-				if a.Role != "menuitem" {
-					continue
-				}
-				if nameMatches(name, a.AccessibleName) ||
-					nameMatches(name, a.Text) ||
-					nameMatches(name, a.Name) {
-					return true
-				}
+		}
+	case "menuitem":
+		// v1.13 — menuitem is stricter: the anchor must have been
+		// explicitly role-tagged as menuitem. A plain link is NOT a
+		// menuitem for Playwright's getByRole purposes.
+		for _, l := range s.Links {
+			if l.Role != "menuitem" {
+				continue
 			}
-		case "button":
-			for _, a := range s.Anchors {
-				// v1.13 — accept implicit button role (empty Role,
-				// Tag=submit/button) OR explicit Role='button'.
-				if a.Role != "" && a.Role != "button" && a.Role != "submit" {
-					continue
-				}
-				if nameMatches(name, a.AccessibleName) ||
-					nameMatches(name, a.Text) ||
-					nameMatches(name, a.Name) {
-					return true
-				}
+			if nameMatches(name, l.AccessibleName) ||
+				nameMatches(name, l.Text) ||
+				nameMatches(name, l.Name) {
+				return true
 			}
-		default:
-			// Roles like 'alert', 'status', 'main', 'navigation',
-			// 'dialog', 'tab' aren't backed by a specific anchor
-			// collection in probe output — trust the LLM.
+		}
+		for _, a := range s.Anchors {
+			if a.Role != "menuitem" {
+				continue
+			}
+			if nameMatches(name, a.AccessibleName) ||
+				nameMatches(name, a.Text) ||
+				nameMatches(name, a.Name) {
+				return true
+			}
+		}
+	case "button":
+		for _, a := range s.Anchors {
+			// v1.13 — accept implicit button role (empty Role,
+			// Tag=submit/button) OR explicit Role='button' / 'submit'.
+			if a.Role != "" && a.Role != "button" && a.Role != "submit" {
+				continue
+			}
+			if nameMatches(name, a.AccessibleName) ||
+				nameMatches(name, a.Text) ||
+				nameMatches(name, a.Name) {
+				return true
+			}
+		}
+	default:
+		// Roles like 'alert', 'status', 'main', 'navigation',
+		// 'dialog', 'tab' aren't backed by a specific anchor
+		// collection in probe output — trust the LLM.
+		return true
+	}
+	return false
+}
+
+// symbolHasInputLabel checks a single symbol for a form input whose
+// label/aria/placeholder matches. Fuzzy match; empty label matches.
+func symbolHasInputLabel(s ast.Symbol, label string) bool {
+	if trim(label) == "" {
+		return true
+	}
+	for _, in := range s.Inputs {
+		if nameMatches(label, in.LabelText) ||
+			nameMatches(label, in.Aria) ||
+			nameMatches(label, in.Placeholder) {
 			return true
 		}
 	}
 	return false
 }
 
-// anySymbolHasInputLabel returns true when any page's Inputs collection
-// has a field whose label/aria/placeholder matches `label`. Fuzzy match.
+// anySymbolHasRoleName is the chain-wide fallback used by
+// pageBacksRoleName when the current URL doesn't resolve to a known
+// symbol. Loops symbolHasRoleName over the whole chain.
+func anySymbolHasRoleName(symbols []ast.Symbol, role, name string) bool {
+	if trim(name) == "" {
+		return true
+	}
+	for _, s := range symbols {
+		if symbolHasRoleName(s, role, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// anySymbolHasInputLabel is the chain-wide fallback for opFill.
 func anySymbolHasInputLabel(symbols []ast.Symbol, label string) bool {
 	if trim(label) == "" {
 		return true
 	}
 	for _, s := range symbols {
-		for _, in := range s.Inputs {
-			if nameMatches(label, in.LabelText) ||
-				nameMatches(label, in.Aria) ||
-				nameMatches(label, in.Placeholder) {
-				return true
-			}
+		if symbolHasInputLabel(s, label) {
+			return true
 		}
 	}
 	return false

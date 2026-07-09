@@ -154,6 +154,107 @@ func TestGrounding_StrictRoleRejection(t *testing.T) {
 	}
 }
 
+// TestGrounding_PerPage_DropsWrongPageAssertion verifies v1.14's tightening:
+// a step that lands on page A must be grounded against page A's anchors,
+// not "any page in the chain". Root cause of the 25-38 skips per PR on
+// v1.13 — LLM emitted opGoto('/contact') then opSeen('heading',
+// 'Performance Testing'), 'Performance Testing' exists on the site but
+// on /performance-testing, not /contact. v1.13's chain-wide check
+// accepted it; runtime skipped. v1.14 drops at emit.
+func TestGrounding_PerPage_DropsWrongPageAssertion(t *testing.T) {
+	it := plan.Item{
+		Symbols: []ast.Symbol{
+			{
+				AbsoluteURL: "https://www.spritecloud.com/",
+				Contents:    []ast.ContentAnchor{{Tag: "h1", Text: "Home"}},
+				Links:       []ast.LocatorAnchor{{Text: "Contact"}, {Text: "Performance Testing"}},
+			},
+			{
+				AbsoluteURL: "https://www.spritecloud.com/contact",
+				Contents:    []ast.ContentAnchor{{Tag: "h1", Text: "Let's Chat"}},
+				Inputs:      []ast.FormInput{{LabelText: "Email"}},
+			},
+			{
+				AbsoluteURL: "https://www.spritecloud.com/performance-testing",
+				Contents:    []ast.ContentAnchor{{Tag: "h1", Text: "Performance Testing"}},
+			},
+		},
+	}
+	j := plan.Journey{
+		Steps: []plan.Op{
+			{Op: "goto", Path: "/"},
+			{Op: "click", Role: "link", Name: "Contact"}, // grounded on /
+			{Op: "goto", Path: "/contact"},
+			// Wrong-page assertion: 'Performance Testing' is a heading
+			// on /performance-testing, NOT /contact. v1.13 accepted
+			// (chain-wide). v1.14 drops.
+			{Op: "seen", Role: "heading", Name: "Performance Testing"},
+			// Grounded on /contact
+			{Op: "seen", Role: "heading", Name: "Let's Chat"},
+		},
+	}
+	grounded, dropped, drop := groundJourney(j, it)
+	if drop {
+		t.Fatalf("expected journey to survive (Let's Chat grounds on /contact)")
+	}
+	if dropped != 1 {
+		t.Errorf("expected 1 dropped step (Performance Testing on wrong page), got %d", dropped)
+	}
+	for _, s := range grounded.Steps {
+		if s.Name == "Performance Testing" {
+			t.Errorf("Performance Testing (wrong-page heading) should have been dropped")
+		}
+	}
+}
+
+// TestGrounding_PerPage_URLNormalization verifies the URL matcher
+// handles absolute + relative + trailing slash + empty path variants.
+func TestGrounding_PerPage_URLNormalization(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"https://www.spritecloud.com/contact", "/contact"},
+		{"https://www.spritecloud.com/contact/", "/contact"},
+		{"https://www.spritecloud.com/", "/"},
+		{"/contact", "/contact"},
+		{"contact", "/contact"},
+		{"/", "/"},
+		{"", ""},
+		{"http://example.com", "/"},
+	}
+	for _, tc := range cases {
+		if got := normalizeGroundURL(tc.in); got != tc.want {
+			t.Errorf("normalizeGroundURL(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestGrounding_PerPage_UnknownURLFallsBackToChain verifies the chain-
+// wide fallback kicks in when the current URL isn't in the mindmap
+// (LLM landed somewhere the probe didn't crawl).
+func TestGrounding_PerPage_UnknownURLFallsBackToChain(t *testing.T) {
+	it := plan.Item{
+		Symbols: []ast.Symbol{{
+			AbsoluteURL: "https://www.spritecloud.com/",
+			Contents:    []ast.ContentAnchor{{Tag: "h1", Text: "Home"}},
+		}},
+	}
+	j := plan.Journey{
+		Steps: []plan.Op{
+			// LLM navigates somewhere the mindmap didn't cover.
+			{Op: "goto", Path: "/uncharted"},
+			// Home IS in the chain but not on /uncharted. Chain-wide
+			// fallback accepts (permissive when we don't know).
+			{Op: "seen", Role: "heading", Name: "Home"},
+		},
+	}
+	_, dropped, drop := groundJourney(j, it)
+	if drop || dropped != 0 {
+		t.Errorf("unknown-URL step should fall back to chain-wide grounding; dropped=%d drop=%v",
+			dropped, drop)
+	}
+}
+
 // TestGrounding_NoSymbolsSkipsFilter preserves historical behavior on
 // Item shapes without probe symbols — we can't ground without a
 // mindmap, so we trust the LLM.
