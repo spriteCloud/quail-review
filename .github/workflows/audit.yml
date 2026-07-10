@@ -73,8 +73,8 @@ jobs:
         id: rate
         run: |
           set -euo pipefail
-          pass=$(jq '[.suites[]?|..|.tests?//empty|.[]?|.results[]?|select(.status=="passed")]|length' audit-report.json)
-          fail=$(jq '[.suites[]?|..|.tests?//empty|.[]?|.results[]?|select(.status=="failed"or .status=="timedOut")]|length' audit-report.json)
+          pass=$(jq '[.. | objects | .status? | select(. == "passed")] | length' audit-report.json)
+          fail=$(jq '[.. | objects | .status? | select(. == "failed" or . == "timedOut")] | length' audit-report.json)
           total=$((pass + fail))
           if [ $total -eq 0 ]; then rate=0; else rate=$(( pass * 100 / total )); fi
           echo "pass=$pass"    >> "$GITHUB_OUTPUT"
