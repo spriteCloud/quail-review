@@ -131,6 +131,41 @@ inputs:
     description: quail-review release tag to install. Defaults to "latest".
     required: false
     default: latest
+  explore-url:
+    description: |
+      URL to probe with `quail explore`. When set, the explore step runs
+      after any probe / generate / heal steps. Leave empty to skip.
+      Runs ephemeral + change-aware by default — generated specs live
+      only for the duration of the run; the Gherkin-formatted report is
+      printed to the step's stdout.
+    required: false
+    default: ""
+  explore-focus:
+    description: |
+      Comma-separated attack categories for `quail explore`.
+      'all' (default) runs every category:
+        boundary, injection, state-corrupt, race, auth, data-edge,
+        cross-feature, flow-interrupt, sequence, role-switch,
+        upstream-dep, cumulative
+    required: false
+    default: "all"
+  explore-depth:
+    description: |
+      Probe depth for `quail explore`:
+        shallow   — 30 probes per page  (fast CI gate)
+        standard  — 60 probes per page  (default)
+        deep      — 120 probes per page (nightly / pre-release)
+    required: false
+    default: "standard"
+  explore-llm:
+    description: |
+      OpenAI-compatible endpoint for AI-assisted target selection and
+      scenario composition in `quail explore`. Leave empty for
+      deterministic-only mode (no LLM calls, still finds bugs).
+      Must be a self-hosted / private endpoint — do not point at a
+      third-party endpoint with sensitive site content.
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -139,6 +174,35 @@ runs:
       run: |
         set -euo pipefail
         ver='${{ inputs.version }}'
+        # 'source' → build from this action's checked-out sources. Requires
+        # a prior `actions/setup-go@v5` in the caller workflow.
+        # ponytail: no versioning ceremony for unreleased features; delete
+        # this branch once every feature this action exposes ships in a tag.
+        if [ "$ver" = "source" ]; then
+          if ! command -v go >/dev/null 2>&1; then
+            echo "quail-review: version=source needs setup-go in the workflow" >&2
+            exit 1
+          fi
+          # ponytail: temporary GOWORK-based fetch of a private quail-core
+          # ref, needed only while the Explorer contract lives on a branch.
+          # Delete this block once quail-core cuts a release containing the
+          # ExploreConfig types and quail-review's go.mod pins that tag.
+          core_ref="${QUAIL_CORE_REF:-feat/explore}"
+          workroot=$(mktemp -d)
+          echo "quail-review: fetching quail-core@$core_ref for source build"
+          git clone --depth 1 --branch "$core_ref" \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/spriteCloud/quail-core.git" \
+            "$workroot/quail-core"
+          printf 'go 1.25.10\nuse (\n  %s\n  %s\n)\n' \
+            "${{ github.action_path }}" "$workroot/quail-core" \
+            > "$workroot/go.work"
+          export GOWORK="$workroot/go.work"
+          ( cd "${{ github.action_path }}" && go build -o /tmp/quail ./cmd/quail )
+          sudo install -m 0755 /tmp/quail /usr/local/bin/quail-review
+          sudo ln -sf /usr/local/bin/quail-review /usr/local/bin/quail
+          quail-review --version
+          exit 0
+        fi
         os=$(uname -s | tr '[:upper:]' '[:lower:]')
         arch=$(uname -m)
         case "$arch" in
@@ -236,6 +300,51 @@ runs:
           exit 0
         fi
         quail heal
+    - name: quail explore
+      # Runs when explore-url is set. Ephemeral + change-aware by default:
+      # generated specs land in a temp dir and are wiped on exit; the
+      # Gherkin-formatted report streams to this step's stdout AND is
+      # rendered as a spriteCloud-branded HTML page for artifact upload.
+      id: quail-explore
+      if: inputs.explore-url != ''
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token != '' && inputs.github-token || github.token }}
+        OPENAI_BASE_URL: ${{ inputs.openai-base-url }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        QUAIL_MODEL: ${{ inputs.model }}
+        QUAIL_LLM: ${{ inputs.explore-llm }}
+        QUAIL_LOG_LEVEL: ${{ inputs.log-level }}
+        QUAIL_LLM_TIMEOUT: ${{ inputs.llm-timeout }}
+        QUAIL_BROWSERS: ${{ inputs.browsers }}
+        QUAIL_PR: ${{ inputs.pr }}
+      run: |
+        set -euo pipefail
+        export QUAIL_ENGINE="${QUAIL_BROWSERS%%,*}"
+        gherkin="${RUNNER_TEMP}/explore-report.gherkin"
+        html="${RUNNER_TEMP}/explore-report.html"
+        quail explore \
+          --url "${{ inputs.explore-url }}" \
+          --focus "${{ inputs.explore-focus }}" \
+          --depth "${{ inputs.explore-depth }}" \
+          | tee "$gherkin"
+        python3 "${{ github.action_path }}/scripts/render-explore-html.py" \
+          "$gherkin" "$html" \
+          --url "${{ inputs.explore-url }}" \
+          --pr  "${{ inputs.pr }}" \
+          --sha "${{ github.sha }}" \
+          --generated "$(date -u +%FT%TZ)"
+        echo "html-report=$html"     >> "$GITHUB_OUTPUT"
+        echo "gherkin-report=$gherkin" >> "$GITHUB_OUTPUT"
+    - name: Upload explore report
+      if: inputs.explore-url != '' && steps.quail-explore.outputs.html-report != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: quail-explore-report
+        path: |
+          ${{ steps.quail-explore.outputs.html-report }}
+          ${{ steps.quail-explore.outputs.gherkin-report }}
+        if-no-files-found: warn
     - name: quail review (@quail PR reviewer)
       # Pairs with an issue_comment workflow filtered on `@quail` in the
       # comment body. Fetches the PR diff, asks the LLM to summarise as

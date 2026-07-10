@@ -129,6 +129,34 @@ Full reference + recipes: <https://spritecloud.github.io/quail-review/docs.html>
 | `heal` | Repair broken Playwright locators | `--pr <N>`, `--report <file>` |
 | `ledger update` | Merge Playwright failures into `findings.md` | `--report <file>` |
 | `run-once` | Run the generated suite locally, record failures | `--workdir`, `--record`, `--report`, `--grep <pat>` |
+| `explore` | Ephemeral, change-aware adversarial bug-hunt against a live URL | `--url`, `--focus`, `--depth`, `--persist`, `--pr <N>`, `--llm <url>` |
+
+### `explore` — ephemeral adversarial bug-hunting
+
+`quail explore` applies 12 attack categories (boundary, injection, race,
+auth, …) to every interactive element on the target. Two things make it
+different from `probe`:
+
+- **Ephemeral by default.** The generated `.spec.ts` and `.feature` files
+  live in an `os.MkdirTemp` workdir and are wiped on exit. Only the
+  Gherkin-formatted report survives — it streams to stdout so a human
+  can read what was exercised and what broke. Pass `--persist` to keep
+  today's on-disk layout under `--workdir`.
+- **Change-aware.** On every run the last change is auto-detected — PR
+  diff in CI (via `$GITHUB_EVENT_PATH`, `--pr`, or `$QUAIL_PR`), else
+  `git diff HEAD~1..HEAD` locally. Only the changed *file paths* (never
+  content) are forwarded to the LLM as prioritisation hints; the
+  deterministic layer still probes the entire discovered surface. Diff
+  content remains gated behind `QUAIL_ALLOW_DIFF_TO_LLM=1`.
+
+The guardrails spec at `internal/spec/explore_guardrails.md` gates every
+LLM response — invalid output is silently dropped, the deterministic
+fallback wins.
+
+> **Prerequisite.** `quail explore` calls
+> `core.NewExplorer(core.ExploreConfig{…}).Run(ctx)` from `quail-core`.
+> Those types have to land in a companion `quail-core` release before
+> this command compiles. See the plan file for the exact contract delta.
 
 ## Environment
 

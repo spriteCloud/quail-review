@@ -158,7 +158,7 @@ func newRoot() *cobra.Command {
 	}
 	// v1.0.0 — `serve` moved to the commercial spriteCloud/quail
 	// repo. The OSS quail-review edition ships PR/CI surface only.
-	root.AddCommand(newGenerateCmd(), newHealCmd(), newScanCmd(), newProbeCmd(), newPromptCmd(), newLedgerCmd(), newRunOnceCmd(), newReviewCmd())
+	root.AddCommand(newGenerateCmd(), newHealCmd(), newScanCmd(), newProbeCmd(), newPromptCmd(), newLedgerCmd(), newRunOnceCmd(), newReviewCmd(), newExploreCmd())
 	return root
 }
 
