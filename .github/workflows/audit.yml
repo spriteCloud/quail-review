@@ -1,0 +1,109 @@
+name: quail-audit
+# Reusable audit workflow. External repos invoke this via `uses:` and get:
+#   - Playwright @smoke tests run against their SUT
+#   - JSON reporter → pass/fail count → % rate
+#   - Threshold gate (default 80%) turns the check green/red
+#   - Comment on the triggering PR with the ratio + a link to logs
+#
+# Two calling shapes are documented on the README:
+#   1. On every PR: `pull_request` event routes here directly.
+#   2. On-demand `/quail audit`: `issue_comment` event with body containing
+#      the slash command. The caller workflow gates on the comment body.
+#
+# The @spritecloud-quail user is the recommended collaborator on the caller
+# repo — that identity posts the audit result comment (via GITHUB_TOKEN
+# in the caller's context, or via QUAIL_BOT_PAT if the caller sets one).
+
+on:
+  workflow_call:
+    inputs:
+      target-url:
+        description: URL of the system-under-test. Sets PLAYWRIGHT_TEST_BASE_URL.
+        required: false
+        type: string
+        default: ''
+      grep-tag:
+        description: Playwright --grep expression. Defaults to '@smoke'.
+        required: false
+        type: string
+        default: '@smoke'
+      pass-rate-threshold:
+        description: Minimum pass-rate (%) for the audit to succeed.
+        required: false
+        type: number
+        default: 80
+      node-version:
+        description: Node version to install.
+        required: false
+        type: string
+        default: '20'
+      playwright-install-args:
+        description: Args to `npx playwright install`.
+        required: false
+        type: string
+        default: '--with-deps chromium'
+      pr:
+        description: PR number to comment on. Defaults to the event's PR.
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ inputs.node-version }}' }
+      - name: Install deps
+        run: npm install --no-audit --no-fund
+      - name: Install Playwright browsers
+        run: npx playwright install ${{ inputs.playwright-install-args }}
+      - name: Run @smoke tests
+        id: run
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_TEST_BASE_URL: ${{ inputs.target-url }}
+        run: npx playwright test --grep '${{ inputs.grep-tag }}' --reporter=json > audit-report.json
+      - name: Evaluate pass rate
+        id: rate
+        run: |
+          set -euo pipefail
+          pass=$(jq '[.suites[]?|..|.tests?//empty|.[]?|.results[]?|select(.status=="passed")]|length' audit-report.json)
+          fail=$(jq '[.suites[]?|..|.tests?//empty|.[]?|.results[]?|select(.status=="failed"or .status=="timedOut")]|length' audit-report.json)
+          total=$((pass + fail))
+          if [ $total -eq 0 ]; then rate=0; else rate=$(( pass * 100 / total )); fi
+          echo "pass=$pass"    >> "$GITHUB_OUTPUT"
+          echo "fail=$fail"    >> "$GITHUB_OUTPUT"
+          echo "total=$total"  >> "$GITHUB_OUTPUT"
+          echo "rate=$rate"    >> "$GITHUB_OUTPUT"
+      - name: Resolve target PR
+        id: pr
+        env:
+          INPUT_PR: ${{ inputs.pr }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ -n "$INPUT_PR" ]; then
+            echo "num=$INPUT_PR" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "num=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_NAME" = "issue_comment" ]; then
+            echo "num=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Comment on PR
+        if: steps.pr.outputs.num != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ steps.pr.outputs.num }} --body \
+            "quail audit: ${{ steps.rate.outputs.pass }}/${{ steps.rate.outputs.total }} tests passed (${{ steps.rate.outputs.rate }}%). Threshold ${{ inputs.pass-rate-threshold }}%. [Run logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+      - name: Enforce threshold
+        run: |
+          if [ ${{ steps.rate.outputs.rate }} -lt ${{ inputs.pass-rate-threshold }} ]; then
+            echo "::error::Pass rate ${{ steps.rate.outputs.rate }}% below ${{ inputs.pass-rate-threshold }}% threshold"
+            exit 1
+          fi

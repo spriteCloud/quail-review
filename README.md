@@ -64,6 +64,39 @@ quail heal --pr 42 --report playwright-report.json
 quail ledger update --report playwright-report.json
 ```
 
+## Invite `@spritecloud-quail` for PR-comment audits
+
+External repos get a per-PR audit surface in one file. Invite the
+[`@spritecloud-quail`](https://github.com/spritecloud-quail) user as a
+collaborator (write access) and drop:
+
+```yaml
+# .github/workflows/quail-audit.yml
+name: quail-audit
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  audit:
+    if: >
+      github.event_name == 'pull_request' ||
+      (github.event.issue.pull_request && contains(github.event.comment.body, '/quail audit'))
+    uses: spriteCloud/quail-review/.github/workflows/audit.yml@v1
+    with:
+      target-url: https://staging.example.com
+      pass-rate-threshold: 80
+    permissions:
+      contents: read
+      pull-requests: write
+```
+
+Every PR gets audited automatically. Any collaborator can also
+comment `/quail audit` to re-run on demand. Details:
+[docs/audit-install.md](./docs/audit-install.md).
+
 ## The 10-layer taxonomy
 
 Every test quail emits maps to one of ten layers. Six of them
