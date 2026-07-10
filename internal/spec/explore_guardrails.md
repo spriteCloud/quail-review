@@ -51,7 +51,7 @@ that formalises the bug as a reproducible test.
 **Constraints:**
 - The scenario MUST use only step patterns from the **Step Vocabulary**
   (§6). Steps outside the vocabulary are dropped.
-- The scenario MUST include an `@exploratory` tag and a `@severity-<X>`
+- The scenario MUST include an `@adversarial` tag and a `@severity-<X>`
   tag where `<X>` is one of `critical | high | medium | low | info`.
 - The scenario MUST reference the exact URL and element the anomaly was
   found on (no paraphrasing or generalisation).
@@ -160,7 +160,7 @@ the entire response to be dropped.
   "anomaly_id": "explore-login-003",
   "scenario": {
     "title": "Login form accepts XSS payload in email field",
-    "tags": ["@exploratory", "@severity-high", "@injection"],
+    "tags": ["@adversarial", "@severity-high", "@injection"],
     "steps": [
       "Given I navigate to '/login'",
       "When I fill in '[data-testid=\"email\"]' with '<script>alert(1)</script>'",
@@ -273,7 +273,7 @@ anomaly is processed.
 3. **Selector existence** (`attack-plan`) — every `selector` must appear verbatim in the page snapshot element list. Fallback: drop that target.
 4. **Category check** (`attack-plan`) — every `category` must be in §4. Fallback: drop that target.
 5. **Step vocabulary check** (`compose`) — each step must match a pattern in §6. Fallback: drop invalid steps; if < 3 steps remain, drop scenario.
-6. **Tag check** (`compose`) — scenario must have `@exploratory` and one `@severity-<X>`. Fallback: drop scenario, emit trace verbatim.
+6. **Tag check** (`compose`) — scenario must have `@adversarial` and one `@severity-<X>`. Fallback: drop scenario, emit trace verbatim.
 7. **Step count check** (`compose`) — step count must not exceed reproduction trace length + 2. Fallback: drop scenario, emit trace verbatim.
 8. **Severity enum** (`classify`) — must be one of the five values in §7. Fallback: assign `medium`.
 9. **Summary length** (`classify`) — `observed:` must be ≤ 120 chars. Fallback: truncate.
