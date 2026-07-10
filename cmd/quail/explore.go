@@ -350,7 +350,9 @@ func parseExploreCategories(focus string) ([]string, error) {
 }
 
 // exploreLLMConfigOrNil returns nil when no LLM endpoint is configured,
-// signalling deterministic-only mode to the core runner.
+// signalling deterministic-only mode to the core runner. Pulls the API
+// key from OPENAI_API_KEY so ollama's "ollama" sentinel and real OpenAI
+// keys both work without another flag.
 func exploreLLMConfigOrNil(endpoint, model, timeout string) *core.LLMConfig {
 	if endpoint == "" {
 		return nil
@@ -358,6 +360,7 @@ func exploreLLMConfigOrNil(endpoint, model, timeout string) *core.LLMConfig {
 	return &core.LLMConfig{
 		Endpoint:          endpoint,
 		Model:             model,
+		APIKey:            envOr("OPENAI_API_KEY", "ollama"),
 		Timeout:           timeout,
 		EnforceGuardrails: true,
 	}
