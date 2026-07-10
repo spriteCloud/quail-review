@@ -176,6 +176,15 @@ runs:
       run: |
         set -euo pipefail
         ver='${{ inputs.version }}'
+        # Idempotent — skip reinstall when the binary is already on
+        # PATH and we're not rebuilding from source. Lets callers invoke
+        # this composite action more than once per workflow (e.g. once
+        # for generate/heal, once for a standalone render step) without
+        # paying the ~10s install cost each time.
+        if [ "$ver" != "source" ] && command -v quail >/dev/null 2>&1; then
+          echo "quail-review: already installed ($(quail --version 2>&1 | head -1)); skipping install."
+          exit 0
+        fi
         # 'source' → build from this action's checked-out sources. Requires
         # a prior `actions/setup-go@v5` in the caller workflow.
         # ponytail: no versioning ceremony for unreleased features; delete
@@ -232,6 +241,41 @@ runs:
         # existing per-step `run: quail ...` blocks keep working.
         sudo ln -sf /usr/local/bin/quail-review /usr/local/bin/quail
         quail-review --version
+    - name: Close stale quail bot PRs
+      # Runs once per action invocation, right after install. Closes any
+      # prior `quail/tests-pr-<N>-*` and `quail/heal-pr-<N>-*` bot PRs
+      # against this PR whose branch SHA is stale, so retriggers don't
+      # accumulate — customers converge on exactly one live tests-pr and
+      # one live heal-pr per PR without writing any workflow logic.
+      # No-op when `pr` isn't set (probe-standalone / explore-only flows).
+      if: inputs.pr != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token != '' && inputs.github-token || github.token }}
+        PR: ${{ inputs.pr }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        set -euo pipefail
+        if [ -z "$HEAD_SHA" ] || [ -z "$PR" ]; then
+          echo "quail-review: no head SHA / PR — skipping stale-PR cleanup."
+          exit 0
+        fi
+        CURRENT="${HEAD_SHA:0:7}"
+        for kind in tests-pr heal-pr; do
+          gh pr list --state open --search "head:quail/${kind}-${PR}-" \
+            --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"' \
+          | while read n branch; do
+              case "$branch" in
+                *"-${CURRENT}") ;;  # keep the current-SHA one
+                *)
+                  echo "quail-review: closing stale bot PR #${n} (${branch})"
+                  gh pr close "$n" --delete-branch \
+                    --comment "Superseded by a fresh push to PR #${PR}." \
+                    || echo "  ↳ close failed (may already be closed)"
+                  ;;
+              esac
+            done
+        done
     - name: quail generate
       # Diff-driven generation needs a PR. Skip when there's none but a probe
       # target is set — the standalone probe step below covers that case.
@@ -364,3 +408,38 @@ runs:
         QUAIL_LOG_LEVEL: ${{ inputs.log-level }}
       run: |
         quail review
+    - name: Render branded Playwright HTML
+      # Fires whenever the caller's `playwright-report` input points at
+      # a file that exists on disk. That input already gates heal on
+      # failure; reusing it means zero new inputs and any customer
+      # workflow that runs Playwright automatically gets a
+      # spriteCloud-branded HTML view of the run on the summary.
+      id: playwright-html
+      if: always()
+      shell: bash
+      env:
+        PW_JSON: ${{ inputs.playwright-report }}
+      run: |
+        set -euo pipefail
+        if [ -z "${PW_JSON}" ] || [ ! -f "${PW_JSON}" ]; then
+          echo "quail-review: no Playwright JSON at '${PW_JSON:-<unset>}'; skipping branded HTML."
+          exit 0
+        fi
+        out="${RUNNER_TEMP}/quail-playwright-report.html"
+        python3 "${{ github.action_path }}/scripts/render-playwright-html.py" \
+          "${PW_JSON}" "${out}" \
+          --pr  "${{ inputs.pr }}" \
+          --sha "${{ github.sha }}" \
+          --generated "$(date -u +%FT%TZ)"
+        echo "html=${out}"      >> "$GITHUB_OUTPUT"
+        echo "json=${PW_JSON}"  >> "$GITHUB_OUTPUT"
+    - name: Upload branded Playwright report
+      if: always() && steps.playwright-html.outputs.html != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report-${{ inputs.pr }}
+        path: |
+          ${{ steps.playwright-html.outputs.html }}
+          ${{ steps.playwright-html.outputs.json }}
+        if-no-files-found: warn
+        retention-days: 14
