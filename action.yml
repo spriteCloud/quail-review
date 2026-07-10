@@ -171,6 +171,8 @@ runs:
   steps:
     - name: Install quail-review
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token != '' && inputs.github-token || github.token }}
       run: |
         set -euo pipefail
         ver='${{ inputs.version }}'
