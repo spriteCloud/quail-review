@@ -143,10 +143,18 @@ def extract_anomaly_counters(raw: str) -> list[tuple[str, str]]:
     hits = ANOMALY_HEADER.search(raw)
     if not hits or hits.group(1).strip() == "none":
         return []
-    tail = raw[hits.end():]
-    end = re.search(r"^\S", tail, re.M)
-    block = tail[: end.start()] if end else tail
-    return [(m.group(1).strip(), m.group(2)) for m in ANOMALY_COUNTER.finditer(block)]
+    counters: list[tuple[str, str]] = []
+    for line in raw[hits.end():].splitlines():
+        m = ANOMALY_COUNTER.match(line)
+        if m:
+            counters.append((m.group(1).strip(), m.group(2)))
+        elif counters:
+            break  # first non-counter line after the block ends parsing
+        elif line.strip() == "":
+            continue
+        else:
+            break
+    return counters
 
 
 def render_summary_cells(summary: dict[str, str]) -> str:
