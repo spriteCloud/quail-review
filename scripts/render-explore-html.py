@@ -79,6 +79,10 @@ HTML_TEMPLATE = """<!doctype html>
   pre.report .gk-tag {{ color: var(--copper); font-weight: 600; }}
   pre.report .gk-kw {{ color: var(--deep-water); font-weight: 700; }}
   pre.report .gk-comment {{ color: var(--mist); }}
+  ul.anomalies {{ list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }}
+  ul.anomalies li {{ display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; background: var(--fail-soft); border-left: 3px solid var(--fail-red); border-radius: 3px; font-family: var(--font-mono); font-size: 12.5px; }}
+  ul.anomalies .anom-k {{ color: var(--ink); }}
+  ul.anomalies .anom-v {{ color: var(--fail-red); font-weight: 700; }}
   footer {{ margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border-warm); font-family: var(--font-mono); font-size: 11px; color: var(--mist); letter-spacing: 0.04em; }}
 </style>
 </head>
@@ -96,9 +100,11 @@ HTML_TEMPLATE = """<!doctype html>
     <div class="cell"><div class="k">target</div><div class="v">{target}</div></div>
     <div class="cell"><div class="k">context</div><div class="v">{context}</div></div>
     <div class="cell"><div class="k">generated</div><div class="v">{generated}</div></div>
+    {summary_cells}
   </div>
+  {anomaly_panel}
 
-  <h2>Gherkin report</h2>
+  <h2>Gherkin narrative</h2>
   <div class="card">
     <pre class="report">{body}</pre>
   </div>
@@ -113,6 +119,73 @@ HTML_TEMPLATE = """<!doctype html>
 GK_TAG = re.compile(r"(@[a-zA-Z0-9_-]+)")
 GK_KW = re.compile(r"^(\s*)(Feature|Scenario|Given|When|Then|And|But):", re.M)
 GK_COMMENT = re.compile(r"^(#.*)$", re.M)
+
+# Header lines quail-core emits at the top of the Gherkin body — used to
+# lift session data into the .meta grid without reshaping the template.
+HEADER_LINE = re.compile(r"^# (pages visited|session|executed|stopped|mode|target): (.+)$", re.M)
+ANOMALY_HEADER = re.compile(r"^# anomalies observed: (.+)$", re.M)
+ANOMALY_COUNTER = re.compile(r"^#   (.+?): (\d+)$", re.M)
+
+
+def extract_summary(raw: str) -> dict[str, str]:
+    """Pull `# key: value` header lines out for the executive summary cards."""
+    out: dict[str, str] = {}
+    for match in HEADER_LINE.finditer(raw):
+        out[match.group(1)] = match.group(2).strip()
+    m = ANOMALY_HEADER.search(raw)
+    if m:
+        out["anomalies observed"] = m.group(1).strip()
+    return out
+
+
+def extract_anomaly_counters(raw: str) -> list[tuple[str, str]]:
+    """Return per-kind counters from the `# anomalies observed:` block."""
+    hits = ANOMALY_HEADER.search(raw)
+    if not hits or hits.group(1).strip() == "none":
+        return []
+    tail = raw[hits.end():]
+    end = re.search(r"^\S", tail, re.M)
+    block = tail[: end.start()] if end else tail
+    return [(m.group(1).strip(), m.group(2)) for m in ANOMALY_COUNTER.finditer(block)]
+
+
+def render_summary_cells(summary: dict[str, str]) -> str:
+    """Emit extra .cell divs for the session data, in a stable order."""
+    order = [
+        ("pages visited", "pages visited"),
+        ("session", "session"),
+        ("executed", "executed"),
+        ("anomalies observed", "anomalies"),
+        ("stopped", "stopped"),
+        ("mode", "mode"),
+    ]
+    cells: list[str] = []
+    for key, label in order:
+        val = summary.get(key)
+        if not val:
+            continue
+        cells.append(
+            f'    <div class="cell"><div class="k">{html.escape(label)}</div>'
+            f'<div class="v">{html.escape(val)}</div></div>'
+        )
+    return "\n".join(cells)
+
+
+def render_anomaly_panel(counters: list[tuple[str, str]]) -> str:
+    """Card for per-kind anomaly totals — empty string when nothing surfaced."""
+    if not counters:
+        return ""
+    rows = "".join(
+        f'      <li><span class="anom-k">{html.escape(k)}</span>'
+        f'<span class="anom-v">{html.escape(v)}</span></li>'
+        for k, v in counters
+    )
+    return (
+        '\n  <h2>Anomalies observed</h2>\n'
+        '  <div class="card">\n'
+        f'    <ul class="anomalies">\n{rows}\n    </ul>\n'
+        '  </div>'
+    )
 
 
 def colourise(escaped: str) -> str:
@@ -138,6 +211,10 @@ def main() -> None:
     escaped = html.escape(raw)
     coloured = colourise(escaped)
 
+    summary = extract_summary(raw)
+    summary_cells = render_summary_cells(summary)
+    anomaly_panel = render_anomaly_panel(extract_anomaly_counters(raw))
+
     target = html.escape(args.url or os.environ.get("QUAIL_EXPLORE_URL", "n/a"))
     ctx_bits = []
     if args.pr:
@@ -156,6 +233,8 @@ def main() -> None:
             context=context,
             generated=generated,
             body=coloured,
+            summary_cells=summary_cells,
+            anomaly_panel=anomaly_panel,
         ),
         encoding="utf-8",
     )
