@@ -166,6 +166,15 @@ inputs:
       third-party endpoint with sensitive site content.
     required: false
     default: ""
+  explore-timebox:
+    description: |
+      Wall-clock ceiling on the exploratory session, Go duration
+      (e.g. `30s`, `2m`). The engine calls the LLM in a loop, feeding
+      forward everything already tried, until this budget expires OR
+      two consecutive rounds return nothing new. Default 60s reads
+      well across most demo runs.
+    required: false
+    default: "60s"
 runs:
   using: composite
   steps:
@@ -373,6 +382,7 @@ runs:
           --url "${{ inputs.explore-url }}" \
           --focus "${{ inputs.explore-focus }}" \
           --depth "${{ inputs.explore-depth }}" \
+          --timebox "${{ inputs.explore-timebox }}" \
           | tee "$gherkin"
         python3 "${{ github.action_path }}/scripts/render-explore-html.py" \
           "$gherkin" "$html" \

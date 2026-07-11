@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	core "github.com/spriteCloud/quail-core"
@@ -53,6 +54,9 @@ func newExploreCmd() *cobra.Command {
 		llmURL     string
 		model      string
 		llmTimeout string
+
+		// Timeboxed exploratory loop.
+		timebox string
 	)
 
 	cmd := &cobra.Command{
@@ -107,6 +111,7 @@ Examples:
 				llmURL:       llmURL,
 				model:        model,
 				llmTimeout:   llmTimeout,
+				timebox:      timebox,
 			})
 		},
 	}
@@ -149,6 +154,9 @@ Examples:
 		"Model ID for the LLM endpoint (default: inherits QUAIL_MODEL or gpt-4o-mini)")
 	f.StringVar(&llmTimeout, "llm-timeout", "",
 		"Per-call LLM timeout, Go duration (default: inherits QUAIL_LLM_TIMEOUT or 60s)")
+	f.StringVar(&timebox, "timebox", "",
+		"Wall-clock ceiling on the exploratory session, Go duration (default: inherits QUAIL_EXPLORE_TIMEBOX or 60s). "+
+			"The engine calls the LLM in a loop until this expires or two consecutive rounds produce nothing new.")
 
 	return cmd
 }
@@ -158,6 +166,7 @@ type exploreOpts struct {
 	dryRun, ephemeral, persist                     bool
 	pr                                             int
 	llmURL, model, llmTimeout                      string
+	timebox                                        string
 }
 
 func runExplore(ctx context.Context, o exploreOpts) error {
@@ -173,6 +182,9 @@ func runExplore(ctx context.Context, o exploreOpts) error {
 	}
 	if o.llmTimeout == "" {
 		o.llmTimeout = envOr("QUAIL_LLM_TIMEOUT", "60s")
+	}
+	if o.timebox == "" {
+		o.timebox = envOr("QUAIL_EXPLORE_TIMEBOX", "60s")
 	}
 	if o.pr == 0 {
 		if v := os.Getenv("QUAIL_PR"); v != "" {
@@ -226,6 +238,7 @@ func runExplore(ctx context.Context, o exploreOpts) error {
 		Changes:        changes,
 		LLM:            exploreLLMConfigOrNil(o.llmURL, o.model, o.llmTimeout),
 		GuardrailsSpec: spec.ExploreGuardrails,
+		Timebox:        parseTimebox(o.timebox),
 	}
 
 	runner, err := core.NewExplorer(cfg)
@@ -364,6 +377,16 @@ func exploreLLMConfigOrNil(endpoint, model, timeout string) *core.LLMConfig {
 		Timeout:           timeout,
 		EnforceGuardrails: true,
 	}
+}
+
+// parseTimebox turns the --timebox flag string into a duration; falls
+// back to 60s on parse failure so a typo can't accidentally uncap the
+// loop.
+func parseTimebox(s string) time.Duration {
+	if d, err := time.ParseDuration(strings.TrimSpace(s)); err == nil && d > 0 {
+		return d
+	}
+	return 60 * time.Second
 }
 
 func envOr(key, fallback string) string {
