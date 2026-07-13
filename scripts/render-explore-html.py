@@ -12,8 +12,8 @@ Design notes:
   ink #0F1117 text on white cards.
 - Pixel-bar motif: small copper bars drawn as ::before decorations on section
   headers. No SVG, no images.
-- Report body is HTML-escaped and rendered inside <pre> so any Gherkin-like
-  angle-brackets survive intact.
+- Scenarios are parsed and rendered as a nested collapsible tree
+  (<details>) grouped by page + category. No raw <pre> dump, no JS.
 """
 from __future__ import annotations
 
@@ -75,10 +75,6 @@ HTML_TEMPLATE = """<!doctype html>
   .meta .v {{ font-family: var(--font-mono); font-size: 12px; color: var(--ink); word-break: break-all; }}
   .card {{ background: var(--white); border: 1px solid var(--border-warm); border-radius: 4px; padding: 20px 22px; box-shadow: var(--shadow-soft); transition: box-shadow var(--t-fast); }}
   .card:hover {{ box-shadow: var(--shadow-pop); }}
-  pre.report {{ margin: 0; padding: 16px 18px; background: var(--warm-white); border: 1px solid var(--border-warm); border-radius: 4px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; color: var(--ink); overflow-x: auto; white-space: pre-wrap; word-break: break-word; }}
-  pre.report .gk-tag {{ color: var(--copper); font-weight: 600; }}
-  pre.report .gk-kw {{ color: var(--deep-water); font-weight: 700; }}
-  pre.report .gk-comment {{ color: var(--mist); }}
   .exec-summary {{ background: var(--white); border: 1px solid var(--border-warm); border-radius: 4px; padding: 20px 22px; box-shadow: var(--shadow-soft); margin: 20px 0; }}
   .exec-summary h3 {{ margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--copper); letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--font-mono); }}
   .exec-summary p {{ margin: 0 0 10px; font-size: 15px; line-height: 1.55; color: var(--ink); }}
@@ -98,6 +94,50 @@ HTML_TEMPLATE = """<!doctype html>
   ul.findings .find-count {{ font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--ink); }}
   .no-findings {{ display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: var(--ok-soft); border-left: 4px solid var(--ok-green); border-radius: 3px; color: var(--ok-green); font-weight: 600; }}
   .h2-caption {{ font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; color: var(--mist); margin: -8px 0 12px; }}
+  /* Scenarios tree — nested <details>, no JS */
+  .scenarios-tree {{ display: grid; gap: 10px; }}
+  .scenarios-tree details {{ background: transparent; }}
+  .scenarios-tree details > summary {{ list-style: none; cursor: pointer; user-select: none; padding: 12px 14px; background: var(--white); border: 1px solid var(--border-warm); border-radius: 4px; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-soft); }}
+  .scenarios-tree details > summary::-webkit-details-marker {{ display: none; }}
+  .scenarios-tree details > summary::before {{ content: "▸"; font-family: var(--font-mono); color: var(--mist); font-size: 12px; width: 12px; flex: 0 0 12px; transition: transform var(--t-fast); }}
+  .scenarios-tree details[open] > summary::before {{ content: "▾"; color: var(--copper); }}
+  .scenarios-tree details > summary:hover {{ box-shadow: var(--shadow-pop); }}
+  .scenarios-tree .s-label {{ font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--copper); padding: 2px 6px; background: var(--copper-10); border-radius: 3px; }}
+  .scenarios-tree .s-url {{ font-family: var(--font-mono); font-size: 13px; color: var(--ink); word-break: break-all; flex: 1; }}
+  .scenarios-tree .s-count {{ font-family: var(--font-mono); font-size: 11px; color: var(--mist); letter-spacing: 0.04em; margin-left: auto; white-space: nowrap; }}
+  .scenarios-tree .s-count strong {{ color: var(--fail-red); font-weight: 700; }}
+  .scenarios-tree .cat-summary {{ padding: 10px 14px; margin: 8px 0 8px 24px; background: var(--warm-white); border: 1px solid var(--border-warm); }}
+  .scenarios-tree .cat-pill {{ font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 3px; text-transform: lowercase; }}
+  .scenarios-tree .cat-pill.sev-clean {{ background: var(--ok-soft); color: var(--ok-green); }}
+  .scenarios-tree .cat-pill.sev-med   {{ background: #FEF3C7; color: #B45309; }}
+  .scenarios-tree .cat-pill.sev-high  {{ background: var(--fail-soft); color: var(--fail-red); }}
+  .scenarios-tree .cat-pill.sev-low   {{ background: #F1F5F9; color: var(--graphite); }}
+  ul.scenario-list {{ list-style: none; margin: 6px 0 12px 24px; padding: 0; display: grid; gap: 8px; }}
+  li.scenario {{ background: var(--white); border: 1px solid var(--border-warm); border-left: 3px solid var(--border-warm); border-radius: 3px; padding: 12px 14px; }}
+  li.scenario.has-issue {{ border-left-color: var(--fail-red); }}
+  li.scenario.is-not-reached {{ border-left-color: var(--mist); background: #F1F5F9; }}
+  .sc-head {{ display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }}
+  .status-pill {{ font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 8px; border-radius: 3px; white-space: nowrap; }}
+  .status-clean       {{ background: var(--ok-soft); color: var(--ok-green); }}
+  .status-issue       {{ background: var(--fail-soft); color: var(--fail-red); }}
+  .status-not-reached {{ background: #F1F5F9; color: var(--graphite); }}
+  .sc-title {{ font-size: 13.5px; color: var(--ink); flex: 1; min-width: 0; line-height: 1.4; }}
+  .sc-dur {{ font-family: var(--font-mono); font-size: 11px; color: var(--mist); white-space: nowrap; }}
+  ol.steps {{ list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }}
+  ol.steps li {{ display: grid; grid-template-columns: 50px 1fr; gap: 10px; align-items: baseline; font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); line-height: 1.55; }}
+  ol.steps .kw {{ font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; text-align: right; padding: 1px 6px; border-radius: 2px; color: var(--white); }}
+  ol.steps .kw-given {{ background: var(--deep-water); }}
+  ol.steps .kw-when  {{ background: var(--copper); }}
+  ol.steps .kw-and   {{ background: var(--mist); }}
+  ol.steps .kw-then  {{ background: var(--clear-blue); }}
+  ol.steps .kw-but   {{ background: var(--graphite); }}
+  .observation {{ margin-top: 10px; padding: 10px 12px; background: var(--fail-soft); border-left: 3px solid var(--fail-red); border-radius: 3px; font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); display: flex; gap: 10px; align-items: baseline; }}
+  .observation .obs-label {{ font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fail-red); flex: 0 0 auto; }}
+  .sel-footer {{ margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border-warm); font-family: var(--font-mono); font-size: 11px; color: var(--mist); display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: baseline; }}
+  .sel-footer .sel-item {{ display: inline-flex; gap: 6px; align-items: baseline; }}
+  .sel-footer .sel-k {{ color: var(--mist); }}
+  .sel-footer .sel-arrow {{ color: var(--copper); }}
+  .sel-footer .sel-v {{ color: var(--ink); background: var(--warm-white); padding: 1px 5px; border-radius: 2px; }}
   footer {{ margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border-warm); font-family: var(--font-mono); font-size: 11px; color: var(--mist); letter-spacing: 0.04em; }}
 </style>
 </head>
@@ -125,10 +165,8 @@ HTML_TEMPLATE = """<!doctype html>
   {findings_panel}
 
   <h2>Scenarios explored</h2>
-  <p class="h2-caption">the full Gherkin narrative — every step the exploratory session ran, in order.</p>
-  <div class="card">
-    <pre class="report">{body}</pre>
-  </div>
+  <p class="h2-caption">every scenario the exploratory session ran, grouped by page and category. Click a group to expand.</p>
+  {scenarios_tree}
 
   <footer>quail-explore · ephemeral suite · report preserved for review</footer>
 </div>
@@ -136,10 +174,6 @@ HTML_TEMPLATE = """<!doctype html>
 </html>
 """
 
-
-GK_TAG = re.compile(r"(@[a-zA-Z0-9_-]+)")
-GK_KW = re.compile(r"^(\s*)(Feature|Scenario|Given|When|Then|And|But):", re.M)
-GK_COMMENT = re.compile(r"^(#.*)$", re.M)
 
 # Header lines quail-core emits at the top of the Gherkin body — used to
 # lift session data into the .meta grid without reshaping the template.
@@ -349,13 +383,275 @@ def _extract_int(text: str, pattern: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def colourise(escaped: str) -> str:
-    # order matters: comments first (they may contain tag-like tokens),
-    # then keywords, then tag decoration.
-    out = GK_COMMENT.sub(r'<span class="gk-comment">\1</span>', escaped)
-    out = GK_KW.sub(r'\1<span class="gk-kw">\2</span>:', out)
-    out = GK_TAG.sub(r'<span class="gk-tag">\1</span>', out)
-    return out
+# ---------------------------------------------------------------------------
+# Gherkin narrative → nested tree parser + renderer.
+# The Go emitter's shape:
+#   Feature: Adversarial exploration of <URL>
+#     # Page: <URL>
+#     @adversarial @<category>
+#     Scenario: <title> — <badge> (<duration>)
+#       Given ...
+#       When ...
+#       And ...
+#       Then ...
+#     # observation: <text>            (only when anomaly)
+#     # selector-map:
+#     #   <human> → <selector>
+# ---------------------------------------------------------------------------
+
+_PAGE_RE = re.compile(r"^\s*#\s*Page:\s*(.+?)\s*$")
+_TAG_RE = re.compile(r"^\s*(@\S+.*)$")
+_SCENARIO_RE = re.compile(
+    r"^\s*Scenario:\s*(?P<title>.+?)\s*—\s*(?P<badge>no anomalies observed|anomalies observed(?: \(timeout\))?|not reached)"
+    r"(?:\s*\((?P<dur>[^)]+)\))?\s*$"
+)
+_STEP_RE = re.compile(r"^\s*(Given|When|Then|And|But)\s+(.+?)\s*$")
+_OBS_RE = re.compile(r"^\s*#\s*observation:\s*(.+?)\s*$")
+_SEL_HDR_RE = re.compile(r"^\s*#\s*selector-map:\s*$")
+_SEL_ENTRY_RE = re.compile(r"^\s*#\s*(?P<human>.+?)\s*→\s*(?P<sel>.+?)\s*$")
+
+
+def _status_from_badge(badge: str) -> str:
+    if badge.startswith("no anomalies"):
+        return "clean"
+    if badge.startswith("anomalies"):
+        return "issue"
+    return "not-reached"
+
+
+def parse_gherkin(raw: str) -> list[dict]:
+    """Walk the Gherkin narrative, returning a list of page dicts:
+
+        [{"url": ..., "categories": [{"name": ..., "scenarios": [...]}, ...]}]
+
+    Header comments (# quail explore, # target, # session, etc.) and the
+    Feature: line are consumed but discarded — they surface in the exec
+    summary and meta grid, not here.
+    """
+    pages: list[dict] = []
+    current_page: dict | None = None
+    current_cats: dict[str, list[dict]] = {}
+    pending_tags: list[str] = []
+    current_scenario: dict | None = None
+    in_selector_map = False
+
+    def close_scenario():
+        nonlocal current_scenario, in_selector_map
+        if current_scenario is None:
+            return
+        cat = current_scenario.pop("_category", "misc")
+        current_cats.setdefault(cat, []).append(current_scenario)
+        current_scenario = None
+        in_selector_map = False
+
+    def close_page():
+        nonlocal current_page, current_cats
+        close_scenario()
+        if current_page is not None:
+            current_page["categories"] = [
+                {"name": name, "scenarios": current_cats[name]}
+                for name in sorted(current_cats.keys())
+            ]
+            pages.append(current_page)
+        current_page = None
+        current_cats = {}
+
+    for line in raw.splitlines():
+        stripped = line.strip()
+
+        m = _PAGE_RE.match(line)
+        if m:
+            close_page()
+            current_page = {"url": m.group(1)}
+            current_cats = {}
+            pending_tags = []
+            continue
+
+        if current_page is None:
+            # skip the executive header + Feature line — those data are
+            # already lifted into the meta grid and exec summary.
+            continue
+
+        m = _TAG_RE.match(line)
+        if m and not stripped.startswith("#"):
+            close_scenario()
+            pending_tags = [t.lstrip("@") for t in stripped.split() if t.startswith("@")]
+            continue
+
+        m = _SCENARIO_RE.match(line)
+        if m:
+            close_scenario()
+            category = next((t for t in pending_tags if t != "adversarial"), "misc")
+            current_scenario = {
+                "_category": category,
+                "tags": pending_tags[:],
+                "title": m.group("title"),
+                "status": _status_from_badge(m.group("badge")),
+                "badge_raw": m.group("badge"),
+                "duration": m.group("dur") or "",
+                "steps": [],
+                "observation": None,
+                "selector_map": [],
+            }
+            pending_tags = []
+            in_selector_map = False
+            continue
+
+        if current_scenario is None:
+            continue
+
+        m = _OBS_RE.match(line)
+        if m:
+            current_scenario["observation"] = m.group(1)
+            continue
+
+        if _SEL_HDR_RE.match(line):
+            in_selector_map = True
+            continue
+
+        if in_selector_map:
+            m = _SEL_ENTRY_RE.match(line)
+            if m:
+                current_scenario["selector_map"].append((m.group("human"), m.group("sel")))
+                continue
+            in_selector_map = False  # fall through and try step
+
+        m = _STEP_RE.match(line)
+        if m:
+            current_scenario["steps"].append({"kw": m.group(1), "text": m.group(2)})
+            continue
+
+    close_page()
+    return pages
+
+
+# Category → severity class the pill inherits. Aligns with the
+# findings-panel severity but scoped by category so a clean category
+# reads green, a state-corrupt category reads amber, etc.
+_CATEGORY_SEV = {
+    "boundary":       "clean",
+    "data-edge":      "clean",
+    "injection":      "clean",
+    "race":           "clean",
+    "auth":           "clean",
+    "flow-interrupt": "clean",
+    "upstream-dep":   "clean",
+    "state-corrupt":  "clean",   # bumped when a scenario has an issue
+    "misc":           "low",
+}
+
+
+def _cat_severity(scenarios: list[dict]) -> str:
+    """Category badge severity: 'high' if any issue in a security-flavoured
+    category, 'med' for any other issue, else 'clean'."""
+    has_issue = any(s["status"] == "issue" for s in scenarios)
+    if not has_issue:
+        return "clean"
+    return "med"
+
+
+def _render_scenario(sc: dict) -> str:
+    status = sc["status"]
+    css_class = "has-issue" if status == "issue" else ("is-not-reached" if status == "not-reached" else "")
+    status_label = {"clean": "clean", "issue": "issue", "not-reached": "not reached"}[status]
+    dur = f'<span class="sc-dur">{html.escape(sc["duration"])}</span>' if sc.get("duration") else ""
+    steps = "".join(
+        f'<li><span class="kw kw-{s["kw"].lower()}">{html.escape(s["kw"])}</span>'
+        f'<span class="step-text">{html.escape(s["text"])}</span></li>'
+        for s in sc["steps"]
+    )
+    obs = ""
+    if sc.get("observation"):
+        obs = (
+            '<div class="observation">'
+            '<span class="obs-label">observed</span>'
+            f'<span>{html.escape(sc["observation"])}</span>'
+            '</div>'
+        )
+    sel_footer = ""
+    if sc.get("selector_map"):
+        items = "".join(
+            f'<span class="sel-item"><span class="sel-k">{html.escape(k)}</span>'
+            f'<span class="sel-arrow">→</span><code class="sel-v">{html.escape(v)}</code></span>'
+            for k, v in sc["selector_map"]
+        )
+        sel_footer = f'<div class="sel-footer">{items}</div>'
+    return (
+        f'<li class="scenario {css_class}">'
+        '<div class="sc-head">'
+        f'<span class="status-pill status-{status.replace("-", "-")}">{html.escape(status_label)}</span>'
+        f'<span class="sc-title">{html.escape(sc["title"])}</span>'
+        f'{dur}'
+        '</div>'
+        f'<ol class="steps">{steps}</ol>'
+        f'{obs}'
+        f'{sel_footer}'
+        '</li>'
+    )
+
+
+def _render_category(cat: dict) -> str:
+    scenarios = cat["scenarios"]
+    total = len(scenarios)
+    issues = sum(1 for s in scenarios if s["status"] == "issue")
+    not_reached = sum(1 for s in scenarios if s["status"] == "not-reached")
+    sev = _cat_severity(scenarios)
+    if issues:
+        count_html = f'{total} scenarios · <strong>{issues} need attention</strong>'
+    elif not_reached and not_reached == total:
+        count_html = f'{total} scenarios · all unreached'
+    else:
+        suffix = f' · {not_reached} unreached' if not_reached else ''
+        count_html = f'{total} scenarios · all clean{suffix}'
+    scenario_html = "".join(_render_scenario(s) for s in scenarios)
+    open_attr = " open" if issues else ""
+    return (
+        f'<details{open_attr}>'
+        f'<summary class="cat-summary">'
+        f'<span class="cat-pill sev-{sev}">{html.escape(cat["name"])}</span>'
+        f'<span class="s-count">{count_html}</span>'
+        f'</summary>'
+        f'<ul class="scenario-list">{scenario_html}</ul>'
+        f'</details>'
+    )
+
+
+def _render_page(page: dict) -> str:
+    cats = page["categories"]
+    total_scenarios = sum(len(c["scenarios"]) for c in cats)
+    total_issues = sum(
+        sum(1 for s in c["scenarios"] if s["status"] == "issue") for c in cats
+    )
+    if total_issues:
+        count_html = f'{total_scenarios} scenarios · <strong>{total_issues} need attention</strong>'
+    else:
+        count_html = f'{total_scenarios} scenarios · all clean'
+    cats_html = "".join(_render_category(c) for c in cats)
+    return (
+        '<details open>'
+        '<summary class="page-summary">'
+        '<span class="s-label">page</span>'
+        f'<span class="s-url">{html.escape(page["url"])}</span>'
+        f'<span class="s-count">{count_html}</span>'
+        '</summary>'
+        f'{cats_html}'
+        '</details>'
+    )
+
+
+def render_scenarios_tree(pages: list[dict]) -> str:
+    if not pages:
+        return (
+            '<div class="card">'
+            '<p style="margin:0;color:var(--mist);font-family:var(--font-mono);'
+            'font-size:12.5px;">No scenarios in this run.</p>'
+            '</div>'
+        )
+    return (
+        '<div class="scenarios-tree">'
+        + "".join(_render_page(p) for p in pages)
+        + '</div>'
+    )
 
 
 def main() -> None:
@@ -369,14 +665,13 @@ def main() -> None:
     args = ap.parse_args()
 
     raw = args.gherkin_in.read_text(encoding="utf-8", errors="replace")
-    escaped = html.escape(raw)
-    coloured = colourise(escaped)
 
     summary = extract_summary(raw)
     summary_cells = render_summary_cells(summary)
     counters = extract_anomaly_counters(raw)
     exec_summary = render_exec_summary(summary, counters)
     findings_panel = render_findings_panel(counters)
+    scenarios_tree = render_scenarios_tree(parse_gherkin(raw))
 
     target = html.escape(args.url or os.environ.get("QUAIL_EXPLORE_URL", "n/a"))
     ctx_bits = []
@@ -395,10 +690,10 @@ def main() -> None:
             target=target,
             context=context,
             generated=generated,
-            body=coloured,
             summary_cells=summary_cells,
             exec_summary=exec_summary,
             findings_panel=findings_panel,
+            scenarios_tree=scenarios_tree,
         ),
         encoding="utf-8",
     )
