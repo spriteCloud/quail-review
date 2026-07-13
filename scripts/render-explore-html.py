@@ -79,10 +79,25 @@ HTML_TEMPLATE = """<!doctype html>
   pre.report .gk-tag {{ color: var(--copper); font-weight: 600; }}
   pre.report .gk-kw {{ color: var(--deep-water); font-weight: 700; }}
   pre.report .gk-comment {{ color: var(--mist); }}
-  ul.anomalies {{ list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }}
-  ul.anomalies li {{ display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; background: var(--fail-soft); border-left: 3px solid var(--fail-red); border-radius: 3px; font-family: var(--font-mono); font-size: 12.5px; }}
-  ul.anomalies .anom-k {{ color: var(--ink); }}
-  ul.anomalies .anom-v {{ color: var(--fail-red); font-weight: 700; }}
+  .exec-summary {{ background: var(--white); border: 1px solid var(--border-warm); border-radius: 4px; padding: 20px 22px; box-shadow: var(--shadow-soft); margin: 20px 0; }}
+  .exec-summary h3 {{ margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--copper); letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--font-mono); }}
+  .exec-summary p {{ margin: 0 0 10px; font-size: 15px; line-height: 1.55; color: var(--ink); }}
+  .exec-summary p:last-child {{ margin-bottom: 0; }}
+  .exec-summary .verdict-bold {{ color: var(--deep-water); font-weight: 700; }}
+  ul.findings {{ list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }}
+  ul.findings li {{ display: grid; grid-template-columns: 90px 1fr auto; gap: 14px; align-items: center; padding: 12px 14px; background: var(--white); border: 1px solid var(--border-warm); border-left-width: 4px; border-radius: 3px; }}
+  ul.findings li.sev-high {{ border-left-color: var(--fail-red); background: var(--fail-soft); }}
+  ul.findings li.sev-med  {{ border-left-color: #B45309; background: #FEF3C7; }}
+  ul.findings li.sev-low  {{ border-left-color: var(--mist); background: #F1F5F9; }}
+  ul.findings .sev-badge {{ font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-align: center; padding: 4px 8px; border-radius: 3px; }}
+  ul.findings .sev-high .sev-badge {{ background: var(--fail-red); color: #fff; }}
+  ul.findings .sev-med  .sev-badge {{ background: #B45309; color: #fff; }}
+  ul.findings .sev-low  .sev-badge {{ background: var(--mist); color: #fff; }}
+  ul.findings .find-title {{ font-size: 14px; color: var(--ink); }}
+  ul.findings .find-tech  {{ font-family: var(--font-mono); font-size: 11px; color: var(--mist); margin-top: 3px; letter-spacing: 0.02em; }}
+  ul.findings .find-count {{ font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--ink); }}
+  .no-findings {{ display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: var(--ok-soft); border-left: 4px solid var(--ok-green); border-radius: 3px; color: var(--ok-green); font-weight: 600; }}
+  .h2-caption {{ font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; color: var(--mist); margin: -8px 0 12px; }}
   footer {{ margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border-warm); font-family: var(--font-mono); font-size: 11px; color: var(--mist); letter-spacing: 0.04em; }}
 </style>
 </head>
@@ -102,9 +117,15 @@ HTML_TEMPLATE = """<!doctype html>
     <div class="cell"><div class="k">generated</div><div class="v">{generated}</div></div>
     {summary_cells}
   </div>
-  {anomaly_panel}
 
-  <h2>Gherkin narrative</h2>
+  {exec_summary}
+
+  <h2>Findings</h2>
+  <p class="h2-caption">issues surfaced during exploration — what to look at first.</p>
+  {findings_panel}
+
+  <h2>Scenarios explored</h2>
+  <p class="h2-caption">the full Gherkin narrative — every step the exploratory session ran, in order.</p>
   <div class="card">
     <pre class="report">{body}</pre>
   </div>
@@ -179,21 +200,153 @@ def render_summary_cells(summary: dict[str, str]) -> str:
     return "\n".join(cells)
 
 
-def render_anomaly_panel(counters: list[tuple[str, str]]) -> str:
-    """Card for per-kind anomaly totals — empty string when nothing surfaced."""
+# Business-language mapping. Keys are the technical prefixes quail-core
+# emits in `# anomalies observed:` blocks; values are (severity,
+# business title, one-sentence explanation the reader can act on).
+FINDING_TRANSLATION = {
+    "state regressions": (
+        "MED",
+        "Session state may survive Back navigation",
+        "After clicking through and pressing Back+Reload, the original form controls "
+        "were no longer where they should be. Worth a look — may leak partial state "
+        "or break CSRF assumptions on retry.",
+    ),
+    "injection reflections": (
+        "HIGH",
+        "Malicious script may reflect on the page (XSS risk)",
+        "A crafted script payload appeared verbatim in the rendered page. Real user "
+        "input needs to be escaped before it's shown; this is a classic Cross-Site "
+        "Scripting exposure.",
+    ),
+    "same-origin console errors": (
+        "LOW",
+        "Unexpected app-side errors during scenarios",
+        "The application logged JavaScript errors while we exercised the flow. Not "
+        "a security exploit, but a sign of unhandled edge cases — worth passing to "
+        "engineering.",
+    ),
+    "same-origin 5xx responses": (
+        "HIGH",
+        "Server errors during scenarios",
+        "The backend returned 5xx responses while we exercised the flow. These are "
+        "server crashes visible to the user — treat as production-severity bugs.",
+    ),
+    "same-origin request failures": (
+        "MED",
+        "In-app requests failed during scenarios",
+        "One or more calls made by the app during the interaction did not complete. "
+        "Points to broken features or flaky dependencies within the site itself.",
+    ),
+    "other": (
+        "MED",
+        "Other unexpected behaviour",
+        "The executor logged an anomaly the summary can't classify — inspect the "
+        "narrative below for the raw observation text.",
+    ),
+}
+
+# Severity ordering: HIGH first when picking the recommendation focus.
+SEV_ORDER = {"HIGH": 0, "MED": 1, "LOW": 2}
+
+
+def _match_translation(key: str):
+    """Best-effort prefix lookup so slight wording tweaks in quail-core don't break translation."""
+    for tech_prefix, translation in FINDING_TRANSLATION.items():
+        if key.lower().startswith(tech_prefix.lower()):
+            return tech_prefix, translation
+    return "other", FINDING_TRANSLATION["other"]
+
+
+def render_findings_panel(counters: list[tuple[str, str]]) -> str:
+    """Business-language findings list. Empty state is an affirmative 'nothing surfaced' card."""
     if not counters:
-        return ""
+        return (
+            '<div class="card"><div class="no-findings">'
+            'No issues surfaced during this exploration.'
+            '</div></div>'
+        )
+    translated = []
+    for raw_key, count in counters:
+        _, (sev, title, _blurb) = _match_translation(raw_key)
+        translated.append((sev, title, raw_key, count))
+    translated.sort(key=lambda t: (SEV_ORDER.get(t[0], 9), t[1]))
     rows = "".join(
-        f'      <li><span class="anom-k">{html.escape(k)}</span>'
-        f'<span class="anom-v">{html.escape(v)}</span></li>'
-        for k, v in counters
+        f'      <li class="sev-{sev.lower()}">'
+        f'<span class="sev-badge">{html.escape(sev)}</span>'
+        f'<div><div class="find-title">{html.escape(title)}</div>'
+        f'<div class="find-tech">technical: {html.escape(raw_key)}</div></div>'
+        f'<span class="find-count">{html.escape(count)}×</span>'
+        f'</li>'
+        for sev, title, raw_key, count in translated
     )
     return (
-        '\n  <h2>Anomalies observed</h2>\n'
-        '  <div class="card">\n'
-        f'    <ul class="anomalies">\n{rows}\n    </ul>\n'
-        '  </div>'
+        '<div class="card">'
+        f'<ul class="findings">{rows}</ul>'
+        '</div>'
     )
+
+
+def render_exec_summary(summary: dict[str, str], counters: list[tuple[str, str]]) -> str:
+    """One-card business-English summary at the top of the report."""
+    pages = summary.get("pages visited", "?")
+    scenarios = _extract_int(summary.get("session", ""), r"(\d+) scenario")
+    scenarios_str = str(scenarios) if scenarios else "?"
+    executed = summary.get("executed", "")
+    clean = _extract_int(executed, r"(\d+) clean")
+    with_anom = _extract_int(executed, r"(\d+) with anomalies")
+    not_reached = _extract_int(executed, r"(\d+) not reached")
+    stopped = summary.get("stopped", "")
+
+    total_findings = sum(int(c) for _, c in counters) if counters else 0
+    highs = sum(int(c) for k, c in counters if _match_translation(k)[1][0] == "HIGH")
+    meds  = sum(int(c) for k, c in counters if _match_translation(k)[1][0] == "MED")
+    lows  = sum(int(c) for k, c in counters if _match_translation(k)[1][0] == "LOW")
+
+    scope = (
+        f"We explored <span class='verdict-bold'>{html.escape(str(pages))} page(s)</span>, "
+        f"running <span class='verdict-bold'>{html.escape(scenarios_str)} exploratory scenarios</span> "
+        f"({clean or 0} completed cleanly, {with_anom or 0} raised issues, {not_reached or 0} "
+        f"could not be reached)."
+    )
+    if total_findings == 0:
+        verdict = (
+            "<span class='verdict-bold'>No issues surfaced.</span> "
+            "The application behaved as expected across the scenarios we ran."
+        )
+        recommendation = (
+            "Nothing needs attention from this run. Consider expanding the exploration "
+            "surface (more pages / more categories) to keep coverage broad."
+        )
+    else:
+        badge_bits = []
+        if highs: badge_bits.append(f"<span class='verdict-bold'>{highs} high</span>")
+        if meds:  badge_bits.append(f"<span class='verdict-bold'>{meds} medium</span>")
+        if lows:  badge_bits.append(f"<span class='verdict-bold'>{lows} low</span>")
+        verdict = (
+            f"<span class='verdict-bold'>{total_findings} issue(s) worth investigating</span> "
+            f"({' · '.join(badge_bits)})."
+        )
+        focus = "highest" if highs else "medium" if meds else "low"
+        recommendation = (
+            f"Start with the {focus}-severity findings below. Each carries an "
+            "explanation of what we observed and why it might matter; the technical "
+            "Gherkin narrative further down shows the exact steps we ran."
+        )
+    stopped_note = f" Session stopped: {html.escape(stopped)}." if stopped else ""
+
+    return (
+        '<div class="exec-summary">'
+        '<h3>Executive summary</h3>'
+        f'<p><strong>Scope.</strong> {scope}{stopped_note}</p>'
+        f'<p><strong>Verdict.</strong> {verdict}</p>'
+        f'<p><strong>Recommendation.</strong> {recommendation}</p>'
+        '</div>'
+    )
+
+
+def _extract_int(text: str, pattern: str) -> int | None:
+    m = re.search(pattern, text)
+    return int(m.group(1)) if m else None
 
 
 def colourise(escaped: str) -> str:
@@ -221,7 +374,9 @@ def main() -> None:
 
     summary = extract_summary(raw)
     summary_cells = render_summary_cells(summary)
-    anomaly_panel = render_anomaly_panel(extract_anomaly_counters(raw))
+    counters = extract_anomaly_counters(raw)
+    exec_summary = render_exec_summary(summary, counters)
+    findings_panel = render_findings_panel(counters)
 
     target = html.escape(args.url or os.environ.get("QUAIL_EXPLORE_URL", "n/a"))
     ctx_bits = []
@@ -242,7 +397,8 @@ def main() -> None:
             generated=generated,
             body=coloured,
             summary_cells=summary_cells,
-            anomaly_panel=anomaly_panel,
+            exec_summary=exec_summary,
+            findings_panel=findings_panel,
         ),
         encoding="utf-8",
     )
