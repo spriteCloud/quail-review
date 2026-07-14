@@ -402,7 +402,9 @@ def _extract_int(text: str, pattern: str) -> int | None:
 _PAGE_RE = re.compile(r"^\s*#\s*Page:\s*(.+?)\s*$")
 _TAG_RE = re.compile(r"^\s*(@\S+.*)$")
 _SCENARIO_RE = re.compile(
-    r"^\s*Scenario:\s*(?P<title>.+?)\s*—\s*(?P<badge>no anomalies observed|anomalies observed(?: \(timeout\))?|not reached)"
+    r"^\s*Scenario:\s*(?P<title>.+?)\s*—\s*"
+    r"(?P<badge>no anomalies observed|anomalies observed(?: \(timeout\))?"
+    r"|not reached(?: \(transport blocked\))?)"
     r"(?:\s*\((?P<dur>[^)]+)\))?\s*$"
 )
 _STEP_RE = re.compile(r"^\s*(Given|When|Then|And|But)\s+(.+?)\s*$")
@@ -416,6 +418,7 @@ def _status_from_badge(badge: str) -> str:
         return "clean"
     if badge.startswith("anomalies"):
         return "issue"
+    # Covers "not reached" and "not reached (transport blocked)".
     return "not-reached"
 
 
