@@ -403,7 +403,8 @@ _PAGE_RE = re.compile(r"^\s*#\s*Page:\s*(.+?)\s*$")
 _TAG_RE = re.compile(r"^\s*(@\S+.*)$")
 _SCENARIO_RE = re.compile(
     r"^\s*Scenario:\s*(?P<title>.+?)\s*—\s*"
-    r"(?P<badge>no anomalies observed|anomalies observed(?: \(timeout\))?"
+    r"(?P<badge>no anomalies observed(?: \(expected dismissal\))?"
+    r"|anomalies observed(?: \(timeout\))?"
     r"|not reached(?: \(transport blocked\))?)"
     r"(?:\s*\((?P<dur>[^)]+)\))?\s*$"
 )
