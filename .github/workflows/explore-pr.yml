@@ -1,0 +1,47 @@
+name: quail-explore-pr
+
+# PR gate — ephemeral change-aware exploration.
+#
+# Fires on every PR. Reuses the composite action's `explore-*` inputs to
+# invoke `quail explore` against a review preview URL. Nothing is written
+# to the PR: the generated Playwright suite is temporary and the
+# Gherkin-formatted report streams to this workflow's stdout so reviewers
+# read it in the run log.
+#
+# Wiring notes:
+#   - fetch-depth: 2 is required so the local `git diff HEAD~1..HEAD`
+#     fallback works when no PR context is available (e.g. push-triggered
+#     debug runs).
+#   - `explore-url` must resolve to the deploy preview for this PR.
+#     Adjust the expression to match your preview-URL convention.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  explore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: ./
+        with:
+          # Skip the default generate/heal flow — this workflow is explore-only.
+          run-generate: 'false'
+          run-heal: 'false'
+
+          # Explore against the review preview. Replace the URL expression
+          # with whatever your deploy-preview convention emits.
+          explore-url: https://review-${{ github.event.number }}.preview.example.com
+          explore-focus: auth,injection,state-corrupt,race
+          explore-depth: shallow
+
+          # Optional: point at a self-hosted LLM for AI-assisted probing.
+          # explore-llm: ${{ vars.QUAIL_EXPLORE_LLM_URL }}
