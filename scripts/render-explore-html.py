@@ -343,7 +343,7 @@ def render_exec_summary(summary: dict[str, str], counters: list[tuple[str, str]]
     executed = summary.get("executed", "")
     clean = _extract_int(executed, r"(\d+) clean")
     with_anom = _extract_int(executed, r"(\d+) with anomalies")
-    not_reached = _extract_int(executed, r"(\d+) not reached")
+    not_reached = _extract_int(executed, r"(\d+) unreachable")
     stopped = summary.get("stopped", "")
 
     total_findings = sum(int(c) for _, c in counters) if counters else 0
@@ -420,7 +420,7 @@ _SCENARIO_RE = re.compile(
     r"^\s*Scenario:\s*(?P<title>.+?)\s*—\s*"
     r"(?P<badge>no anomalies observed(?: \(expected dismissal\))?"
     r"|anomalies observed(?: \(timeout\))?"
-    r"|not reached(?: \(transport blocked\))?)"
+    r"|unreachable(?: \((?:missing|hidden|disabled|timeout|transport)\))?)"
     r"(?:\s*\((?P<dur>[^)]+)\))?\s*$"
 )
 _STEP_RE = re.compile(r"^\s*(Given|When|Then|And|But)\s+(.+?)\s*$")
@@ -434,7 +434,7 @@ def _status_from_badge(badge: str) -> str:
         return "clean"
     if badge.startswith("anomalies"):
         return "issue"
-    # Covers "not reached" and "not reached (transport blocked)".
+    # Covers "unreachable" and any (missing|hidden|disabled|timeout|transport) suffix.
     return "not-reached"
 
 
@@ -572,7 +572,7 @@ def _cat_severity(scenarios: list[dict]) -> str:
 def _render_scenario(sc: dict) -> str:
     status = sc["status"]
     css_class = "has-issue" if status == "issue" else ("is-not-reached" if status == "not-reached" else "")
-    status_label = {"clean": "clean", "issue": "issue", "not-reached": "not reached"}[status]
+    status_label = {"clean": "clean", "issue": "issue", "not-reached": sc.get("badge_raw", "unreachable")}[status]
     dur = f'<span class="sc-dur">{html.escape(sc["duration"])}</span>' if sc.get("duration") else ""
     steps = "".join(
         f'<li><span class="kw kw-{s["kw"].lower()}">{html.escape(s["kw"])}</span>'
