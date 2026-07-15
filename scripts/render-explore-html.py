@@ -94,6 +94,16 @@ HTML_TEMPLATE = """<!doctype html>
   ul.findings .find-count {{ font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--ink); }}
   .no-findings {{ display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: var(--ok-soft); border-left: 4px solid var(--ok-green); border-radius: 3px; color: var(--ok-green); font-weight: 600; }}
   .h2-caption {{ font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; color: var(--mist); margin: -8px 0 12px; }}
+  /* Two-view toggle — executive above, technical hidden by default */
+  details.tech-detail {{ margin: 32px 0 0; }}
+  details.tech-detail > summary {{ list-style: none; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--warm-white); border: 1px dashed var(--border-warm); border-radius: 4px; }}
+  details.tech-detail > summary::-webkit-details-marker {{ display: none; }}
+  details.tech-detail > summary::before {{ content: "▸"; font-family: var(--font-mono); color: var(--copper); font-size: 12px; width: 12px; flex: 0 0 12px; }}
+  details.tech-detail[open] > summary::before {{ content: "▾"; }}
+  details.tech-detail > summary:hover {{ background: var(--white); box-shadow: var(--shadow-soft); }}
+  .tech-toggle-label {{ font-family: var(--font-sans); font-weight: 700; font-size: 14px; color: var(--deep-water); }}
+  .tech-toggle-hint {{ font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mist); margin-left: auto; }}
+  details.tech-detail[open] > summary {{ margin-bottom: 14px; }}
   /* Scenarios tree — nested <details>, no JS */
   .scenarios-tree {{ display: grid; gap: 10px; }}
   .scenarios-tree details {{ background: transparent; }}
@@ -164,9 +174,14 @@ HTML_TEMPLATE = """<!doctype html>
   <p class="h2-caption">issues surfaced during exploration — what to look at first.</p>
   {findings_panel}
 
-  <h2>Scenarios explored</h2>
-  <p class="h2-caption">every scenario the exploratory session ran, grouped by page and category. Click a group to expand.</p>
-  {scenarios_tree}
+  <details class="tech-detail">
+    <summary>
+      <span class="tech-toggle-label">Technical detail — full scenarios narrative</span>
+      <span class="tech-toggle-hint">for QA / engineering</span>
+    </summary>
+    <p class="h2-caption">every scenario the exploratory session ran, grouped by page and category. Click a group to expand.</p>
+    {scenarios_tree}
+  </details>
 
   <footer>quail-explore · ephemeral suite · report preserved for review</footer>
 </div>
