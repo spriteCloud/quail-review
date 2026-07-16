@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/spriteCloud/quail-core/diff"
 	"github.com/spriteCloud/quail-core/gh"
 	rlog "github.com/spriteCloud/quail-core/log"
+	"github.com/spriteCloud/quail-core/report/explorehtml"
 	"github.com/spriteCloud/quail-review/internal/spec"
 )
 
@@ -57,6 +60,9 @@ func newExploreCmd() *cobra.Command {
 
 		// Timeboxed exploratory loop.
 		timebox string
+
+		// HTML report path (auto when empty).
+		htmlOut string
 	)
 
 	cmd := &cobra.Command{
@@ -112,6 +118,7 @@ Examples:
 				model:        model,
 				llmTimeout:   llmTimeout,
 				timebox:      timebox,
+				htmlOut:      htmlOut,
 			})
 		},
 	}
@@ -157,6 +164,9 @@ Examples:
 	f.StringVar(&timebox, "timebox", "",
 		"Wall-clock ceiling on the exploratory session, Go duration (default: inherits QUAIL_EXPLORE_TIMEBOX or 60s). "+
 			"The engine calls the LLM in a loop until this expires or two consecutive rounds produce nothing new.")
+	f.StringVar(&htmlOut, "html-out", "",
+		"Path to write the branded HTML report. Empty (default): auto — persisted next to the ledger in --persist mode, "+
+			"else under $TMPDIR with the file path echoed to stderr.")
 
 	return cmd
 }
@@ -167,6 +177,7 @@ type exploreOpts struct {
 	pr                                             int
 	llmURL, model, llmTimeout                      string
 	timebox                                        string
+	htmlOut                                        string
 }
 
 func runExplore(ctx context.Context, o exploreOpts) error {
@@ -265,6 +276,13 @@ func runExplore(ctx context.Context, o exploreOpts) error {
 		fmt.Printf("  specs   → %s\n  ledger  → %s\n", result.SpecsDir, result.FindingsPath)
 	}
 
+	// HTML report — always attempt to write, so consumers never need a
+	// second post-processing step. Silent on error (falls back to the
+	// Gherkin stdout everything else keys off of).
+	if htmlPath := writeExploreHTML(result.Report, o, ephemeral); htmlPath != "" {
+		fmt.Fprintf(os.Stderr, "  report  → %s\n", htmlPath)
+	}
+
 	if result.FindingsConfirmed > 0 {
 		critHigh := result.BySeverity["critical"] + result.BySeverity["high"]
 		if critHigh > 0 {
@@ -277,6 +295,45 @@ func runExplore(ctx context.Context, o exploreOpts) error {
 	}
 
 	return nil
+}
+
+// writeExploreHTML renders the Gherkin report as HTML and drops it at the
+// first-available destination. Silent-nil on any error — HTML is a nice-to-have
+// beside the stdout Gherkin, not a hard dependency. Returns the on-disk path
+// so the caller can announce it on stderr.
+func writeExploreHTML(gherkin string, o exploreOpts, ephemeral bool) string {
+	if strings.TrimSpace(gherkin) == "" {
+		return ""
+	}
+	rendered, err := explorehtml.Render(gherkin, explorehtml.Meta{
+		TargetURL: o.targetURL,
+		Generated: time.Now().UTC().Format(time.RFC3339),
+	})
+	if err != nil {
+		return ""
+	}
+	// Destination precedence:
+	//   1. --html-out (explicit)
+	//   2. --persist: <workdir>/report.html next to the ledger
+	//   3. ephemeral: $TMPDIR/quail-explore-<host>-<epoch>.html
+	dst := o.htmlOut
+	switch {
+	case dst != "":
+		// use as-is
+	case !ephemeral && o.workdir != "":
+		dst = filepath.Join(o.workdir, "report.html")
+	default:
+		host := "run"
+		if u, err := url.Parse(o.targetURL); err == nil && u.Host != "" {
+			host = strings.NewReplacer(":", "_", "/", "_").Replace(u.Host)
+		}
+		dst = filepath.Join(os.TempDir(),
+			fmt.Sprintf("quail-explore-%s-%d.html", host, time.Now().Unix()))
+	}
+	if err := os.WriteFile(dst, []byte(rendered), 0o644); err != nil {
+		return ""
+	}
+	return dst
 }
 
 // loadExploreDiff resolves the "last change" that steers the LLM attack-plan
