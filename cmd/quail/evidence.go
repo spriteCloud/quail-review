@@ -13,6 +13,7 @@ import (
 
 	"github.com/spriteCloud/quail-core/config"
 	"github.com/spriteCloud/quail-core/gen"
+	"github.com/spriteCloud/quail-core/llm"
 	rlog "github.com/spriteCloud/quail-core/log"
 	"github.com/spriteCloud/quail-core/probe"
 	"github.com/spriteCloud/quail-core/prompt"
@@ -39,7 +40,11 @@ func runPromptEvidence(ctx context.Context, cfg config.Config, urls []string, fi
 		return fmt.Errorf("prompt --evidence: probe yielded no items (filter: %s)", filter.Describe())
 	}
 	items = applyKindFilter(items)
-	rendered, err := gen.Render(items, cfg.WorkDir)
+	evidenceClient := llm.New(cfg)
+	if !evidenceClient.Enabled() {
+		return fmt.Errorf("prompt --evidence now requires an LLM. Set --llm and --model (or QUAIL_LLM/QUAIL_MODEL). See README.")
+	}
+	rendered, err := gen.RenderWithComposer(ctx, items, cfg.WorkDir, evidenceClient, sessionOriginFromItems(items))
 	if err != nil {
 		return fmt.Errorf("prompt --evidence: render: %w", err)
 	}

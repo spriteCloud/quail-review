@@ -398,6 +398,24 @@ func composeInputFor(it plan.Item) oplist.ComposeInput {
 	return in
 }
 
+// sessionOriginFromItems picks a session-origin URL to feed the LLM
+// per-item composer prompt. Uses the first item's PageURL (or its
+// symbol's AbsoluteURL when PageURL is empty); returns "" when
+// neither is populated. The composer treats empty origin as a hint
+// that no crawl surface is available and the LLM has to rely on the
+// EXAMPLE alone.
+func sessionOriginFromItems(items []plan.Item) string {
+	for _, it := range items {
+		if it.PageURL != "" {
+			return it.PageURL
+		}
+		if it.Symbol.AbsoluteURL != "" {
+			return it.Symbol.AbsoluteURL
+		}
+	}
+	return ""
+}
+
 // symbolStepURL prefers the resolved absolute URL when present (that's
 // what a `page.goto()` argument looks like); falls back to the raw
 // File field which the probe writes for pages reached via direct goto.

@@ -537,11 +537,15 @@ func runGenerate(ctx context.Context, cfg config.Config) error {
 		writeStepSummary("quail: no new symbols in PR diff and no target URLs configured.\n")
 		return nil
 	}
-	rendered, err := gen.Render(items, cfg.WorkDir)
+	genClient := llm.New(cfg)
+	if !genClient.Enabled() {
+		return fmt.Errorf("quail generate now requires an LLM. Set --llm and --model (or QUAIL_LLM/QUAIL_MODEL). See README.")
+	}
+	rendered, err := gen.RenderWithComposer(ctx, items, cfg.WorkDir, genClient, sessionOriginFromItems(items))
 	if err != nil {
 		return fmt.Errorf("render: %w", err)
 	}
-	pingLLMEndpoint(ctx, llm.New(cfg), cfg.OpenAIBaseURL)
+	pingLLMEndpoint(ctx, genClient, cfg.OpenAIBaseURL)
 	if cfg.DryRun || client == nil {
 		printRendered(rendered)
 		return nil
@@ -808,11 +812,15 @@ func finishProbe(ctx context.Context, cfg config.Config, urls []string, items []
 	items = appendCoverageJourneys(ctx, cfg, items, maps)
 	// v0.99 — same taxonomy gate as runGenerate.
 	items = applyKindFilter(items)
-	rendered, err := gen.Render(items, cfg.WorkDir)
+	probeClient := llm.New(cfg)
+	if !probeClient.Enabled() {
+		return fmt.Errorf("quail probe now requires an LLM. Set --llm and --model (or QUAIL_LLM/QUAIL_MODEL). See README.")
+	}
+	rendered, err := gen.RenderWithComposer(ctx, items, cfg.WorkDir, probeClient, sessionOriginFromItems(items))
 	if err != nil {
 		return fmt.Errorf("probe render: %w", err)
 	}
-	pingLLMEndpoint(ctx, llm.New(cfg), cfg.OpenAIBaseURL)
+	pingLLMEndpoint(ctx, probeClient, cfg.OpenAIBaseURL)
 	if cfg.DryRun {
 		printRendered(rendered)
 		return nil
