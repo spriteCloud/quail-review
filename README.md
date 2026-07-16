@@ -5,11 +5,13 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-C0805A?labelColor=0F1117)](./LICENSE)
 
 OSS PR bot. A small Go binary + GitHub Action that watches a PR (or a live
-URL), opens a follow-up PR with generated Playwright tests + stakeholder
-docs, and heals broken locators when they drift.
+URL), opens follow-up PRs with generated Playwright tests, heals broken
+locators when they drift, hunts real bugs against a running app, and posts
+review verdicts as PR comments. Product site and reference recipes:
+[spritecloud.github.io/quail-review](https://spritecloud.github.io/quail-review/).
 
-> **Looking for the local UI, on-prem / data-sovereign deploy, or
-> named SLA?** Those live in the commercial
+> **Looking for the local UI, on-prem / data-sovereign deploy, or named
+> SLA?** Those live in the commercial
 > [`spriteCloud/quail`](https://github.com/spriteCloud/quail) edition.
 > Both editions share the same engine; the OSS one ships the PR/CI
 > surface only.
@@ -24,45 +26,149 @@ docs, and heals broken locators when they drift.
 - **Deterministic-first**: regex/AST/HTML extractors emit test scaffolds the
   same way every time. LLM-composed Scenarios are an OPT-IN second layer.
 - **10-layer taxonomy** out of the box: Unit, Component, API, Contract,
-  Integration, Backend, UI, Mobile, Data, Non-functional. See
-  [docs](https://spritecloud.github.io/quail-review/).
+  Integration, Backend, UI, Mobile, Data, Non-functional.
 - **Inference is yours**: any OpenAI-compatible base URL (Ollama, vLLM,
-  OpenAI).
+  OpenAI). Diff content stays local unless `QUAIL_ALLOW_DIFF_TO_LLM=1`.
 
-## See it on real sites
+## Features
 
-The product site at [spritecloud.github.io/quail-review](https://spritecloud.github.io/quail-review/) walks through the emitted shape against reference sites. For a live, current example, dispatch the [`probe-demo`](./.github/workflows/probe-demo.yml) workflow against any URL — the bot opens a PR with the full Playwright + Gherkin suite the binary just generated.
+Four commands you'll reach for by name. Everything else in the
+[reference table](#reference-other-subcommands) below.
 
-## Tailor the generated suite locally (commercial)
+### `explore` — adversarial bug-hunting against a live URL
 
-The local browser UI lives in the **commercial** [`spriteCloud/quail`](https://github.com/spriteCloud/quail) edition. Same engine, plus the local-serve UI, on-prem / data-sovereign deploy paths, and named SLA. Contact hello@spritecloud.com.
-
-## Quick start
+Applies 12 attack categories (boundary, injection, race, auth,
+flow-interrupt, state-corrupt, cross-feature, sequence, role-switch,
+upstream-dep, cumulative, data-edge) to every interactive element the
+crawler finds. Human cadence + keyboard fallback break past shadow-DOM
+widgets that reject stock `page.fill()`. Change-aware: the last PR diff
+(paths only) is auto-detected as prioritisation hints.
 
 ```bash
-# Probe a live URL — generate the matrix-of-everything against the
-# pages the spider finds. No source code needed.
-quail probe --url https://www.spritecloud.com
-quail probe --url https://shop.example.com --coverage depth
-
-# Focus on a specific journey kind via natural-language filter.
-quail prompt "verify the checkout flow" --url https://shop.example.com
-quail prompt "verify the contact form rejects bad emails" --url https://x.com --evidence
-
-# Generate from a PR diff — fan changed source code into per-aspect tests.
-quail generate --pr 42
-quail scan --pr 42                                   # dry-run first
-
-# Run the generated suite once locally; --record updates the bug ledger
-# so the next probe emits a sentinel spec per failure.
-quail run-once --record
-
-# Repair broken Playwright locators on test failure.
-quail heal --pr 42 --report playwright-report.json
-
-# Merge fresh Playwright failures into tests/e2e/docs/findings.md by hand.
-quail ledger update --report playwright-report.json
+quail explore \
+  --url https://your-app.example.com \
+  --timebox 5m --focus all \
+  --llm http://localhost:11434/v1 --model qwen3-coder-next:latest
 ```
+
+Ephemeral by default — specs generated, executed, and discarded; only
+the Gherkin report streams to stdout:
+
+```gherkin
+# quail explore — execution report
+# target: https://your-app.example.com
+# session: 4 LLM round(s), 42 scenario(s) composed, session took 5m0s
+# executed: 21 clean, 3 with anomalies, 18 unreachable
+# unreachable: 18 timeout
+# anomalies observed: 3 across 3 scenario(s)
+#   state regressions (target vanished after back+reload): 2
+
+  @adversarial @boundary
+  Scenario: Income field should reject 5000-char strings — unreachable (timeout)
+    Given I navigate to "https://your-app.example.com/apply"
+    When I fill in the "Annual income" field with a 5000-character string
+    ...
+```
+
+**Common flags:** `--url`, `--timebox <duration>`, `--focus all|<cat,cat,…>`,
+`--depth shallow|standard|deep`, `--persist`, `--pr <N>`, `--llm <url>`,
+`--model <id>`.
+
+### `generate` — fan a PR diff into per-aspect test scaffolds
+
+Reads the PR diff, decides which of the 10 taxonomy layers apply, and
+emits Playwright specs + Gherkin feature files matching what changed.
+Opens a follow-up PR against the same branch. Dry-run with `--dry-run`
+to see the plan without opening a PR.
+
+```bash
+quail generate --pr 42
+```
+
+Opens branch `quail/tests-pr-42-<sha>` with:
+
+```
+tests/e2e/generated/<component>.spec.ts     # imperative Playwright
+tests/e2e/features/<journey>.feature        # declarative Gherkin
+tests/e2e/docs/coverage.md                  # layer breakdown
+```
+
+**Common flags:** `--pr <N>`, `--dry-run`, `--kinds <a,b,c>`,
+`--exclude-kinds <a,b>`, `--emit imperative|declarative|both`.
+
+### `heal` — repair broken Playwright locators
+
+Reads a Playwright JSON report, identifies failing locators that drifted
+(a renamed `data-testid`, a moved selector), and patches them. Defaults
+to **on-failure** mode; `QUAIL_HEAL_MODE=proactive` runs on every push
+regardless of test results.
+
+```bash
+quail heal --pr 42 --report playwright-report.json
+```
+
+Opens branch `quail/heal-pr-42-<sha>` with:
+
+```
+tests/e2e/generated/*.spec.ts   # updated locators, deterministic diff
+tests/e2e/docs/heal-notes.md    # what was patched and why
+```
+
+**Common flags:** `--pr <N>`, `--report <file>`, `--dry-run`.
+
+### `review` — post a markdown verdict on a PR
+
+Triggered by a `@quail review` comment on a PR (or via CLI with `--pr`).
+Reads the diff, applies the review rubric, and posts a single markdown
+comment with severity-graded findings. No branch pushed, no files
+changed — the comment IS the deliverable.
+
+```bash
+quail review --pr 42
+```
+
+Posts a PR comment shaped like:
+
+```markdown
+## quail review — PR #42
+
+**Verdict:** 2 high · 1 medium · 3 low
+
+### High severity
+- **`src/components/ContactForm.tsx:41`** — user input rendered via
+  `dangerouslySetInnerHTML`; XSS surface open to any authenticated user
+- **`src/components/ContactForm.tsx:19`** — `type="text"` on email
+  input; no format validation before POST
+
+### Medium severity
+- **`src/api/contact.ts:12`** — no HTTP status assertion on the fetch;
+  a 500 will silently succeed on the client
+…
+```
+
+**Common flags:** `--pr <N>`. That's the whole surface.
+
+### Full sweep — the four together
+
+A typical PR lifecycle uses all four:
+
+```bash
+quail explore --url https://staging.example.com --timebox 5m --focus all   # find real bugs
+quail generate --pr 42                                                      # cover the new code
+quail run-once --record                                                     # run the emitted suite locally
+quail heal --pr 42 --report playwright-report.json                          # patch drift
+# On the PR, a reviewer comments: @quail review
+```
+
+## Reference — other subcommands
+
+| Command | Purpose | Key flag |
+|---|---|---|
+| `probe` | Crawl a live URL → full Playwright + Gherkin suite | `--url`, `--coverage breadth\|standard\|depth\|max` |
+| `prompt "<text>"` | Probe scoped to journey kinds a natural-language filter picks | `--url`, `--evidence` |
+| `run-once` | Run the generated suite locally, optionally record failures | `--record`, `--report`, `--grep <pat>` |
+| `scan` | Dry-run for `generate` | `--pr <N>` |
+| `ledger update` | Merge Playwright failures into `tests/e2e/docs/findings.md` | `--report <file>` |
 
 ## Invite `@spritecloud-quail` for PR-comment audits
 
@@ -93,15 +199,14 @@ jobs:
       pull-requests: write
 ```
 
-Every PR gets audited automatically. Any collaborator can also
-comment `/quail audit` to re-run on demand. Details:
+Every PR gets audited automatically. Any collaborator can also comment
+`/quail audit` to re-run on demand. Details:
 [docs/audit-install.md](./docs/audit-install.md).
 
 ## The 10-layer taxonomy
 
-Every test quail emits maps to one of ten layers. Six of them
-auto-emit on any live-URL probe; the other four trigger from PR-diff
-source code.
+Every test quail emits maps to one of ten layers. Six of them auto-emit
+on any live-URL probe; the other four trigger from PR-diff source code.
 
 | # | Layer | How it emits | Per-emit depth |
 |---|---|---|---:|
@@ -117,97 +222,6 @@ source code.
 | 10 | Non-functional | Every probed page (mix of capped and uncapped) | ~17 templates, 1–3 tests each |
 
 Full reference + recipes: <https://spritecloud.github.io/quail-review/docs.html>.
-
-## Subcommands
-
-| Command | Purpose | Key flags |
-|---|---|---|
-| `probe` | Crawl a live URL → full Playwright + Gherkin suite | `--url`, `--coverage breadth\|standard\|depth\|max`, `--llm <url>`, `--ignore-robots`, `--dry-run` |
-| `prompt "<text>"` | Probe scoped to journey kinds the prompt describes | same as probe + `--evidence` |
-| `generate` | Fan a PR diff into per-aspect test scaffolds; open follow-up PR | `--pr <N>` |
-| `scan` | Dry-run for `generate` | `--pr <N>` |
-| `heal` | Repair broken Playwright locators | `--pr <N>`, `--report <file>` |
-| `ledger update` | Merge Playwright failures into `findings.md` | `--report <file>` |
-| `run-once` | Run the generated suite locally, record failures | `--workdir`, `--record`, `--report`, `--grep <pat>` |
-| `explore` | Ephemeral, change-aware adversarial bug-hunt against a live URL | `--url`, `--focus`, `--depth`, `--persist`, `--pr <N>`, `--llm <url>` |
-
-### `explore` — ephemeral adversarial bug-hunting
-
-`quail explore` applies 12 attack categories (boundary, injection, race,
-auth, …) to every interactive element on the target. Two things make it
-different from `probe`:
-
-- **Ephemeral by default.** The generated `.spec.ts` and `.feature` files
-  live in an `os.MkdirTemp` workdir and are wiped on exit. Only the
-  Gherkin-formatted report survives — it streams to stdout so a human
-  can read what was exercised and what broke. Pass `--persist` to keep
-  today's on-disk layout under `--workdir`.
-- **Change-aware.** On every run the last change is auto-detected — PR
-  diff in CI (via `$GITHUB_EVENT_PATH`, `--pr`, or `$QUAIL_PR`), else
-  `git diff HEAD~1..HEAD` locally. Only the changed *file paths* (never
-  content) are forwarded to the LLM as prioritisation hints; the
-  deterministic layer still probes the entire discovered surface. Diff
-  content remains gated behind `QUAIL_ALLOW_DIFF_TO_LLM=1`.
-
-The guardrails spec at `internal/spec/explore_guardrails.md` gates every
-LLM response — invalid output is silently dropped, the deterministic
-fallback wins.
-
-> **Prerequisite.** `quail explore` calls
-> `core.NewExplorer(core.ExploreConfig{…}).Run(ctx)` from `quail-core`.
-> Those types have to land in a companion `quail-core` release before
-> this command compiles. See the plan file for the exact contract delta.
-
-## Environment
-
-The full set; every var is read from the environment AND most have a CLI flag.
-
-### LLM composer (opt-in)
-
-| Var | Default | Purpose |
-|---|---|---|
-| `QUAIL_LLM` | (empty) | OpenAI-compatible endpoint. When set, the composer adds up to 5 `@llm-composed` Scenarios per journey. Accepts the URL with or without a trailing `/v1` (normalized). **Strictly local-only** — never set in public CI. |
-| `QUAIL_MODEL` | `gpt-4o-mini` | Model id. Auto-set to `qwen3-coder-next:latest` when `--llm` points at an Ollama-shaped endpoint. |
-| `QUAIL_LLM_LADDER` | (empty) | Comma-separated model fallbacks. |
-| `QUAIL_LLM_TIMEOUT` | `60s` *(since v0.48)* | Per-call timeout. Bump on slower local LLMs. |
-| `QUAIL_LLM_TOKEN_CAP` | `600` | Max output tokens per LLM call. |
-| `QUAIL_HUMANIZE` | (unset) | Set to `0` to skip per-file humanization while keeping composer active. |
-| `QUAIL_ALLOW_DIFF_TO_LLM` | `0` | Send PR diff to LLM; off by default. |
-| `QUAIL_GRAPHQL_ENDPOINT` | `/graphql` | Override stub introspection path. |
-| `QUAIL_WEBHOOK_ENDPOINT` | (empty) | Webhook receiver path to activate signed-POST checks. |
-| `QUAIL_WEBHOOK_SECRET` | (empty) | HMAC signing secret. |
-
-### Probe / spider
-
-| Var | Default | Purpose |
-|---|---|---|
-| `QUAIL_TARGET_URLS` | — | Comma-separated URLs to probe (alternative to `--url`). |
-| `QUAIL_COVERAGE` | `standard` | `breadth` (8/2) · `standard` (30/3) · `depth` (75/5) · `max` (120/5). |
-| `QUAIL_BROWSER_PROBE` | (unset) | Set to `1` to drive Chromium (Playwright) instead of static HTML crawl. Required for SPAs. |
-| `QUAIL_IGNORE_ROBOTS` | (unset) | Set to `1` to crawl `robots.txt` Disallow paths. Default OFF; enable for QA of sites you own. |
-| `QUAIL_PROBE_ALLOW_LOOPBACK` | (unset) | `1` to bypass loopback/private-IP guard (tests only). |
-| `QUAIL_A11Y_UNCAP` | (unset) | `1` to emit the a11y trio on *every* crawled page. Default caps it at `coverage.FuzzCap()` (breadth 3 / standard 5 / depth 10) to keep the first PR small. |
-| `QUAIL_DOM_SNAPSHOTS` | (unset) | `1` to commit raw `tests/e2e/_dom/*.html` browser-render dumps. Default off — useful for trace-viewer diffs, noisy in PRs. |
-
-### CI / PR plumbing
-
-| Var | Default | Purpose |
-|---|---|---|
-| `GITHUB_TOKEN` / `QUAIL_GITHUB_TOKEN` | — | API auth |
-| `GITHUB_REPOSITORY` | from event | `owner/name` |
-| `QUAIL_PR` | from event | PR number override |
-| `QUAIL_BRANCH_PREFIX` | `quail` | Branch prefix for generated PRs |
-| `QUAIL_WORKDIR` | `.` | Repo working dir |
-| `QUAIL_LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
-
-### Healing + framework conventions
-
-| Var | Default | Purpose |
-|---|---|---|
-| `QUAIL_HEAL_MODE` | `on-failure` | `on-failure` \| `proactive` \| `off` |
-| `QUAIL_PLAYWRIGHT_REPORT` | `playwright-report.json` | Report path |
-| `QUAIL_E2E_STYLE` | `auto` | `auto` · `per-component` · `page-flow` |
-| `QUAIL_PAGE_URLS` | — | JSON map of `{"source/path.tsx": "/route"}` for bespoke routing |
 
 ## Use in a workflow
 
@@ -231,48 +245,16 @@ jobs:
           heal-mode: on-failure
 ```
 
-### Probe-only mode (no diff needed)
-
-Want a ready-made starter? Copy [`templates/probe-site/`](./templates/probe-site/)
-into your repo — workflow file + 3-step README, scheduled nightly + manual
-dispatch. The minimal inline version:
-
-```yaml
-name: quail-probe
-on:
-  workflow_dispatch:
-    inputs:
-      url:
-        description: URL to probe
-        required: true
-        default: https://example.com
-permissions:
-  contents: write
-  pull-requests: write
-jobs:
-  probe:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: spriteCloud/quail-review@v1
-        with:
-          target-urls: ${{ github.event.inputs.url }}
-          run-generate: 'false'
-          run-heal: 'false'
-```
-
-#### Narrow the emitted taxonomy
+### Narrow the emitted taxonomy
 
 Pass `kinds:` / `exclude-kinds:` to ship a focused PR instead of the
-full matrix. The vocabulary (same names the `--kinds` CLI flag accepts):
+full matrix. Vocabulary (same names the `--kinds` CLI flag accepts):
 
 > `journey, a11y, perf, visual, security, contract, health,
 > observability, i18n, network, storage, print, mobile, responsive,
 > touch, race, fuzz, webhook, graphql, auth-expiry, history-depth,
 > clipboard, iframe, date-edges, file-upload, deeplink, http-chains,
 > api, integration, grpc, compat, unit, pwa, locale, jobs`
-
-Recipes:
 
 | Goal | Pass |
 |---|---|
@@ -282,31 +264,86 @@ Recipes:
 | Commit `_dom/` debug dumps too | `dom-snapshots: 'true'` |
 | Uncap a11y trio to every page | `a11y-uncap: 'true'` |
 
+## Environment
+
+Every var below has a matching CLI flag. Set what you need; leave the
+rest at defaults.
+
+### LLM composer (opt-in)
+
+| Var | Default | Purpose |
+|---|---|---|
+| `QUAIL_LLM` | — | OpenAI-compatible endpoint. When set, up to 5 `@llm-composed` Scenarios per journey. **Strictly local-only** — never in public CI. |
+| `QUAIL_MODEL` | `gpt-4o-mini` | Model id. Auto-set to `qwen3-coder-next:latest` on Ollama endpoints. |
+| `QUAIL_LLM_LADDER` | — | Comma-separated model fallbacks. |
+| `QUAIL_LLM_TIMEOUT` | `60s` | Per-call timeout. |
+| `QUAIL_LLM_TOKEN_CAP` | `600` | Max output tokens per LLM call. |
+| `QUAIL_HUMANIZE` | — | `0` to skip per-file humanization while keeping composer active. |
+| `QUAIL_ALLOW_DIFF_TO_LLM` | `0` | Send PR diff to LLM; off by default. |
+| `QUAIL_GRAPHQL_ENDPOINT` | `/graphql` | Override stub introspection path. |
+| `QUAIL_WEBHOOK_ENDPOINT` | — | Webhook receiver path to activate signed-POST checks. |
+| `QUAIL_WEBHOOK_SECRET` | — | HMAC signing secret. |
+
+### Probe / spider
+
+| Var | Default | Purpose |
+|---|---|---|
+| `QUAIL_TARGET_URLS` | — | Comma-separated URLs to probe (alternative to `--url`). |
+| `QUAIL_COVERAGE` | `standard` | `breadth` (8/2) · `standard` (30/3) · `depth` (75/5) · `max` (120/5). |
+| `QUAIL_BROWSER_PROBE` | — | `1` to drive Chromium (Playwright) instead of static HTML crawl. Required for SPAs. |
+| `QUAIL_IGNORE_ROBOTS` | — | `1` to crawl `robots.txt` Disallow paths. Off by default; enable for sites you own. |
+| `QUAIL_PROBE_ALLOW_LOOPBACK` | — | `1` to bypass loopback/private-IP guard (tests only). |
+| `QUAIL_A11Y_UNCAP` | — | `1` to emit the a11y trio on *every* crawled page. Capped otherwise to keep the first PR small. |
+| `QUAIL_DOM_SNAPSHOTS` | — | `1` to commit raw `tests/e2e/_dom/*.html` browser-render dumps. |
+
+### CI / PR plumbing
+
+| Var | Default | Purpose |
+|---|---|---|
+| `GITHUB_TOKEN` / `QUAIL_GITHUB_TOKEN` | — | API auth |
+| `GITHUB_REPOSITORY` | from event | `owner/name` |
+| `QUAIL_PR` | from event | PR number override |
+| `QUAIL_BRANCH_PREFIX` | `quail` | Branch prefix for generated PRs |
+| `QUAIL_WORKDIR` | `.` | Repo working dir |
+| `QUAIL_LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
+
+### Healing + framework conventions
+
+| Var | Default | Purpose |
+|---|---|---|
+| `QUAIL_HEAL_MODE` | `on-failure` | `on-failure` \| `proactive` \| `off` |
+| `QUAIL_PLAYWRIGHT_REPORT` | `playwright-report.json` | Report path |
+| `QUAIL_E2E_STYLE` | `auto` | `auto` · `per-component` · `page-flow` |
+| `QUAIL_PAGE_URLS` | — | JSON map of `{"source/path.tsx": "/route"}` for bespoke routing |
+
 ## AI usage rules
 
 The LLM is allowed to do exactly two things:
 
-1. **Humanize**: rewrite strings inside a deterministic test file so titles
-   and step comments read like a human wrote them. The rewritten file is
-   structure-checked against the original (same imports, same number of
-   `describe`/`it`/`test`) and falls back to the deterministic output on
-   any mismatch.
+1. **Humanize**: rewrite strings inside a deterministic test file so
+   titles and step comments read like a human wrote them. The rewritten
+   file is structure-checked against the original (same imports, same
+   number of `describe`/`it`/`test`) and falls back to the deterministic
+   output on any mismatch.
 2. **Compose** (opt-in via `QUAIL_LLM`): propose up to 5 additional
-   Gherkin Scenarios per journey, drawn ONLY from a registered step-pattern
-   vocabulary. Invalid scenarios are dropped before the template renders.
+   Gherkin Scenarios per journey, drawn ONLY from a registered
+   step-pattern vocabulary. Invalid scenarios are dropped before the
+   template renders.
 
-The PR diff is **never** sent to the LLM unless `QUAIL_ALLOW_DIFF_TO_LLM=1`.
+The PR diff is **never** sent to the LLM unless
+`QUAIL_ALLOW_DIFF_TO_LLM=1`.
 
 ## License
 
 quail is dual-licensed:
 
 - **AGPL-3.0** for the community edition — see [`LICENSE`](./LICENSE).
-- **Commercial license** for organisations that cannot accept the AGPL — see
-  [`COMMERCIAL.md`](./COMMERCIAL.md). Contact `hello@spritecloud.com`.
+- **Commercial license** for organisations that cannot accept the AGPL —
+  see [`COMMERCIAL.md`](./COMMERCIAL.md). Contact `hello@spritecloud.com`.
 
 By submitting a pull request you agree to the
-[Contributor License Agreement](./CLA.md). The `cla-assistant` check on PRs
-will prompt you to sign if you haven't.
+[Contributor License Agreement](./CLA.md). The `cla-assistant` check on
+PRs will prompt you to sign if you haven't.
 
-For the release-by-release history (v0.19 → v0.75), see [`CHANGELOG.md`](./CHANGELOG.md).
+For the release-by-release history (v0.19 → v0.75), see
+[`CHANGELOG.md`](./CHANGELOG.md).
