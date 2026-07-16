@@ -63,6 +63,9 @@ func newExploreCmd() *cobra.Command {
 
 		// HTML report path (auto when empty).
 		htmlOut string
+
+		// OpenAPI spec URL/path for --focus contract.
+		openAPI string
 	)
 
 	cmd := &cobra.Command{
@@ -119,6 +122,7 @@ Examples:
 				llmTimeout:   llmTimeout,
 				timebox:      timebox,
 				htmlOut:      htmlOut,
+				openAPI:      openAPI,
 			})
 		},
 	}
@@ -167,6 +171,9 @@ Examples:
 	f.StringVar(&htmlOut, "html-out", "",
 		"Path to write the branded HTML report. Empty (default): auto — persisted next to the ledger in --persist mode, "+
 			"else under $TMPDIR with the file path echoed to stderr.")
+	f.StringVar(&openAPI, "openapi", "",
+		"OpenAPI 3.x spec URL or local file path. When set with --focus contract, the LLM proposes "+
+			"per-endpoint contract scenarios (schema violations, missing required, status mismatches).")
 
 	return cmd
 }
@@ -178,6 +185,7 @@ type exploreOpts struct {
 	llmURL, model, llmTimeout                      string
 	timebox                                        string
 	htmlOut                                        string
+	openAPI                                        string
 }
 
 func runExplore(ctx context.Context, o exploreOpts) error {
@@ -250,6 +258,7 @@ func runExplore(ctx context.Context, o exploreOpts) error {
 		LLM:            exploreLLMConfigOrNil(o.llmURL, o.model, o.llmTimeout),
 		GuardrailsSpec: spec.ExploreGuardrails,
 		Timebox:        parseTimebox(o.timebox),
+		OpenAPISpec:    o.openAPI,
 	}
 
 	runner, err := core.NewExplorer(cfg)
@@ -378,6 +387,7 @@ func parseExploreCategories(focus string) ([]string, error) {
 		"boundary", "injection", "state-corrupt", "race",
 		"auth", "data-edge", "cross-feature", "flow-interrupt",
 		"sequence", "role-switch", "upstream-dep", "cumulative",
+		"contract",
 	}
 
 	if strings.EqualFold(focus, "all") {
