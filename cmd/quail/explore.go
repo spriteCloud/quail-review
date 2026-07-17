@@ -387,7 +387,7 @@ func parseExploreCategories(focus string) ([]string, error) {
 		"boundary", "injection", "state-corrupt", "race",
 		"auth", "data-edge", "cross-feature", "flow-interrupt",
 		"sequence", "role-switch", "upstream-dep", "cumulative",
-		"contract",
+		"contract", "functional",
 	}
 
 	if strings.EqualFold(focus, "all") {
