@@ -1,0 +1,5 @@
+# Minimal image containing only the quail binary.
+# Used by quail-platform as a build stage: COPY --from=ghcr.io/spritecloud/quail-review:vX /quail
+# Source stays private; the compiled binary is published as a public package.
+FROM scratch
+COPY quail /quail

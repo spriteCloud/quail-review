@@ -9,6 +9,48 @@ permissions:
   contents: write
 
 jobs:
+  # Publish a minimal ghcr.io image containing only the quail binary so
+  # quail-platform can COPY it in without needing a PAT.
+  # Source code stays private; the compiled binary is published as a
+  # public package so any GitHub token (or none) can pull it.
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Auth for private quail-core module
+        env:
+          GH_TOKEN: ${{ secrets.QUAIL_PAT }}
+        run: |
+          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+          echo "GOPRIVATE=github.com/spriteCloud" >> "$GITHUB_ENV"
+
+      - name: Build binary
+        run: CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o quail ./cmd/quail
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.release
+          push: true
+          tags: |
+            ghcr.io/spritecloud/quail-review:${{ github.ref_name }}
+            ghcr.io/spritecloud/quail-review:latest
+
   goreleaser:
     runs-on: ubuntu-latest
     steps:
