@@ -36,6 +36,10 @@ archives:
     files:
       - LICENSE
       - README.md
+  - id: binary
+    builds: [quail-review]
+    name_template: "quail-{{ .Os }}-{{ .Arch }}"
+    format: binary
 
 checksum:
   name_template: checksums.txt
