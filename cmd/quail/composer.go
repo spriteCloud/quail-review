@@ -432,7 +432,7 @@ func symbolStepURL(s ast.Symbol) string {
 func symbolHints(s ast.Symbol) []string {
 	var hints []string
 	for _, c := range s.Contents {
-		if c.Tag == "h1" || c.Tag == "h2" {
+		if c.Tag == "h1" || c.Tag == "h2" || c.Tag == "h3" || c.Tag == "cta" {
 			// v1.10 — prefer the probe-computed AccessibleName over
 			// raw innerText for heading hints. Playwright's
 			// getByRole('heading', {name}) matches by accessible name
@@ -445,7 +445,7 @@ func symbolHints(s ast.Symbol) []string {
 				hints = append(hints, c.Tag+": "+name)
 			}
 		}
-		if len(hints) >= 4 {
+		if len(hints) >= 6 {
 			break
 		}
 	}
@@ -485,6 +485,19 @@ func symbolHints(s ast.Symbol) []string {
 		}
 		hints = append(hints, "link: "+label)
 		if len(hints) >= 12 {
+			break
+		}
+	}
+	// In-page interactive components — critical context for exercise journeys.
+	// search/tab/collapse/details/dialog/popup tell the LLM what it can interact
+	// with beyond navigation and form fills.
+	for _, ix := range s.Interactions {
+		label := firstNonEmpty(ix.Text, ix.Name, ix.Aria)
+		if label == "" {
+			label = ix.Kind
+		}
+		hints = append(hints, "interactive: "+ix.Kind+" — "+label)
+		if len(hints) >= 18 {
 			break
 		}
 	}

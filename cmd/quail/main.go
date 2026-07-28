@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -253,6 +254,7 @@ func newHealCmd() *cobra.Command {
 	var pr int
 	var report string
 	var dryRun bool
+	var local bool
 	cmd := &cobra.Command{
 		Use:   "heal",
 		Short: "Repair broken Playwright locators (defaults to on-failure).",
@@ -260,6 +262,14 @@ func newHealCmd() *cobra.Command {
 			cfg := config.FromEnv()
 			if err := cfg.Validate(); err != nil {
 				return err
+			}
+			if report != "" {
+				cfg.PlaywrightReport = report
+			}
+			if local {
+				// Local mode (mirrors probe --local): no GitHub, no PR —
+				// apply locator edits straight to the workdir files.
+				return runHealLocal(cmd.Context(), cfg)
 			}
 			if pr == 0 {
 				pr = cfg.PRNumber
@@ -269,15 +279,13 @@ func newHealCmd() *cobra.Command {
 			}
 			cfg.PRNumber = pr
 			cfg.DryRun = dryRun
-			if report != "" {
-				cfg.PlaywrightReport = report
-			}
 			return runHeal(cmd.Context(), cfg)
 		},
 	}
 	cmd.Flags().IntVar(&pr, "pr", 0, "PR number")
 	cmd.Flags().StringVar(&report, "report", "", "Path to Playwright JSON report (on-failure mode)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print edits instead of opening a PR")
+	cmd.Flags().BoolVar(&local, "local", false, "Apply edits to the local workdir instead of opening a PR (requires --report)")
 	return cmd
 }
 
@@ -956,6 +964,40 @@ func runHeal(ctx context.Context, cfg config.Config) error {
 		return nil
 	}
 	return openHealPR(ctx, client, cfg, files, prInfo, edits)
+}
+
+// runHealLocal is the platform-facing heal path: analyse the report
+// against the local spec corpus and write the patched files back to
+// the workdir. No GitHub client, no PR, no dry-run indirection.
+func runHealLocal(ctx context.Context, cfg config.Config) error {
+	if cfg.HealMode == config.HealOff {
+		rlog.Info("heal mode = off; skipping")
+		return nil
+	}
+	if cfg.HealMode == config.HealOnFailure && cfg.PlaywrightReport == "" {
+		return errors.New("heal --local requires --report (a Playwright JSON report)")
+	}
+	report, err := loadReportIfNeeded(cfg)
+	if err != nil {
+		return err
+	}
+	edits, err := heal.Run(ctx, cfg, nil, report, llm.New(cfg))
+	if err != nil {
+		return err
+	}
+	if len(edits) == 0 {
+		rlog.Info("no locator edits to apply")
+		return nil
+	}
+	printEdits(edits)
+	patched := applyEdits(cfg.WorkDir, map[string]string{}, edits)
+	for path, content := range patched {
+		if err := os.WriteFile(filepath.Join(cfg.WorkDir, path), content, 0o644); err != nil {
+			return fmt.Errorf("heal: write %s: %w", path, err)
+		}
+	}
+	rlog.Info("heal: applied edits locally", "edits", len(edits), "files", len(patched))
+	return nil
 }
 
 // emitOrSkipHealOutput handles the three terminal cases for runHeal: no
