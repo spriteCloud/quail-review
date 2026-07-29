@@ -67,7 +67,32 @@ func composeOpListJourneys(ctx context.Context, cfg config.Config, items []plan.
 			"page", in.URL, "steps", len(grounded.Steps), "dropped_steps", dropped)
 	}
 	rlog.Info("oplist: composition done", "composed", composed)
-	return items
+	return dedupeFallbackItems(items)
+}
+
+// dedupeFallbackItems drops duplicate canned-fallback items: when
+// multiple happy-flow items land on the SAME page and the LLM failed
+// to compose real content for more than one of them, gen.Render's
+// fallbackJourney produces byte-identical output for each (same title,
+// same "goto + any heading visible" steps) — e.g. a browse-kind and an
+// explore-kind item for the same page both falling back ship two
+// indistinguishable, content-free spec files. Keeps the first such
+// item per page and drops the rest; items with a real composed
+// Journey are never touched.
+func dedupeFallbackItems(items []plan.Item) []plan.Item {
+	seen := map[string]bool{}
+	out := items[:0]
+	for _, it := range items {
+		if it.Template == plan.TmplPlaywrightHappyFlow && it.Journey == nil {
+			key := strings.ToLower(strings.TrimSpace(it.PageURL))
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+		}
+		out = append(out, it)
+	}
+	return out
 }
 
 // groundJourney filters a composed Journey against the mindmap-observed
@@ -380,6 +405,7 @@ func composeInputFor(it plan.Item) oplist.ComposeInput {
 	if len(it.Symbols) > 0 {
 		in.Title = it.Symbols[0].PageTitle
 		in.Hints = symbolHints(it.Symbols[0])
+		in.HasMutatingForm = it.Symbols[0].HasMutatingForm
 		// Intermediate + terminal pages the mindmap already walked.
 		// Feeding these to the LLM lets it write a real multi-page
 		// journey instead of proposing steps from the landing alone.
@@ -394,6 +420,7 @@ func composeInputFor(it plan.Item) oplist.ComposeInput {
 	} else if it.Symbol.PageTitle != "" {
 		in.Title = it.Symbol.PageTitle
 		in.Hints = symbolHints(it.Symbol)
+		in.HasMutatingForm = it.Symbol.HasMutatingForm
 	}
 	return in
 }
@@ -483,7 +510,15 @@ func symbolHints(s ast.Symbol) []string {
 		if label == "" || looksLikeHref(label) {
 			continue
 		}
-		hints = append(hints, "link: "+label)
+		// v1.23 — state the role explicitly (populated as "link" for
+		// every crawled anchor now) so the LLM never has to guess one
+		// for a plain nav link — same fix already applied to the
+		// suite-journey composer's link hints (quail-core/oplist).
+		role := l.Role
+		if role == "" {
+			role = "link"
+		}
+		hints = append(hints, "link: role="+role+" — "+label)
 		if len(hints) >= 12 {
 			break
 		}
@@ -491,17 +526,51 @@ func symbolHints(s ast.Symbol) []string {
 	// In-page interactive components — critical context for exercise journeys.
 	// search/tab/collapse/details/dialog/popup tell the LLM what it can interact
 	// with beyond navigation and form fills.
+	//
+	// v1.22 — the hint used to read "interactive: <kind> — <label>"
+	// (e.g. "interactive: tab — Pricing"). Against a real DGX-hosted
+	// model this got echoed back verbatim as {"role": "interactive"} —
+	// the LLM pattern-matched "interactive" as if it were the role,
+	// the same way "h1: Welcome" hints correlate a leading word with a
+	// usable value elsewhere in the prompt. Making the actual click
+	// role explicit in the hint text (role=<validRole>) removes the
+	// need for the model to guess.
 	for _, ix := range s.Interactions {
 		label := firstNonEmpty(ix.Text, ix.Name, ix.Aria)
 		if label == "" {
 			label = ix.Kind
 		}
-		hints = append(hints, "interactive: "+ix.Kind+" — "+label)
+		hints = append(hints, "interactive: role="+interactionRole(ix)+" — "+label+" ("+ix.Kind+")")
 		if len(hints) >= 18 {
 			break
 		}
 	}
 	return hints
+}
+
+// interactionRole resolves the ARIA role to use in a click step for an
+// in-page Interaction. Prefers the crawler-observed ix.Role (set when
+// the element itself carries an explicit role, e.g. role=tab); falls
+// back to a fixed Kind→role mapping for kinds that don't map to a
+// single ARIA role 1:1 (data-toggle, popup, collapse, details are all
+// "a button that reveals something" in accessibility terms); defaults
+// to "button" as the safest fallback verb for an unrecognized kind.
+func interactionRole(ix ast.Interaction) string {
+	if ix.Role != "" {
+		return ix.Role
+	}
+	switch ix.Kind {
+	case "search":
+		return "searchbox"
+	case "tab":
+		return "tab"
+	case "dialog":
+		return "dialog"
+	case "date":
+		return "textbox"
+	default: // details, collapse, data-toggle, popup, and anything unrecognized
+		return "button"
+	}
 }
 
 // looksLikeHref is a cheap check to keep href-shaped strings out of
@@ -622,11 +691,13 @@ func coverageJourneyItem(j plan.Journey, origin string) plan.Item {
 	}
 }
 
-// appendNegativeJourneys asks the LLM to shadow every form-submit
-// journey in `items` with a negative-path variant (empty submit,
-// invalid email, etc.). New items are appended tagged Kind="negative"
-// so the emitted spec title reads `@journey:negative`. No-op when the
-// LLM is disabled or no form-submit positive is present.
+// appendNegativeJourneys asks the LLM to shadow eligible journeys in
+// `items` with a negative-path variant: form-submit journeys get a
+// validation-error variant (empty submit, invalid email, etc.);
+// exercise journeys that mutate via a bare click (no form) get a
+// replay/idempotency variant. New items are appended tagged
+// Kind="negative" so the emitted spec title reads `@journey:negative`.
+// No-op when the LLM is disabled or no candidate is present.
 //
 // Must run AFTER composeOpListJourneys + appendSuiteJourneys — the
 // pass reads the composed Journey fields on happyflow items, so
@@ -656,18 +727,35 @@ func appendNegativeJourneys(ctx context.Context, cfg config.Config, items []plan
 }
 
 // collectComposedJourneys returns the positive Journeys already
-// attached to happyflow items — both per-page composed and suite
-// additions. Excludes fallback journeys (Kind unset AND Journey nil)
-// since those never touch a form.
-func collectComposedJourneys(items []plan.Item) []plan.Journey {
-	var out []plan.Journey
+// attached to happyflow items, paired with the JourneyKind and
+// mutating-form signal each was composed under — both per-page
+// composed and suite additions. Excludes fallback journeys (Kind unset
+// AND Journey nil) since those never touch a form and were never
+// assigned an exercise-style kind.
+func collectComposedJourneys(items []plan.Item) []oplist.PositiveJourney {
+	var out []oplist.PositiveJourney
 	for _, it := range items {
 		if it.Template != plan.TmplPlaywrightHappyFlow || it.Journey == nil {
 			continue
 		}
-		out = append(out, *it.Journey)
+		out = append(out, oplist.PositiveJourney{
+			Journey:         *it.Journey,
+			JourneyKind:     it.JourneyKind,
+			HasMutatingForm: landingSymbol(it).HasMutatingForm,
+		})
 	}
 	return out
+}
+
+// landingSymbol returns the symbol representing an item's landing page
+// — it.Symbols[0] for multi-page journeys, it.Symbol otherwise. Shared
+// by composeInputFor and collectComposedJourneys so both read the
+// mutating-form signal from the same place.
+func landingSymbol(it plan.Item) ast.Symbol {
+	if len(it.Symbols) > 0 {
+		return it.Symbols[0]
+	}
+	return it.Symbol
 }
 
 // negativeJourneyItem wraps a negative-path Journey in a plan.Item
@@ -721,7 +809,89 @@ func appendSuiteJourneys(ctx context.Context, cfg config.Config, items []plan.It
 	if added > 0 {
 		rlog.Info("oplist: suite compose done", "added", added)
 	}
-	return items
+	return dedupeSemanticOverlap(items)
+}
+
+// dedupeSemanticOverlap drops a suite journey when its FULL set of
+// "seen" assertions is a proper subset of another suite journey's on
+// the same landing page. Guards a quality gap found by reading a
+// live-generated suite: the persona rotation's existing dedup is
+// title-string-only ("Dedup by title across rounds"), so two
+// DIFFERENTLY-titled journeys asserting overlapping content both
+// survived — e.g. "Verify performance testing page highlights revenue
+// angle" (asserts 2 headings) and "...mentions revenue impact" (asserts
+// 1 of those same 2 headings) both landed on /performance-testing,
+// wasting a test slot on content the other already covers. Only rejects
+// a CONFIRMED subset (never partial/ambiguous overlap) to avoid
+// discarding genuinely diverse persona coverage.
+func dedupeSemanticOverlap(items []plan.Item) []plan.Item {
+	byPage := map[string][]int{}
+	for i, it := range items {
+		if it.JourneyKind != "suite" || it.Journey == nil {
+			continue
+		}
+		page := firstGotoPath(*it.Journey)
+		byPage[page] = append(byPage[page], i)
+	}
+	drop := map[int]bool{}
+	for _, idxs := range byPage {
+		if len(idxs) < 2 {
+			continue
+		}
+		sets := make(map[int]map[string]bool, len(idxs))
+		for _, i := range idxs {
+			sets[i] = seenAssertionSet(*items[i].Journey)
+		}
+		for _, a := range idxs {
+			setA := sets[a]
+			if len(setA) == 0 {
+				continue
+			}
+			for _, b := range idxs {
+				if a == b || len(setA) >= len(sets[b]) {
+					continue
+				}
+				if isAssertionSubset(setA, sets[b]) {
+					drop[a] = true
+					break
+				}
+			}
+		}
+	}
+	if len(drop) == 0 {
+		return items
+	}
+	out := items[:0]
+	for i, it := range items {
+		if drop[i] {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
+// seenAssertionSet collects a journey's "seen"-step assertions as a
+// role|name key set, for overlap comparison.
+func seenAssertionSet(j plan.Journey) map[string]bool {
+	set := map[string]bool{}
+	for _, s := range j.Steps {
+		if s.Op == "seen" && s.Name != "" {
+			set[s.Role+"|"+s.Name] = true
+		}
+	}
+	return set
+}
+
+// isAssertionSubset reports whether every key in sub also appears in
+// super.
+func isAssertionSubset(sub, super map[string]bool) bool {
+	for k := range sub {
+		if !super[k] {
+			return false
+		}
+	}
+	return true
 }
 
 // runSuitePersona iterates ComposeSuite for one persona in loop-until-

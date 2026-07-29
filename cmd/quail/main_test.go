@@ -162,9 +162,27 @@ func TestGenPRBody(t *testing.T) {
 
 func TestHealPRBody(t *testing.T) {
 	pr := &prSummary{Number: 12}
-	es := []heal.Edit{{File: "x.spec.ts", Line: 5, Reason: "anchor moved"}}
-	got := healPRBody(pr, es)
+	auto := []heal.Edit{{File: "x.spec.ts", Line: 5, Reason: "anchor moved"}}
+	got := healPRBody(pr, auto, nil, nil)
 	for _, want := range []string{"#12", "x.spec.ts:5", "anchor moved"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestHealPRBody_NeedsReviewAndBlocked(t *testing.T) {
+	pr := &prSummary{Number: 12}
+	needsReview := []heal.Edit{{
+		File: "y.spec.ts", Line: 8, Reason: "two candidates tied",
+		Status: heal.StatusNeedsReview, Alternatives: []string{"getByRole('button', { name: 'Save draft' })"},
+	}}
+	blocked := []heal.Edit{{File: "z.spec.ts", Line: 3, Reason: "no candidate found", Status: heal.StatusBlocked}}
+	got := healPRBody(pr, nil, needsReview, blocked)
+	for _, want := range []string{
+		"Needs review", "y.spec.ts:8", "two candidates tied", "getByRole('button', { name: 'Save draft' })",
+		"Blocked", "z.spec.ts:3", "no candidate found",
+	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
