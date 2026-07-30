@@ -1,10 +1,17 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spriteCloud/quail-core/ast"
+	"github.com/spriteCloud/quail-core/config"
+	"github.com/spriteCloud/quail-core/mindmap"
 	"github.com/spriteCloud/quail-core/plan"
 )
 
@@ -73,6 +80,66 @@ func TestDedupeFallbackItems_KeepsOneCannedFallbackPerPage(t *testing.T) {
 	}
 	if canned != 2 {
 		t.Errorf("expected exactly 2 surviving canned-fallback items (one per distinct page); got %d", canned)
+	}
+}
+
+// TestDedupeTitleCollisions_DropsCaseInsensitiveDuplicate guards the
+// v1.26 post-hoc replacement for the mid-flight title-dedup that
+// running personas concurrently gave up: two items with the same
+// title (any case) must collapse to one.
+func TestDedupeTitleCollisions_DropsCaseInsensitiveDuplicate(t *testing.T) {
+	items := []plan.Item{
+		{Journey: &plan.Journey{Title: "Book a demo"}},
+		{Journey: &plan.Journey{Title: "book a demo"}}, // different case, same title
+		{Journey: &plan.Journey{Title: "Check pricing"}},
+		{Journey: nil}, // no journey yet (pending compose) — must survive untouched
+	}
+	got := dedupeTitleCollisions(items)
+	if len(got) != 3 {
+		t.Fatalf("expected 3 surviving items (1 dropped duplicate); got %d: %+v", len(got), got)
+	}
+}
+
+// TestAppendSuiteJourneys_ConcurrentPersonasDedupSameTitle exercises
+// the real concurrent path: every persona's ComposeSuite call hits the
+// same stub and gets back the identical journey title. Without the
+// personas seeing each other's mid-flight output, all 5 would land it
+// independently — the post-hoc dedupeTitleCollisions pass must still
+// collapse them to one, same end result a serial run would have had
+// via the old shared `seen` map.
+func TestAppendSuiteJourneys_ConcurrentPersonasDedupSameTitle(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := json.Marshal(map[string]any{"journeys": []map[string]any{{
+			"title": "Book a demo",
+			"steps": []map[string]any{
+				{"op": "goto", "path": "/"},
+				{"op": "seen", "role": "heading", "name": "Book a demo"},
+			},
+		}}})
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{{"message": map[string]string{"content": string(body)}}},
+		})
+	}))
+	defer srv.Close()
+
+	maps := map[string]*mindmap.Map{
+		"https://example.com": {
+			Origin: "https://example.com",
+			Order:  []string{"https://example.com/"},
+			Pages:  map[string]*mindmap.Page{"https://example.com/": {URL: "https://example.com/", Title: "Home"}},
+		},
+	}
+	cfg := config.Config{OpenAIBaseURL: srv.URL, OpenAIAPIKey: "x", Model: "test", LLMTimeout: 5 * time.Second, LLMTokenCap: 4096}
+	out := appendSuiteJourneys(context.Background(), cfg, nil, maps)
+
+	titles := map[string]int{}
+	for _, it := range out {
+		if it.Journey != nil {
+			titles[strings.ToLower(it.Journey.Title)]++
+		}
+	}
+	if n := titles["book a demo"]; n != 1 {
+		t.Errorf("expected exactly 1 surviving \"book a demo\" item after cross-persona dedup, got %d (out=%+v)", n, out)
 	}
 }
 

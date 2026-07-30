@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"os"
+	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/spriteCloud/quail-core/ast"
 	"github.com/spriteCloud/quail-core/config"
@@ -12,6 +16,22 @@ import (
 	"github.com/spriteCloud/quail-core/oplist"
 	"github.com/spriteCloud/quail-core/plan"
 )
+
+// composeConcurrency bounds in-flight LLM compose calls across this
+// file's per-item/per-persona loops. Independent, stateless round-trips
+// are safe to run concurrently; bounded (not unbounded fan-out) avoids
+// tripping rate limits on self-hosted or provider endpoints. Override
+// via QUAIL_COMPOSE_CONCURRENCY for a project's specific rate limit.
+var composeConcurrency = envConcurrency("QUAIL_COMPOSE_CONCURRENCY", 6)
+
+func envConcurrency(envVar string, fallback int) int {
+	if v := os.Getenv(envVar); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return fallback
+}
 
 // composeOpListJourneys walks post-probe items and asks the LLM to
 // compose an op-list Journey for each TmplPlaywrightHappyFlow item.
@@ -28,7 +48,15 @@ func composeOpListJourneys(ctx context.Context, cfg config.Config, items []plan.
 	}
 	rlog.Info("oplist: requesting composed journeys",
 		"model", cfg.Model, "endpoint", cfg.OpenAIBaseURL)
-	composed := 0
+	var composed int64
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, composeConcurrency)
+	// v1.26 — each iteration composes ONE item's own page against a
+	// stateless LLM call (no shared/growing context between items, per
+	// composeInputFor). Fan out with bounded concurrency instead of
+	// awaiting each round-trip serially. Every goroutine touches only
+	// its own index i — no shared mutable state beyond the atomic
+	// counter, so no lock is needed on items itself.
 	for i := range items {
 		if items[i].Template != plan.TmplPlaywrightHappyFlow {
 			continue
@@ -40,32 +68,39 @@ func composeOpListJourneys(ctx context.Context, cfg config.Config, items []plan.
 		if items[i].Journey != nil {
 			continue
 		}
-		in := composeInputFor(items[i])
-		j, err := oplist.Compose(ctx, client, in)
-		if err != nil {
-			rlog.Warn("oplist: compose failed, falling back to canned journey",
-				"page", in.URL, "err", err)
-			continue
-		}
-		// v1.12 — post-decode grounding filter. Drops steps whose
-		// (role, name) or (label) can't be found in ANY symbol's
-		// anchors/inputs/contents across the journey chain. The LLM
-		// routinely invents Contact-form fields, hero headings, and
-		// nav links that don't exist on the terminal page; those
-		// steps would fail verify with 'locator not found' at test
-		// time. Grounding drops them BEFORE emit. Returns the number
-		// of dropped steps + a boolean indicating whether the journey
-		// itself should be dropped (too few steps left).
-		grounded, dropped, drop := groundJourney(j, items[i])
-		if drop {
-			rlog.Info("oplist: dropped hallucinated journey", "page", in.URL, "dropped_steps", dropped)
-			continue
-		}
-		items[i].Journey = &grounded
-		composed++
-		rlog.Info("oplist: composed journey",
-			"page", in.URL, "steps", len(grounded.Steps), "dropped_steps", dropped)
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i int) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			in := composeInputFor(items[i])
+			j, err := oplist.Compose(ctx, client, in)
+			if err != nil {
+				rlog.Warn("oplist: compose failed, falling back to canned journey",
+					"page", in.URL, "err", err)
+				return
+			}
+			// v1.12 — post-decode grounding filter. Drops steps whose
+			// (role, name) or (label) can't be found in ANY symbol's
+			// anchors/inputs/contents across the journey chain. The LLM
+			// routinely invents Contact-form fields, hero headings, and
+			// nav links that don't exist on the terminal page; those
+			// steps would fail verify with 'locator not found' at test
+			// time. Grounding drops them BEFORE emit. Returns the number
+			// of dropped steps + a boolean indicating whether the journey
+			// itself should be dropped (too few steps left).
+			grounded, dropped, drop := groundJourney(j, items[i])
+			if drop {
+				rlog.Info("oplist: dropped hallucinated journey", "page", in.URL, "dropped_steps", dropped)
+				return
+			}
+			items[i].Journey = &grounded
+			atomic.AddInt64(&composed, 1)
+			rlog.Info("oplist: composed journey",
+				"page", in.URL, "steps", len(grounded.Steps), "dropped_steps", dropped)
+		}(i)
 	}
+	wg.Wait()
 	rlog.Info("oplist: composition done", "composed", composed)
 	return dedupeFallbackItems(items)
 }
@@ -789,27 +824,72 @@ func appendSuiteJourneys(ctx context.Context, cfg config.Config, items []plan.It
 	if !client.Enabled() || len(maps) == 0 {
 		return items
 	}
-	existing := existingJourneyTitles(items)
-	// Persona-rotation: one ComposeSuite call per persona per origin.
-	// Each persona reshapes what the LLM finds valuable. Dedup by
-	// title across rounds so overlapping proposals collapse.
-	seen := map[string]bool{}
-	for _, t := range existing {
-		seen[strings.ToLower(t)] = true
-	}
+	baseline := existingJourneyTitles(items)
+	// v1.26 — personas × origins run concurrently (bounded), each
+	// starting from the same read-only baseline title snapshot instead
+	// of watching every other persona's mid-flight output grow a
+	// shared list. The old strictly-serial "existing grows across
+	// every persona/round" gave the LLM more duplicate-avoidance
+	// context per call, but made up to 5 personas × 3 rounds = up to
+	// 15 serial round-trips per origin — the single biggest wall-clock
+	// contributor in generation. A genuine cross-persona title
+	// collision that slips through (two personas independently landing
+	// on the same title) is caught by the post-hoc dedupeTitleCollisions
+	// pass below instead. Rounds WITHIN one persona stay sequential —
+	// loop-until-dry needs its own growing list to know when to stop.
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, composeConcurrency)
 	added := 0
 	for origin, m := range maps {
 		if m == nil {
 			continue
 		}
 		for _, persona := range oplist.DefaultPersonas {
-			added += runSuitePersona(ctx, client, m, persona, origin, &existing, seen, &items)
+			wg.Add(1)
+			sem <- struct{}{}
+			go func(m *mindmap.Map, persona, origin string) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				newItems, n := runSuitePersonaIsolated(ctx, client, m, persona, origin, baseline)
+				mu.Lock()
+				items = append(items, newItems...)
+				added += n
+				mu.Unlock()
+			}(m, persona, origin)
 		}
 	}
+	wg.Wait()
 	if added > 0 {
 		rlog.Info("oplist: suite compose done", "added", added)
 	}
+	items = dedupeTitleCollisions(items)
 	return dedupeSemanticOverlap(items)
+}
+
+// dedupeTitleCollisions drops a later item whose journey title
+// case-insensitively collides with an earlier one. Personas used to
+// share one growing title list so a collision could never happen
+// mid-flight; running them concurrently (v1.26) means two personas can
+// independently propose the identical title — this is the post-hoc
+// replacement for that mid-flight check, preserving the same
+// global-title-uniqueness guarantee the serial version had.
+func dedupeTitleCollisions(items []plan.Item) []plan.Item {
+	seen := map[string]bool{}
+	out := items[:0]
+	for _, it := range items {
+		if it.Journey != nil {
+			key := strings.ToLower(strings.TrimSpace(it.Journey.Title))
+			if key != "" {
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+			}
+		}
+		out = append(out, it)
+	}
+	return out
 }
 
 // dedupeSemanticOverlap drops a suite journey when its FULL set of
@@ -894,29 +974,37 @@ func isAssertionSubset(sub, super map[string]bool) bool {
 	return true
 }
 
-// runSuitePersona iterates ComposeSuite for one persona in loop-until-
-// dry mode: each round the LLM sees the growing `existing` list, so it
-// must propose fresh titles or nothing. Stop when a round adds fewer
-// than 2 unseen journeys or after 3 rounds (cost cap). Returns the
-// number of items appended for this persona.
-func runSuitePersona(
+// runSuitePersonaIsolated iterates ComposeSuite for one persona in
+// loop-until-dry mode: each round the LLM sees this persona's OWN
+// growing title list (seeded from baseline, not shared with any other
+// concurrently-running persona), so it must propose fresh titles or
+// nothing. Stop when a round adds fewer than 2 unseen journeys or
+// after 3 rounds (cost cap). Returns the newly composed items for this
+// persona plus a count — the caller merges across all personas AFTER
+// every goroutine returns, then runs a post-hoc title dedup, since two
+// personas can no longer see each other's mid-flight output.
+func runSuitePersonaIsolated(
 	ctx context.Context,
 	client *llm.Client,
 	m *mindmap.Map,
 	persona, origin string,
-	existing *[]string,
-	seen map[string]bool,
-	items *[]plan.Item,
-) int {
+	baseline []string,
+) ([]plan.Item, int) {
 	const maxRounds = 3
 	const freshFloor = 2
+	existing := append([]string(nil), baseline...)
+	seen := map[string]bool{}
+	for _, t := range existing {
+		seen[strings.ToLower(t)] = true
+	}
+	var newItems []plan.Item
 	added := 0
 	for round := 0; round < maxRounds; round++ {
-		extras, err := oplist.ComposeSuite(ctx, client, m, *existing, persona)
+		extras, err := oplist.ComposeSuite(ctx, client, m, existing, persona)
 		if err != nil {
 			rlog.Warn("oplist: suite compose failed",
 				"origin", origin, "persona", persona, "round", round, "err", err)
-			return added
+			return newItems, added
 		}
 		freshThisRound := 0
 		for i := range extras {
@@ -926,16 +1014,16 @@ func runSuitePersona(
 				continue
 			}
 			seen[key] = true
-			*existing = append(*existing, j.Title)
-			*items = append(*items, suiteJourneyItem(j, origin))
+			existing = append(existing, j.Title)
+			newItems = append(newItems, suiteJourneyItem(j, origin))
 			freshThisRound++
 			added++
 		}
 		if freshThisRound < freshFloor {
-			return added
+			return newItems, added
 		}
 	}
-	return added
+	return newItems, added
 }
 
 // existingJourneyTitles collects the composed titles the LLM already
