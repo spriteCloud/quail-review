@@ -777,6 +777,7 @@ func collectComposedJourneys(items []plan.Item) []oplist.PositiveJourney {
 			Journey:         *it.Journey,
 			JourneyKind:     it.JourneyKind,
 			HasMutatingForm: landingSymbol(it).HasMutatingForm,
+			Hints:           symbolHints(landingSymbol(it)),
 		})
 	}
 	return out
