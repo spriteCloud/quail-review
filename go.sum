@@ -37,6 +37,8 @@ github.com/spriteCloud/quail-core v0.30.11 h1:is/T7XV3Fyqpr5A0sRCOoJj28ufpqQCz0v
 github.com/spriteCloud/quail-core v0.30.11/go.mod h1:MhDvPSOEpajvkfKHCo770WgsRdyJO3gNeJQO9WTqhMk=
 github.com/spriteCloud/quail-core v0.30.12 h1:i/7c7xUsaJfZ7Gsdu/UUyqeXI1Waw2NM3Xnnagf2rSQ=
 github.com/spriteCloud/quail-core v0.30.12/go.mod h1:MhDvPSOEpajvkfKHCo770WgsRdyJO3gNeJQO9WTqhMk=
+github.com/spriteCloud/quail-core v0.30.13 h1:1e9CX83usvyaVuuzEoDpMNIrG/DU/ngMaubcOQwVfJo=
+github.com/spriteCloud/quail-core v0.30.13/go.mod h1:MhDvPSOEpajvkfKHCo770WgsRdyJO3gNeJQO9WTqhMk=
 go.yaml.in/yaml/v3 v3.0.4/go.mod h1:DhzuOOF2ATzADvBadXxruRBLzYTpT36CKvDb3+aBEFg=
 golang.org/x/net v0.56.0 h1:Rw8j/hFzGvJUZwNBXnAtf5sVDVt+65SK2C7IxCxZt5o=
 golang.org/x/net v0.56.0/go.mod h1:D3Ku6r+V6JROoZK144D2XfMHFcMq/0zSfLelVTCFKec=
