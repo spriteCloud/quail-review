@@ -37,12 +37,27 @@ Four commands you'll reach for by name. Everything else in the
 
 ### `explore` — adversarial bug-hunting against a live URL
 
-Applies 12 attack categories (boundary, injection, race, auth,
-flow-interrupt, state-corrupt, cross-feature, sequence, role-switch,
-upstream-dep, cumulative, data-edge) to every interactive element the
-crawler finds. Human cadence + keyboard fallback break past shadow-DOM
-widgets that reject stock `page.fill()`. Change-aware: the last PR diff
-(paths only) is auto-detected as prioritisation hints.
+Drives a live, turn-by-turn agent loop rather than pre-declaring a batch
+of attacks: the engine navigates to the target, hands the model the
+current page's visible elements, and lets it choose exactly one action
+(navigate, click, fill, wait, read the page, or record a confirmed
+finding) at a time. Each action executes against a real browser session
+and the result — including any new console/network errors — is fed
+back before the model's next decision. **Requires an LLM** — unlike
+the rest of quail, `explore` has no deterministic-only mode, since the
+whole point is letting the model reason from what actually happened
+rather than executing a fixed template. Any OpenAI-compatible endpoint
+(Ollama, vLLM, OpenAI) works via `--llm`/`--model`, same as the rest of
+quail; optionally, `--llm-provider anthropic` runs the reasoning on a
+Claude model instead — see the "Explore agent" environment table below
+for what that needs and doesn't need.
+
+Every recorded finding is validated (known category, known severity,
+non-empty expected/observed) and capped to the lowest severity tier
+unless it's either a security-class category (auth, injection,
+upstream-dep, role-switch) or backed by a captured screenshot.
+Change-aware: the last PR diff (paths only, never content) is
+auto-detected and given to the model as a where-to-look-first hint.
 
 ```bash
 quail explore \
@@ -51,28 +66,36 @@ quail explore \
   --llm http://localhost:11434/v1 --model qwen3-coder-next:latest
 ```
 
-Ephemeral by default — specs generated, executed, and discarded; only
-the Gherkin report streams to stdout:
+Ephemeral by default — evidence screenshots and the findings file exist
+only for the run; only the report streams to stdout:
 
-```gherkin
-# quail explore — execution report
+```markdown
+# quail explore — agent session report
 # target: https://your-app.example.com
-# session: 4 LLM round(s), 42 scenario(s) composed, session took 5m0s
-# executed: 21 clean, 3 with anomalies, 18 unreachable
-# unreachable: 18 timeout
-# anomalies observed: 3 across 3 scenario(s)
-#   state regressions (target vanished after back+reload): 2
+# turns: 17 | stop reason: finished | duration: 3m42s
+# findings: 2 (1 high, 1 info)
 
-  @adversarial @boundary
-  Scenario: Income field should reject 5000-char strings — unreachable (timeout)
-    Given I navigate to "https://your-app.example.com/apply"
-    When I fill in the "Annual income" field with a 5000-character string
-    ...
+#### explore-001
+
+- **page:** https://your-app.example.com/apply
+- **selector:** [data-testid="income"]
+- **category:** boundary
+- **expected:** form rejects a 5000-character numeric input
+- **observed:** submitted silently, no validation error shown
+- **severity:** high
+- **confidence:** confirmed
+- **evidence:** explore-evidence/finding-000.png
+- **status:** new
 ```
 
-**Common flags:** `--url`, `--timebox <duration>`, `--focus all|<cat,cat,…>`,
-`--depth shallow|standard|deep`, `--persist`, `--pr <N>`, `--llm <url>`,
-`--model <id>`.
+Pass `--persist` to keep evidence and the findings file under
+`--workdir` — re-running with `--findings <path>` merges into the same
+file, carrying triage status (`acknowledged`/`deferred`/`wontfix`/…)
+forward across runs instead of starting over each time.
+
+**Common flags:** `--url`, `--llm <url>`, `--llm-provider openai|anthropic`,
+`--timebox <duration>`, `--max-turns <n>`, `--focus all|<cat,cat,…>`,
+`--persist`, `--findings <path>`, `--pr <N>`, `--model <id>`.
 
 ### `generate` — fan a PR diff into per-aspect test scaffolds
 
@@ -153,7 +176,7 @@ Posts a PR comment shaped like:
 A typical PR lifecycle uses all four:
 
 ```bash
-quail explore --url https://staging.example.com --timebox 5m --focus all   # find real bugs
+quail explore --url https://staging.example.com --llm http://localhost:11434/v1 --timebox 5m --focus all   # find real bugs
 quail generate --pr 42                                                      # cover the new code
 quail run-once --record                                                     # run the emitted suite locally
 quail heal --pr 42 --report playwright-report.json                          # patch drift
@@ -277,12 +300,24 @@ rest at defaults.
 | `QUAIL_MODEL` | `gpt-4o-mini` | Model id. Auto-set to `qwen3-coder-next:latest` on Ollama endpoints. |
 | `QUAIL_LLM_LADDER` | — | Comma-separated model fallbacks. |
 | `QUAIL_LLM_TIMEOUT` | `60s` | Per-call timeout. |
-| `QUAIL_LLM_TOKEN_CAP` | `600` | Max output tokens per LLM call. |
+| `QUAIL_LLM_TOKEN_CAP` | `1024` | Max output tokens per LLM call. |
 | `QUAIL_HUMANIZE` | — | `0` to skip per-file humanization while keeping composer active. |
 | `QUAIL_ALLOW_DIFF_TO_LLM` | `0` | Send PR diff to LLM; off by default. |
 | `QUAIL_GRAPHQL_ENDPOINT` | `/graphql` | Override stub introspection path. |
 | `QUAIL_WEBHOOK_ENDPOINT` | — | Webhook receiver path to activate signed-POST checks. |
 | `QUAIL_WEBHOOK_SECRET` | — | HMAC signing secret. |
+
+### Explore agent (`quail explore` — requires an LLM)
+
+| Var | Default | Purpose |
+|---|---|---|
+| `QUAIL_TARGET_URL` | — | Target URL (alternative to `--url`). |
+| `QUAIL_LLM_PROVIDER` | `openai` | `openai` (any OpenAI-compatible endpoint via `--llm`/`--model` — Ollama, vLLM, OpenAI) or `anthropic` (run the reasoning on a Claude model instead). Purely opt-in; omit it and nothing changes. |
+| `ANTHROPIC_API_KEY` | — | Required when `QUAIL_LLM_PROVIDER=anthropic`: a real Anthropic Console API key. **Not the same thing as "running inside Claude Code"** — a Claude Code session authenticated via a Pro/Max subscription (OAuth) typically doesn't expose a usable key to child processes, so this needs to be genuinely set, not assumed present. |
+| `ANTHROPIC_BASE_URL` | (real API) | Override the Anthropic endpoint — only useful for an enterprise proxy/gateway. `--llm` does the same via a flag. |
+| `QUAIL_EXPLORE_TIMEBOX` | `60s` | Wall-clock ceiling on the session. |
+| `QUAIL_EXPLORE_MAX_TURNS` | `40` | Cap on agent tool-call turns, independent of the timebox. |
+| `QUAIL_FINDINGS` | `tests/e2e/docs/exploratory-findings.md` | Findings file path in `--persist` mode; merged and triage-carried across runs. |
 
 ### Probe / spider
 

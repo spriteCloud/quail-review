@@ -7,6 +7,12 @@ require (
 	github.com/spriteCloud/quail-core v0.30.2
 )
 
+// Development-only: point at the sibling quail-core checkout's
+// agentic-explore branch instead of the pinned release, so both repos'
+// matching branches build/test together. Remove once quail-core cuts
+// a release off that branch and go.mod is bumped to it.
+replace github.com/spriteCloud/quail-core => ../quail-core
+
 require (
 	github.com/google/go-github/v66 v66.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect

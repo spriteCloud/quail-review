@@ -1,397 +1,270 @@
-# Exploratory Mode — AI Guardrails Spec
+# Exploratory Mode — Agent Tool Contract
 
-> **Version:** 1.0.0 | Embedded in the quail binary via `//go:embed`.
-> This file is the single source of truth for what the LLM is and is not
-> allowed to do when `quail explore` runs. The engine validates every LLM
-> response against this spec before accepting output; invalid output is
-> silently dropped and the deterministic fallback is used instead.
+> **Version:** 2.2.0 | Embedded in the quail binary via `//go:embed`.
+> This file is the single source of truth for what the model is and is
+> not allowed to do when `quail explore` runs. It is appended verbatim
+> to the agent's system prompt; the engine enforces every rule below
+> programmatically — invalid tool calls are rejected back to the model
+> as a tool-error turn, not silently dropped.
 
 ---
 
 ## 1. Purpose
 
-`quail explore` is an adversarial probing command. Unlike `probe` (which
-builds coverage from happy paths + standard negatives), `explore` hunts
-for real bugs through targeted, adversarial interaction.
+`quail explore` hunts for real bugs through a live, turn-by-turn agent
+loop: the engine navigates to the target, then repeatedly hands the
+model the current page state and lets it choose exactly one action.
+That action executes against a real browser session, and the result —
+including any new console or network errors — is fed back before the
+model decides its next move.
 
-The LLM has **more latitude** here than in `probe` / `generate` — but it
-is still a constrained second layer on top of a deterministic engine. The
-deterministic layer always runs first and always produces output. The LLM
-layer extends it; it cannot replace or contradict it.
-
----
-
-## 2. What the LLM IS allowed to do
-
-The LLM may perform exactly **three** operations in explore mode:
-
-### 2.1 Attack-plan (`op: attack-plan`)
-
-Given a page snapshot (URL, visible text, discovered form fields, links,
-interactive elements), the LLM may **propose additional attack targets** —
-specific element × attack-category combinations it believes are worth
-probing beyond the deterministic baseline.
-
-**Constraints:**
-- Each proposed target MUST reference a discovered element by its
-  deterministic ID (e.g., `#submit-btn`, `[data-testid="email"]`). The
-  LLM may NOT invent selectors that were not in the page snapshot.
-- Each proposed target MUST cite exactly one category from the
-  **Attack-Category Registry** (§4). Targets citing unlisted categories
-  are dropped.
-- Maximum **10 additional targets** per page.
-- Output format: see §5.1.
-
-### 2.2 Compose (`op: compose`)
-
-Given a confirmed anomaly (an observed deviation from expected behaviour
-with a reproduction trace), the LLM may **compose a Gherkin Scenario**
-that formalises the bug as a reproducible test.
-
-**Constraints:**
-- The scenario MUST use only step patterns from the **Step Vocabulary**
-  (§6). Steps outside the vocabulary are dropped.
-- The scenario MUST include an `@adversarial` tag and a `@severity-<X>`
-  tag where `<X>` is one of `critical | high | medium | low | info`.
-- The scenario MUST reference the exact URL and element the anomaly was
-  found on (no paraphrasing or generalisation).
-- The composed scenario is validated against the deterministic test file:
-  the number of `Given/When/Then` steps cannot exceed the reproduction
-  trace length by more than 2. If it does, the scenario is dropped and
-  the trace is emitted verbatim.
-- Maximum **1 scenario per confirmed anomaly**.
-
-### 2.3 Classify (`op: classify`)
-
-Given a list of raw anomalies from the deterministic probing pass, the
-LLM may **assign a severity** to each and write a one-line `observed:`
-summary (≤ 120 characters).
-
-**Constraints:**
-- Severity MUST be one of `critical | high | medium | low | info` (§7).
-- The LLM may NOT change the `expected:` value set by the deterministic
-  engine.
-- The LLM may NOT mark a finding as `wontfix` or `deferred`.
-- If the LLM returns a severity outside the enum or a summary longer than
-  120 characters, the deterministic default (`medium` / truncated trace
-  description) is used instead.
+This is deliberately different from a pre-declared batch of attacks:
+the model's next choice can depend on what actually happened last
+time, the same way a human tester works. There is no deterministic-
+only fallback for this command — without an LLM configured, `explore`
+does nothing.
 
 ---
 
-## 3. What the LLM is FORBIDDEN from doing
+## 2. Tools
 
-The following are hard constraints. The engine enforces them
-programmatically; they are stated here for prompt transparency.
+The model may call exactly one of these per turn.
 
-| Forbidden action | Enforcement |
-|---|---|
-| Invent selectors / locators not in the page snapshot | Target dropped |
-| Hallucinate URLs not discovered by the crawler | Target dropped |
-| Propose categories not in the Attack-Category Registry (§4) | Target dropped |
-| Use step patterns not in the Step Vocabulary (§6) | Step dropped; if scenario has < 3 remaining steps it is dropped entirely |
-| Set `expected:` to anything other than the deterministic engine's value | Value overwritten |
-| Propose more than 10 targets per page | Extras truncated (highest-confidence first) |
-| Propose more than 1 scenario per confirmed anomaly | Extras dropped |
-| Assign severity outside `critical \| high \| medium \| low \| info` | Reset to `medium` |
-| Produce free-form prose outside the structured output format (§5) | Entire response dropped; deterministic fallback used |
-| Recommend deferring or ignoring a finding | Instruction ignored |
-| Reference PR / commit diff **content** (require `QUAIL_ALLOW_DIFF_TO_LLM=1`) | Diff content redacted |
-| Invent selectors from "recently changed files" paths (§11) | Target dropped |
-
----
-
-## 4. Attack-Category Registry
-
-These are the only categories the LLM may cite. The deterministic engine
-applies **all** of them to every discovered element; the LLM may add
-extra *targets* from these categories, not extra categories.
-
-| ID | Category | Description |
+| Tool | Purpose | Required arguments |
 |---|---|---|
-| `boundary` | Boundary inputs | Empty submit, max-length strings, zero/negative numbers, whitespace-only, unicode edge cases |
-| `injection` | Injection probes | `<script>alert(1)</script>`, `'"; DROP TABLE`, `{{7*7}}`, `../../../etc/passwd` — surface-level probes, no exploitation |
-| `state-corrupt` | State corruption | Browser back after submit, refresh mid-flow, re-submit completed form, navigate away and return |
-| `race` | Race conditions | Rapid repeated clicks, interact during loading spinners, double-submit, type during autocomplete debounce |
-| `auth` | Auth & access control | Direct URL access without session, manipulate URL params (`id=`, `user=`), expired/missing token behaviour |
-| `data-edge` | Data edge cases | Empty list, single item, pagination boundary (last page + 1), long text overflow, zero-result search, null/undefined fields |
-| `cross-feature` | Cross-feature state | Edit in tab A, check tab B; apply filter then navigate back; change setting mid-flow |
-| `flow-interrupt` | Interrupted flows | Start multi-step flow, abandon at each step, resume — does state survive or corrupt? |
-| `sequence` | Out-of-order operations | Skip steps via direct URL, submit step N before step N-1, delete record being edited |
-| `role-switch` | Role / session transitions | Log out mid-flow, re-log as different role, check stale permission survival |
-| `upstream-dep` | Upstream dependency failure | Reference deleted resource, filter value removed from source, linked object returns 404 |
-| `cumulative` | Cumulative state | Repeat action 20+ times — memory leak, stacked toasts, DOM growth, filter stack explosion |
+| `navigate` | Go to an absolute URL | `url` |
+| `click` | Click an element | `selector` |
+| `fill` | Fill a text input/textarea | `selector`, `value` |
+| `wait` | Wait for the page to settle | `millis` |
+| `read_dom` | Read the current page's visible interactive elements | — |
+| `record_finding` | Record one confirmed adversarial finding | `category`, `selector`, `expected`, `observed`, `severity`, `confidence` |
+| `finish_session` | End the session | `summary` (optional) |
+
+`selector` for `click`/`fill` must be one that appeared in the most
+recent `read_dom` result — the engine validates this against the
+*live* page state before executing, not a stale pre-crawl snapshot.
+An invented selector is rejected with a tool-error turn asking the
+model to call `read_dom` again.
+
+`record_finding`'s `selector` may be `"n/a"` for a flow-level finding
+that isn't anchored to one element.
+
+A tool result that looks like a "successful" submission (a new URL,
+no error) is not by itself proof the application accepted the input.
+Some targets disable native browser validation (`novalidate`) and
+enforce rules only server-side — after any form submission, check the
+resulting page state (via `read_dom` or the returned title/URL) for a
+rendered validation error before treating the submission as confirmed
+behaviour either way.
+
+Any `click`/`fill` result that mentions a JS dialog (alert/confirm/
+prompt) firing is a strong, explicit signal, not routine output — it
+means an actual script executed as a result of that action, which is
+the clearest possible evidence of a working injection when the
+triggering value was something you supplied. Treat it as worth an
+immediate `record_finding` in nearly every case rather than continuing
+to poke at the same element.
+
+If a `click` on a `kind: "link"` element keeps failing to resolve
+even though it appeared in the last `read_dom` result, prefer calling
+`navigate` directly to that element's `href` (also present in the
+snapshot) instead of retrying `click` with variations of the selector
+— this is usually an accessible-name computation quirk (e.g.
+whitespace from an adjacent icon), not evidence the element is gone.
 
 ---
 
-## 5. Output Format
+## 3. Focus categories
 
-The LLM MUST respond with a single JSON object. Any other format causes
-the entire response to be dropped.
+The model is told which attack categories to prioritise (from
+`--focus`), but they are a hint, not a fixed checklist it must
+exhaust — the model decides how to spend its turn budget across them.
 
-### 5.1 Attack-plan response
+| Category | What it covers |
+|---|---|
+| `boundary` | Empty submit, max-length strings, zero/negative numbers, whitespace-only, unicode edge cases |
+| `injection` | `<script>alert(1)</script>`, `'"; DROP TABLE`, `{{7*7}}`, path traversal — surface-level probes, no exploitation |
+| `state-corrupt` | Browser back after submit, refresh mid-flow, re-submit completed form, navigate away and return |
+| `race` | Rapid repeated clicks, interact during loading spinners, double-submit |
+| `auth` | Direct URL access without session, manipulate URL params, expired/missing token behaviour |
+| `data-edge` | Empty list, single item, pagination boundary, long text overflow, zero-result search |
+| `cross-feature` | Edit in one flow, check its effect in another; apply filter then navigate back |
+| `flow-interrupt` | Start a multi-step flow, abandon at each step, resume — does state survive or corrupt? |
+| `sequence` | Skip steps via direct URL, submit step N before step N-1 |
+| `role-switch` | Log out mid-flow, re-log as a different role, check stale permission survival |
+| `upstream-dep` | Reference a deleted resource, a linked object returning 404 |
+| `cumulative` | Repeat an action many times — memory leak, stacked toasts, DOM growth |
+| `contract` | API/OpenAPI-shaped probes when a spec is supplied via `--openapi` |
+| `functional` | Property-based checks (e.g. monotonic ordering, idempotency) rather than adversarial payloads |
 
-```json
-{
-  "op": "attack-plan",
-  "page_url": "https://example.com/login",
-  "targets": [
-    {
-      "selector": "[data-testid=\"email\"]",
-      "category": "injection",
-      "rationale": "Email field rendered inside innerHTML — XSS surface"
-    },
-    {
-      "selector": "#submit-btn",
-      "category": "race",
-      "rationale": "No visible disabled state during submission"
-    }
-  ]
-}
-```
-
-`rationale` is ≤ 80 characters. Longer rationales are truncated. If
-`selector` is not in the page snapshot, the target is dropped.
-
-### 5.2 Compose response
-
-```json
-{
-  "op": "compose",
-  "anomaly_id": "explore-login-003",
-  "scenario": {
-    "title": "Login form accepts XSS payload in email field",
-    "tags": ["@adversarial", "@severity-high", "@injection"],
-    "steps": [
-      "Given I navigate to '/login'",
-      "When I fill in '[data-testid=\"email\"]' with '<script>alert(1)</script>'",
-      "And I fill in '[data-testid=\"password\"]' with 'valid-password'",
-      "And I click '[data-testid=\"submit\"]'",
-      "Then I should not see '<script>' executed in the page"
-    ]
-  }
-}
-```
-
-### 5.3 Classify response
-
-```json
-{
-  "op": "classify",
-  "classifications": [
-    {
-      "anomaly_id": "explore-login-001",
-      "severity": "high",
-      "observed": "Form submits silently with empty required email field; no validation error shown"
-    },
-    {
-      "anomaly_id": "explore-login-002",
-      "severity": "low",
-      "observed": "Password field shows plaintext on rapid triple-click then blur"
-    }
-  ]
-}
-```
+**Don't over-generalize a clean result across sibling fields.** Two
+fields that look identical in the UI — a company name and a group
+name, a profile name and a tag name — routinely hit different
+controllers and view templates under the hood, and one escaping
+correctly is no evidence the other does too. A real session found
+exactly this: `<script>alert(1)</script>` in a company name rendered
+safely escaped everywhere, and the same exact payload in a group name
+(same app, same visual pattern, different code path) executed for
+real. When a payload class is worth testing on one resource's "name"
+field, it's worth re-testing on each sibling resource type
+(company/group/profile/tag/etc.) rather than concluding once and
+moving on — a handful of repeat turns is cheap insurance against
+missing the one path that isn't escaped.
 
 ---
 
-## 6. Step Vocabulary
+## 4. Severity
 
-The LLM may only use these step patterns in composed scenarios. Anything
-else is stripped. Placeholders in `<angle brackets>` are required; those
-in `[square brackets]` are optional.
-
-### Navigation
-- `Given I navigate to '<path>'`
-- `Given I am logged in as '<role>'`
-- `Given I am not authenticated`
-- `When I reload the page`
-- `When I press the browser back button`
-- `When I open a new tab and navigate to '<path>'`
-
-### Interaction
-- `When I click '<selector>'`
-- `When I fill in '<selector>' with '<value>'`
-- `When I clear '<selector>'`
-- `When I select '<option>' from '<selector>'`
-- `When I upload '<filename>' to '<selector>'`
-- `When I click '<selector>' <N> times in rapid succession`
-- `When I submit the form`
-- `When I wait <N> seconds`
-
-### Assertions
-- `Then I should see '<text>'`
-- `Then I should not see '<text>'`
-- `Then I should see an error message`
-- `Then I should not see an error message`
-- `Then the page title should be '<title>'`
-- `Then the URL should contain '<fragment>'`
-- `Then the URL should not contain '<fragment>'`
-- `Then I should be redirected to '<path>'`
-- `Then the response status should be <code>`
-- `Then '<selector>' should be visible`
-- `Then '<selector>' should not be visible`
-- `Then '<selector>' should contain '<value>'`
-- `Then I should not see '<script>' executed in the page`
-- `Then no console errors should be present`
-- `Then the network request to '<pattern>' should return status <code>`
-
-### Multi-step / state
-- `And I open a second browser context`
-- `And I switch to the second browser context`
-- `And I log out`
-- `And I log in again as '<role>'`
-
----
-
-## 7. Severity Taxonomy
-
-The LLM uses this taxonomy when classifying findings. The engine enforces
-the five-value enum; rationale guidance is for prompt calibration only.
+Five values only: `critical | high | medium | low | info`.
 
 | Severity | When to assign |
 |---|---|
-| `critical` | Security vulnerability, auth bypass, data leakage, IDOR, XSS that executes, CSRF, broken primary flow for all users |
+| `critical` | Security vulnerability, auth bypass, data leakage, XSS that executes, broken primary flow for all users |
 | `high` | User cannot complete an intended action without a non-obvious workaround; core feature broken or silently fails |
-| `medium` | User notices something wrong but can continue; data-correctness issue in non-critical path |
-| `low` | Minor inconsistency, cosmetic defect, UX nit; typical user would not notice |
-| `info` | Found only in DOM / network inspector; invisible to end users (hidden elements, metadata mismatches) |
+| `medium` | User notices something wrong but can continue; data-correctness issue in a non-critical path |
+| `low` | Minor inconsistency, cosmetic defect; typical user wouldn't notice |
+| `info` | Found only in DOM/network inspection; invisible to end users |
 
-**Escalation rule:** If the deterministic engine already assigned a severity,
-the LLM may only escalate (raise severity), never downgrade. The engine
-always wins on downgrades.
-
----
-
-## 8. Validation Rules (engine-enforced)
-
-After every LLM response the engine runs these checks in order. Any
-failure triggers the stated fallback — the check loop stops and the next
-anomaly is processed.
-
-1. **JSON parse** — response must be valid JSON. Fallback: drop response.
-2. **Op check** — `op` must be one of `attack-plan | compose | classify`. Fallback: drop response.
-3. **Selector existence** (`attack-plan`) — every `selector` must appear verbatim in the page snapshot element list. Fallback: drop that target.
-4. **Category check** (`attack-plan`) — every `category` must be in §4. Fallback: drop that target.
-5. **Step vocabulary check** (`compose`) — each step must match a pattern in §6. Fallback: drop invalid steps; if < 3 steps remain, drop scenario.
-6. **Tag check** (`compose`) — scenario must have `@adversarial` and one `@severity-<X>`. Fallback: drop scenario, emit trace verbatim.
-7. **Step count check** (`compose`) — step count must not exceed reproduction trace length + 2. Fallback: drop scenario, emit trace verbatim.
-8. **Severity enum** (`classify`) — must be one of the five values in §7. Fallback: assign `medium`.
-9. **Summary length** (`classify`) — `observed:` must be ≤ 120 chars. Fallback: truncate.
-10. **No-hallucination check** — any URL in the response not in the crawl manifest is flagged and redacted.
+**Evidence floor (engine-enforced):** a finding is capped to `info`
+unless either (a) it's in a security-class category (`auth`,
+`injection`, `upstream-dep`, `role-switch`) — those are judged on what
+the category itself implies, independent of what's on screen — or (b)
+the engine successfully captured a screenshot for it. A severity claim
+with no security-class exemption and no evidence isn't downgraded by
+a human reviewer after the fact — it's capped before the finding is
+ever written down.
 
 ---
 
-## 9. Findings Output Format
+## 5. Validation (engine-enforced)
 
-Every confirmed finding is written to the findings ledger
-(`tests/e2e/docs/exploratory-findings.md` by default, overridable via
-`--findings`). The engine writes the ledger; the LLM may only populate
-`severity:` and `observed:` fields (via the `classify` op).
+Every `record_finding` call is checked, in order, before it counts:
+
+1. `category` must be one of §3's fourteen values. Reject otherwise.
+2. `severity` must be one of §4's five values. Reject otherwise.
+3. `expected` and `observed` must both be non-empty. Reject otherwise.
+4. The evidence floor (§4) is applied to the reported severity.
+
+Every `click`/`fill` call is checked against the live snapshot:
+
+5. `selector` must appear in the most recent `read_dom` result.
+   Rejected calls are NOT executed — the model gets a tool-error turn
+   explaining why, and can call `read_dom` again or pick another
+   action.
+
+A rejected call costs the model a turn but never corrupts the
+session: the engine's state (current page, findings recorded so far)
+is unaffected by an invalid attempt.
+
+---
+
+## 6. Findings and triage
+
+Every confirmed finding is written to the findings file (default
+`tests/e2e/docs/exploratory-findings.md`, overridable via
+`--findings`) as one block:
 
 ```markdown
 #### <FINDING-ID>
 
 - **page:** <url>
-- **element:** <selector or "n/a" for flow-level findings>
-- **category:** <attack category from §4>
-- **expected:** <deterministic engine description of expected behaviour>
-- **observed:** <LLM-provided or deterministic fallback, ≤ 120 chars>
+- **selector:** <selector or "n/a">
+- **category:** <one of §3>
+- **expected:** <text>
+- **observed:** <text>
 - **severity:** <critical|high|medium|low|info>
-- **evidence:** <relative path to screenshot or network capture>
-- **repro:** <inline Gherkin scenario or reference to generated .feature file>
-- **status:** open
+- **confidence:** <confirmed|suspected>
+- **evidence:** <screenshot path, if captured>
+- **status:** <new|acknowledged|fix-in-progress|fix-verified|deferred|wontfix|stale>
+- **first-seen:** <date>
+- **last-seen:** <date>
 ```
 
-`FINDING-ID` format: `explore-<page-slug>-<NNN>` (zero-padded, sequential
-within the run). The engine assigns IDs; the LLM never sets them.
+Running against an existing findings file merges by
+(`category`, `page`, `selector`): a re-triggered finding bumps
+`last-seen` and refreshes its text/severity while preserving any
+hand-set triage status; a baseline finding *not* reproduced this run
+is marked `stale` — unless a human already set it to `deferred` or
+`wontfix`, which are terminal decisions that survive regardless of
+reproduction.
 
 ---
 
-## 10. Prompt Template
+## 7. Change-aware context
 
-The engine uses this template verbatim. Variable substitution is the only
-modification permitted — the system instructions and constraints are never
-altered by the engine or by flags.
-
-```
-You are a QA security analyst performing adversarial testing of a web application.
-
-RULES (non-negotiable):
-- Respond with a single JSON object only. No prose, no markdown, no code fences.
-- You may only reference selectors from the DISCOVERED ELEMENTS list below.
-- You may only use attack categories from the ATTACK-CATEGORY REGISTRY.
-- You may only use step patterns from the STEP VOCABULARY.
-- Do not invent URLs, selectors, endpoints, or behaviours not listed below.
-- Maximum 10 targets (attack-plan) or 1 scenario (compose) per response.
-
-OPERATION: {{.Op}}
-
-PAGE URL: {{.PageURL}}
-
-DISCOVERED ELEMENTS:
-{{range .Elements}}- {{.Selector}} (type: {{.Type}}, label: {{.Label}})
-{{end}}
-
-{{if .ChangedPaths}}
-RECENTLY CHANGED FILES (paths only — use to prioritise attack-plan targets,
-do NOT invent selectors from these):
-{{range .ChangedPaths}}- {{.}}
-{{end}}
-{{end}}
-
-{{if .AnomalyList}}
-ANOMALIES TO CLASSIFY:
-{{range .AnomalyList}}- ID: {{.ID}} | expected: {{.Expected}} | trace: {{.Trace}}
-{{end}}
-{{end}}
-
-{{if .ReproTrace}}
-REPRODUCTION TRACE (for compose):
-Anomaly ID: {{.AnomalyID}}
-Steps observed:
-{{range .ReproTrace}}- {{.}}
-{{end}}
-{{end}}
-
-Respond now with a single JSON object matching the format for operation "{{.Op}}".
-```
-
-No additional instructions, examples, or context may be injected into
-this prompt. Diff **content** is NEVER included unless
-`QUAIL_ALLOW_DIFF_TO_LLM=1` is set. Diff **paths** are appended via the
-`RECENTLY CHANGED FILES` block whenever the runner has a change context;
-see §11.
+When a PR diff or local `git diff HEAD~1..HEAD` is available, the
+changed file **paths only** — never diff content — are given to the
+model as part of its opening context, framed as a hint for where to
+look first. The model is not restricted to those paths; it can still
+act on any part of the page. Diff *content* is never included unless
+`QUAIL_ALLOW_DIFF_TO_LLM=1` is set, and even then this loop does not
+read it.
 
 ---
 
-## 11. Change-aware context
+## 8. Side-effect awareness (real-world consequences)
 
-When `quail explore` runs in change-aware mode (the default whenever a PR
-number is available via `$GITHUB_EVENT_PATH`, `--pr`, or `$QUAIL_PR`; or
-when a local `git diff HEAD~1..HEAD` returns non-empty), the engine
-forwards the list of changed file paths — **and only the paths** — to the
-LLM in the `RECENTLY CHANGED FILES` block of §10.
+Unlike §2/§4/§5's engine-enforced rules, this section relies on the
+model's own judgment — the engine has no way to know which actions
+have real-world consequences outside the browser. Treat it as a hard
+operating principle, not a suggestion:
 
-Rules (engine-enforced):
+- **Never actually send a message a real person would receive.**
+  Testing a contact/inquiry/support form's validation (empty required
+  fields, malformed input, injection payloads) by clicking its submit
+  button is fine and encouraged — right up to the point where doing
+  so would successfully deliver a message to a real business or
+  person. If the only way to observe further behaviour requires a
+  genuine, deliverable submission, stop and record a finding
+  describing what you'd expect to test instead of doing it.
+- **Never invite, email, or notify a real external address.** When
+  testing an "invite user"/"add member"/similar field, use a value
+  that is syntactically invalid or obviously non-deliverable (bad
+  format, a nonexistent-looking domain) so that even if validation is
+  weaker than expected, nothing reaches a real inbox.
+- **Never invoke a destructive or irreversible action** — delete
+  account/company/project, cancel a subscription, leave an
+  organisation, purchase something — even to confirm it "really
+  works". If such a control appears reachable without adequate
+  confirmation or authorization checks, that reachability is itself
+  the finding — record it; do not click through to prove it further.
+- **When genuinely unsure whether an action has a real-world side
+  effect, treat it as unsafe.** Prefer recording a finding about the
+  risk over executing the action to find out.
 
-1. **Paths only, never content.** File contents, hunk text, added/removed
-   line ranges, and old/new blobs are never included. Only the value of
-   `diff.File.Path` (and `diff.File.OldPath` when a rename is present) is
-   emitted. `QUAIL_ALLOW_DIFF_TO_LLM=1` remains the separate gate for
-   diff *content*; it is off by default and orthogonal to change-aware
-   mode.
-2. **Prioritisation only, never invention.** The LLM may use paths to
-   decide *which discovered selectors to target first* in the
-   `attack-plan` operation. It may not derive new selectors, URLs, or
-   endpoints from these paths. The selector-existence check in §8.3
-   continues to apply — any selector in the LLM response that is not in
-   the deterministic page snapshot is dropped, regardless of whether a
-   changed path suggested it.
-3. **Deterministic layer is unaffected.** Every registered attack
-   category still runs against every discovered element on every page.
-   The diff-derived path list is a *hint* to the LLM, not a filter on
-   the deterministic engine.
-4. **Missing context is silent.** No PR, no local git history, no diff
-   — the block is omitted entirely and the run proceeds identically to
-   an unchanged-baseline run. There is no error, no warning, no fallback
-   behaviour.
+---
+
+## 9. Tenant-isolation probes (IDOR)
+
+When the current URL contains an ID that plausibly scopes to the
+signed-in account's own data (e.g. `/companies/123`, `/profiles/456`,
+`/orders/789`), it is worth spending exactly one `navigate` call on a
+single different ID to check whether the same session can reach
+another tenant's resource — this is one of the highest-value checks
+available and is easy to under-explore in favour of form-level
+testing.
+
+- A response that renders a generic access-denied/not-found page (the
+  same shape you'd expect for a nonexistent ID) is the **correct**
+  behaviour — this is not a finding.
+- A response that renders another tenant's real data, or otherwise
+  discloses information that shouldn't be visible to this account, is
+  a `critical`, `auth`-category finding — record it immediately.
+- One or two probes per session is enough to get a clear signal.
+  Repeated sequential ID enumeration wastes turn budget on a result
+  you already have and can resemble malicious scanning rather than a
+  single adversarial check.
+
+---
+
+## 10. What the model may not do
+
+| Forbidden | Enforcement |
+|---|---|
+| Click/fill a selector not in the last `read_dom` result | Rejected, not executed |
+| Record a finding with an unknown category or severity | Rejected, nothing written |
+| Record a finding with empty `expected`/`observed` | Rejected, nothing written |
+| Claim a severity above `info` for a non-security-class finding with no captured evidence | Severity overwritten to `info` |
+| Call more than one tool per turn | Only the first requested call is honoured |
+| Reference PR/commit diff **content** | Never provided unless `QUAIL_ALLOW_DIFF_TO_LLM=1` |
+| Deliver a real message/invite to a real recipient, or invoke a destructive/irreversible action | Not engine-enforced — model judgment per §8 |

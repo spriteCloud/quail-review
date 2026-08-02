@@ -22,23 +22,29 @@ import (
 )
 
 // newExploreCmd implements `quail explore` — adversarial bug-hunting against
-// a live URL. Unlike `probe` (which builds comprehensive coverage), explore
-// hunts for real bugs through targeted adversarial interaction.
+// a live URL via a live, turn-by-turn agent loop: the engine navigates to
+// the target, hands the model one action's worth of choice at a time (click,
+// fill, navigate, read the page, record a finding), executes it against a
+// real browser session, and feeds the observed result back before the model
+// decides its next move. This requires an LLM (--llm) to do anything at all
+// — there is no template-only fallback, since the whole point of this
+// command is letting the model reason about what to try next rather than
+// pre-declaring a batch of attacks up front.
 //
 // Two axes distinguish it from the other commands:
 //
-//  1. Ephemeral by default. The generated Playwright specs and Gherkin
-//     features exist only long enough to run once — they're written into
-//     an os.MkdirTemp workdir and wiped on exit. The Gherkin-formatted
-//     report survives on stdout so a human can read what was exercised.
-//     Pass --persist to keep today's on-disk layout.
+//  1. Ephemeral by default. Evidence (screenshots) and the findings record
+//     exist only long enough for one run — written into an os.MkdirTemp
+//     workdir and wiped on exit. The Gherkin-formatted report survives on
+//     stdout so a human can read what was exercised. Pass --persist to keep
+//     evidence and the findings file on disk (and carry triage state across
+//     runs — see --findings).
 //
 //  2. Change-aware. On every run the CLI auto-detects the last change
 //     (PR diff in CI via $GITHUB_EVENT_PATH, else `git diff HEAD~1..HEAD`
-//     locally) and forwards *file paths only* to the LLM as prioritisation
-//     hints for the attack-plan operation. The deterministic probing
-//     layer still runs across every discovered element — the diff only
-//     steers where the LLM points its extra attention.
+//     locally) and forwards *file paths only* to the model as a hint for
+//     where to look first — never diff content, unless
+//     $QUAIL_ALLOW_DIFF_TO_LLM=1.
 func newExploreCmd() *cobra.Command {
 	var (
 		targetURL    string
@@ -53,13 +59,15 @@ func newExploreCmd() *cobra.Command {
 		persist   bool
 		pr        int
 
-		// LLM (all optional; deterministic layer always runs).
-		llmURL     string
-		model      string
-		llmTimeout string
+		// LLM — required; explore has no deterministic-only mode.
+		llmURL      string
+		model       string
+		llmTimeout  string
+		llmProvider string
 
 		// Timeboxed exploratory loop.
-		timebox string
+		timebox  string
+		maxTurns int
 
 		// HTML report path (auto when empty).
 		htmlOut string
@@ -71,40 +79,46 @@ func newExploreCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "explore",
 		Short: "Adversarial bug-hunting against a live URL",
-		Long: `Probe a live application for real bugs through targeted adversarial interaction.
+		Long: `Hunt for real bugs against a live application via a live agent loop.
 
-Unlike 'probe' (which builds comprehensive test coverage), 'explore' applies
-12 attack categories — boundary inputs, injection probes, state corruption,
-race conditions, auth/access, data edge cases, cross-feature state, interrupted
-flows, out-of-order operations, role/session transitions, upstream dependency
-failures, and cumulative state — to every discovered interactive element.
+Requires --llm (or $QUAIL_LLM) — unlike the rest of quail, explore has no
+deterministic-only mode. The engine navigates to --url, then repeatedly:
+hands the model the current page's visible elements, lets it choose exactly
+one action (navigate, click, fill, wait, read the page, or record a
+confirmed finding), executes that action against a real browser session, and
+feeds the result back before the next decision. Attack categories (boundary
+inputs, injection probes, state corruption, race conditions, auth/access,
+data edge cases, cross-feature state, interrupted flows, out-of-order
+operations, role/session transitions, upstream dependency failures,
+cumulative state, contract, functional) are a focus hint the model is told
+to prioritise, not a fixed template it must exhaust.
 
-Ephemeral by default: the generated Playwright specs and .feature files are
-written to a temp dir, executed once, and wiped on exit. The Gherkin-formatted
-report is printed to stdout. Pass --persist to keep files under --workdir.
+Every finding the model records is validated (known category, known severity,
+required expected/observed text) before it counts, and is capped to the
+lowest severity tier unless it's either a security-class category (auth,
+injection, upstream-dep, role-switch) or backed by a captured screenshot.
+
+Ephemeral by default: evidence and the findings record are written to a temp
+dir and wiped on exit. The Gherkin-formatted report is printed to stdout.
+Pass --persist to keep them under --workdir, which also lets --findings
+carry triage state (acknowledged/deferred/wontfix/...) across runs.
 
 Change-aware by default: on every run the last change is auto-detected (PR
-diff in CI, else 'git diff HEAD~1..HEAD' locally) and its file paths are
-forwarded to the LLM to prioritise attack-plan targets. The deterministic
-layer probes the whole app regardless.
-
-Deterministic-first: attack templates run without an LLM. Pass --llm to
-activate the AI layer, which proposes additional targets and composes Gherkin
-scenarios for confirmed anomalies. All LLM output is validated against the
-embedded guardrails spec (internal/spec/explore_guardrails.md) before use.
+diff in CI, else 'git diff HEAD~1..HEAD' locally) and its file paths — never
+diff content — are given to the model as a hint for where to look first.
 
 Examples:
-  # Ephemeral change-aware probe (default):
-  quail explore --url https://shop.example.com
+  # Ephemeral change-aware session (default):
+  quail explore --url https://shop.example.com --llm http://localhost:11434/v1
 
-  # Persist specs + ledger to disk (today's behaviour):
-  quail explore --url https://shop.example.com --persist --workdir .
+  # Persist evidence + findings, carrying triage across runs:
+  quail explore --url https://shop.example.com --llm http://localhost:11434/v1 --persist --workdir .
 
-  # Focused auth surface only, no LLM:
-  quail explore --url https://shop.example.com --focus auth,injection
+  # Focused auth surface only:
+  quail explore --url https://shop.example.com --llm http://localhost:11434/v1 --focus auth,injection
 
   # CI: explicit PR number (auto-detected from $GITHUB_EVENT_PATH otherwise):
-  quail explore --url https://review-42.preview.example.com --pr 42`,
+  quail explore --url https://review-42.preview.example.com --llm http://localhost:11434/v1 --pr 42`,
 
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runExplore(cmd.Context(), exploreOpts{
@@ -120,7 +134,9 @@ Examples:
 				llmURL:       llmURL,
 				model:        model,
 				llmTimeout:   llmTimeout,
+				llmProvider:  llmProvider,
 				timebox:      timebox,
+				maxTurns:     maxTurns,
 				htmlOut:      htmlOut,
 				openAPI:      openAPI,
 			})
@@ -133,41 +149,56 @@ Examples:
 	_ = cmd.MarkFlagRequired("url")
 
 	f.StringVar(&focus, "focus", "all",
-		"Comma-separated attack categories to run. 'all' runs every category.\n"+
+		"Comma-separated attack categories the model is asked to prioritise. 'all' includes every category.\n"+
 			"Valid values: boundary,injection,state-corrupt,race,auth,data-edge,\n"+
 			"              cross-feature,flow-interrupt,sequence,role-switch,\n"+
-			"              upstream-dep,cumulative")
+			"              upstream-dep,cumulative,contract,functional")
 	f.StringVar(&depth, "depth", "standard",
-		"Probe depth: shallow (30 probes/page) | standard (60) | deep (120)")
+		"shallow | standard | deep. Only affects the fallback single-page crawl used when --llm is unset "+
+			"(explore requires --llm to actually probe anything); accepted for forward compatibility.")
 
 	// Output / persistence.
 	f.BoolVar(&ephemeral, "ephemeral", true,
-		"Run once and discard generated specs/features. Report streams to stdout as Gherkin. Default true.")
+		"Run once and discard evidence/findings. Report streams to stdout as Gherkin. Default true.")
 	f.BoolVar(&persist, "persist", false,
-		"Persist generated specs, features, and findings under --workdir. Overrides --ephemeral.")
+		"Persist evidence screenshots and the findings file under --workdir. Overrides --ephemeral.")
 	f.StringVar(&findingsPath, "findings", "",
-		"Path for the findings ledger when persisting (default: tests/e2e/docs/exploratory-findings.md). Ignored when ephemeral.")
+		"Path for the findings file when persisting (default: tests/e2e/docs/exploratory-findings.md). "+
+			"Existing findings are loaded and merged, carrying triage status forward. Ignored when ephemeral.")
 	f.StringVar(&workdir, "workdir", ".",
-		"Working directory for generated specs and docs. Ignored when ephemeral.")
+		"Working directory for evidence screenshots and the findings file. Ignored when ephemeral.")
 	f.BoolVar(&dryRun, "dry-run", false,
-		"Print the attack plan without executing probes. Independent of --ephemeral.")
+		"Skip the session and explain why: agentic mode has no fixed plan to preview, since each\n"+
+			"action depends on the live result of the previous one.")
 
 	// Change-aware.
 	f.IntVar(&pr, "pr", 0,
 		"PR number for change context. Defaults to $GITHUB_EVENT_PATH; falls back to local `git diff HEAD~1..HEAD`.")
 
 	// LLM (optional).
+	f.StringVar(&llmProvider, "llm-provider", "",
+		"openai | anthropic (default: inherits QUAIL_LLM_PROVIDER or openai). Selects the wire protocol:\n"+
+			"'openai' is any OpenAI-compatible endpoint (Ollama, vLLM, OpenAI) via --llm/--model.\n"+
+			"'anthropic' runs the agent loop's reasoning on a Claude model via the Anthropic API\n"+
+			"(needs ANTHROPIC_API_KEY — a real Anthropic Console key; Claude Code sessions authenticated\n"+
+			"via a Pro/Max subscription typically don't expose one to child processes). Purely opt-in —\n"+
+			"omit this flag and nothing changes from today's OpenAI-compatible-only behaviour.")
 	f.StringVar(&llmURL, "llm", "",
-		"OpenAI-compatible endpoint for AI-assisted target selection and scenario composition.\n"+
-			"Accepts the URL with or without trailing /v1 (normalised).\n"+
-			"Strictly local/self-hosted — do not point at third-party endpoints.")
+		"Endpoint for AI-assisted target selection and scenario composition. With --llm-provider openai\n"+
+			"(default): an OpenAI-compatible URL, with or without trailing /v1 (normalised) — strictly\n"+
+			"local/self-hosted, do not point at third-party endpoints. With --llm-provider anthropic:\n"+
+			"optional, only needed to override the default Anthropic API endpoint (e.g. an enterprise proxy).")
 	f.StringVar(&model, "model", "",
-		"Model ID for the LLM endpoint (default: inherits QUAIL_MODEL or gpt-4o-mini)")
+		"Model ID for the LLM endpoint (default: inherits QUAIL_MODEL or gpt-4o-mini; with\n"+
+			"--llm-provider anthropic, a Claude model ID such as claude-sonnet-5)")
 	f.StringVar(&llmTimeout, "llm-timeout", "",
 		"Per-call LLM timeout, Go duration (default: inherits QUAIL_LLM_TIMEOUT or 60s)")
 	f.StringVar(&timebox, "timebox", "",
 		"Wall-clock ceiling on the exploratory session, Go duration (default: inherits QUAIL_EXPLORE_TIMEBOX or 60s). "+
-			"The engine calls the LLM in a loop until this expires or two consecutive rounds produce nothing new.")
+			"The agent loop runs turn by turn until this expires, the model calls finish_session, or --max-turns is hit.")
+	f.IntVar(&maxTurns, "max-turns", 0,
+		"Cap on agent tool-call turns, independent of --timebox (default: inherits QUAIL_EXPLORE_MAX_TURNS or 40). "+
+			"A safety ceiling against a model that returns instantly every time.")
 	f.StringVar(&htmlOut, "html-out", "",
 		"Path to write the branded HTML report. Empty (default): auto — persisted next to the ledger in --persist mode, "+
 			"else under $TMPDIR with the file path echoed to stderr.")
@@ -181,11 +212,12 @@ Examples:
 type exploreOpts struct {
 	targetURL, focus, depth, findingsPath, workdir string
 	dryRun, ephemeral, persist                     bool
-	pr                                             int
-	llmURL, model, llmTimeout                      string
-	timebox                                        string
-	htmlOut                                        string
-	openAPI                                        string
+	pr                                              int
+	llmURL, model, llmTimeout, llmProvider          string
+	timebox                                         string
+	maxTurns                                        int
+	htmlOut                                         string
+	openAPI                                         string
 }
 
 func runExplore(ctx context.Context, o exploreOpts) error {
@@ -202,8 +234,16 @@ func runExplore(ctx context.Context, o exploreOpts) error {
 	if o.llmTimeout == "" {
 		o.llmTimeout = envOr("QUAIL_LLM_TIMEOUT", "60s")
 	}
+	if o.llmProvider == "" {
+		o.llmProvider = envOr("QUAIL_LLM_PROVIDER", "openai")
+	}
 	if o.timebox == "" {
 		o.timebox = envOr("QUAIL_EXPLORE_TIMEBOX", "60s")
+	}
+	if o.maxTurns <= 0 {
+		if v := os.Getenv("QUAIL_EXPLORE_MAX_TURNS"); v != "" {
+			fmt.Sscanf(v, "%d", &o.maxTurns)
+		}
 	}
 	if o.pr == 0 {
 		if v := os.Getenv("QUAIL_PR"); v != "" {
@@ -246,6 +286,7 @@ func runExplore(ctx context.Context, o exploreOpts) error {
 	// Change context — PR first, local git diff as fallback.
 	changes := loadExploreDiff(ctx, o.pr)
 
+	llmCfg := exploreLLMConfigOrNil(o.llmURL, o.model, o.llmTimeout, o.llmProvider)
 	cfg := core.ExploreConfig{
 		TargetURL:      o.targetURL,
 		Categories:     categories,
@@ -255,10 +296,11 @@ func runExplore(ctx context.Context, o exploreOpts) error {
 		DryRun:         o.dryRun,
 		Ephemeral:      ephemeral,
 		Changes:        changes,
-		LLM:            exploreLLMConfigOrNil(o.llmURL, o.model, o.llmTimeout),
+		LLM:            llmCfg,
 		GuardrailsSpec: spec.ExploreGuardrails,
 		Timebox:        parseTimebox(o.timebox),
 		OpenAPISpec:    o.openAPI,
+		MaxTurns:       o.maxTurns,
 	}
 
 	runner, err := core.NewExplorer(cfg)
@@ -282,14 +324,27 @@ func runExplore(ctx context.Context, o exploreOpts) error {
 			fmt.Println(result.Report)
 		}
 	} else {
-		fmt.Printf("  specs   → %s\n  ledger  → %s\n", result.SpecsDir, result.FindingsPath)
+		// The full report (turn count, stop reason, transcript) only
+		// ever lived in result.Report in memory — nothing persisted it
+		// before, so a --persist run's diagnostic detail vanished the
+		// moment the process exited. Save it alongside the findings
+		// file so it survives.
+		reportPath := filepath.Join(o.workdir, "report.md")
+		if err := os.WriteFile(reportPath, []byte(result.Report), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "  warning: could not write %s: %v\n", reportPath, err)
+			reportPath = ""
+		}
+		fmt.Printf("  evidence → %s\n  findings → %s\n", filepath.Join(result.SpecsDir, "explore-evidence"), result.FindingsPath)
+		if reportPath != "" {
+			fmt.Printf("  report   → %s\n", reportPath)
+		}
 	}
 
 	// HTML report — always attempt to write, so consumers never need a
 	// second post-processing step. Silent on error (falls back to the
-	// Gherkin stdout everything else keys off of).
-	if htmlPath := writeExploreHTML(result.Report, o, ephemeral); htmlPath != "" {
-		fmt.Fprintf(os.Stderr, "  report  → %s\n", htmlPath)
+	// Gherkin/markdown stdout everything else keys off of).
+	if htmlPath := writeExploreHTML(result, o, ephemeral, llmCfg != nil); htmlPath != "" {
+		fmt.Fprintf(os.Stderr, "  html     → %s\n", htmlPath)
 	}
 
 	if result.FindingsConfirmed > 0 {
@@ -306,18 +361,45 @@ func runExplore(ctx context.Context, o exploreOpts) error {
 	return nil
 }
 
-// writeExploreHTML renders the Gherkin report as HTML and drops it at the
+// writeExploreHTML renders the report as HTML and drops it at the
 // first-available destination. Silent-nil on any error — HTML is a nice-to-have
-// beside the stdout Gherkin, not a hard dependency. Returns the on-disk path
+// beside the stdout report, not a hard dependency. Returns the on-disk path
 // so the caller can announce it on stderr.
-func writeExploreHTML(gherkin string, o exploreOpts, ephemeral bool) string {
-	if strings.TrimSpace(gherkin) == "" {
+//
+// Branches on which engine path produced result: the agent loop (agentic
+// true — an LLM config was actually built, regardless of provider or
+// whether --llm itself was set) has its findings/transcript as structured
+// data already and renders via explorehtml.RenderAgentSession directly
+// from that — re-parsing result.Report's markdown the way explorehtml.Render
+// does for the deterministic-only path doesn't recognise the agent loop's
+// report shape at all (confirmed the hard way: a real high-severity finding
+// rendered as "No issues surfaced" before this branch existed).
+func writeExploreHTML(result *core.ExploreResult, o exploreOpts, ephemeral, agentic bool) string {
+	if result == nil {
 		return ""
 	}
-	rendered, err := explorehtml.Render(gherkin, explorehtml.Meta{
+
+	meta := explorehtml.Meta{
 		TargetURL: o.targetURL,
 		Generated: time.Now().UTC().Format(time.RFC3339),
-	})
+	}
+
+	var rendered string
+	var err error
+	if agentic {
+		rendered, err = explorehtml.RenderAgentSession(result.Findings, explorehtml.AgentSummary{
+			Turns:           result.Rounds,
+			StopReason:      result.StopReason,
+			SessionDuration: result.SessionDuration.Round(time.Second).String(),
+			PagesVisited:    result.PagesVisited,
+			Transcript:      result.Transcript,
+		}, meta)
+	} else {
+		if strings.TrimSpace(result.Report) == "" {
+			return ""
+		}
+		rendered, err = explorehtml.Render(result.Report, meta)
+	}
 	if err != nil {
 		return ""
 	}
@@ -345,10 +427,11 @@ func writeExploreHTML(gherkin string, o exploreOpts, ephemeral bool) string {
 	return dst
 }
 
-// loadExploreDiff resolves the "last change" that steers the LLM attack-plan
-// prioritisation. Order: explicit --pr / $QUAIL_PR / $GITHUB_EVENT_PATH,
-// then local `git diff HEAD~1..HEAD`. Nil is a valid result — the engine
-// treats a missing diff as "no change context, probe everything".
+// loadExploreDiff resolves the "last change" forwarded to the model as a
+// where-to-look-first hint (file paths only, never diff content unless
+// $QUAIL_ALLOW_DIFF_TO_LLM=1). Order: explicit --pr / $QUAIL_PR /
+// $GITHUB_EVENT_PATH, then local `git diff HEAD~1..HEAD`. Nil is a valid
+// result — the engine treats a missing diff as "no change context".
 func loadExploreDiff(ctx context.Context, prNum int) []diff.File {
 	if prNum == 0 {
 		prNum = readPRFromEvent()
@@ -429,20 +512,50 @@ func parseExploreCategories(focus string) ([]string, error) {
 	return result, nil
 }
 
-// exploreLLMConfigOrNil returns nil when no LLM endpoint is configured,
-// signalling deterministic-only mode to the core runner. Pulls the API
-// key from OPENAI_API_KEY so ollama's "ollama" sentinel and real OpenAI
-// keys both work without another flag.
-func exploreLLMConfigOrNil(endpoint, model, timeout string) *core.LLMConfig {
+// exploreLLMConfigOrNil returns nil when there's nothing usable to run
+// with. With no config, the core runner falls back to a single-page
+// crawl and skips the agent loop entirely — explore has no meaningful
+// adversarial behaviour without an LLM.
+//
+// Two providers, two different "nothing configured" conditions:
+//   - openai (default): nil unless --llm/QUAIL_LLM gave an endpoint —
+//     unchanged from before this function knew about providers.
+//   - anthropic: nil unless ANTHROPIC_API_KEY is actually set (a real
+//     Anthropic Console key — see the --llm-provider flag help for why
+//     that isn't automatic just because this runs inside Claude Code).
+//     --llm/endpoint is optional here, only used to override the
+//     default Anthropic API URL for e.g. an enterprise proxy.
+//
+// Returns a plain *config.Config (explore's own core.LLMConfig type was
+// folded into it) — core.newLLMClient still re-normalizes the OpenAI
+// base URL and re-applies defaults defensively for that provider, so
+// this doesn't need to duplicate that.
+func exploreLLMConfigOrNil(endpoint, model, timeout, provider string) *config.Config {
+	if strings.TrimSpace(provider) == "" {
+		provider = "openai"
+	}
+	if provider == "anthropic" {
+		key := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
+		if key == "" {
+			return nil
+		}
+		return &config.Config{
+			LLMProvider:      "anthropic",
+			AnthropicAPIKey:  key,
+			AnthropicBaseURL: endpoint, // optional override; empty = real Anthropic endpoint
+			Model:            model,
+			LLMTimeout:       parseTimebox(timeout),
+		}
+	}
 	if endpoint == "" {
 		return nil
 	}
-	return &core.LLMConfig{
-		Endpoint:          endpoint,
-		Model:             model,
-		APIKey:            envOr("OPENAI_API_KEY", "ollama"),
-		Timeout:           timeout,
-		EnforceGuardrails: true,
+	return &config.Config{
+		LLMProvider:   "openai",
+		OpenAIBaseURL: endpoint,
+		Model:         model,
+		OpenAIAPIKey:  envOr("OPENAI_API_KEY", "ollama"),
+		LLMTimeout:    parseTimebox(timeout),
 	}
 }
 

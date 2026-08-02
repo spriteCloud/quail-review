@@ -36,6 +36,12 @@ go.work.sum
 /dist/
 playwright-report.json
 
+# ad-hoc quail explore runs — evidence, findings, and local .env files
+# for manual test sessions against real targets (e.g. app.calliope.pro).
+# Never committed; the .env rule above already covers credentials
+# nested under here too.
+/.quail-runs/
+
 # web (landing page)
 web/node_modules/
 web/test-results/
